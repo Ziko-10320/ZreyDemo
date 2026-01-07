@@ -86,12 +86,49 @@ public class ZreyMovements : MonoBehaviour
     private int airDashesRemaining;
     [SerializeField] private float teleportVanishDuration = 0.2f;
     [SerializeField] private float postDashHopForce = 2f;
+
+    [Header("Wall Mechanics Settings")]
+    [Tooltip("The child object used to detect walls.")]
+    [SerializeField] private Transform wallCheck; 
+
+    [Tooltip("The radius of the wall check sphere.")]
+    [SerializeField] private float wallCheckRadius = 0.2f; 
+
+    [Tooltip("The layer that should be considered a wall.")]
+    [SerializeField] private LayerMask wallLayer; // This can be the same as your Ground layer or a new one."
+
+    [Tooltip("The downward speed of the player when sliding on a wall.")]
+    [SerializeField] private float minWallSlideSpeed = 2f;
+    [SerializeField] private float maxWallSlideSpeed = 2f;
+    [SerializeField] private float wallSlideAccelerationTime = 2f;
+
+    [Tooltip("The time in seconds the player sticks to the wall before sliding.")]
+    [SerializeField] private float wallStickTime = 0.5f; 
+
+    [Tooltip("The force of the wall jump, applied diagonally.")]
+    [SerializeField] private Vector2 wallJumpForce = new Vector2(8f, 16f);
+    [SerializeField] private float wallJumpInputLockTime = 0.3f;
+
+
+// --- Private State Variables ---
+    private bool isTouchingWall;
+    private bool isWallSliding;
+    private float wallStickCounter;
+    private bool justWallJumped = false;
+    // --- New Animation Hashes ---
+    private readonly int touchWallTriggerHash = Animator.StringToHash("touchWall");
+    private readonly int isWallSlidingBoolHash = Animator.StringToHash("isWallSliding");
+    private readonly int wallJumpTriggerHash = Animator.StringToHash("wallJump");
+    [SerializeField] private float wallJumpMomentum = 6f;
+    private Coroutine wallJumpCoroutine;
+    private bool wallJumpInputLocked = false;
     void Awake()
     {
         if (rb == null) rb = GetComponent<Rigidbody2D>();
         if (animator == null) animator = GetComponent<Animator>();
         inputActions = new InputSystem_Actions();
         airDashesRemaining = maxAirDashes;
+        originalGravityScale = rb.gravityScale;
     }
 
     private void OnEnable()
@@ -110,8 +147,14 @@ public class ZreyMovements : MonoBehaviour
 
     void Update()
     {
-        // Normal input gathering is always safe because it doesn't move the character.
+        HandleWallMechanics();
         moveInput = inputActions.Player.Move.ReadValue<Vector2>();
+
+        // We only freeze input if we are actively sliding on a wall.
+        if (isWallSliding)
+        {
+            moveInput = new Vector2(0, moveInput.y);
+        }
 
         // Ground Check
         bool wasGrounded = isGrounded;
@@ -126,13 +169,20 @@ public class ZreyMovements : MonoBehaviour
         if (!isDashing)
         {
             HandleMovementAnimation();
-            Flip();
+            if (moveInput.x != 0 && !wallJumpInputLocked)
+            {
+                if (moveInput.x < 0 && isFacingRight) { Flip(); }
+                else if (moveInput.x > 0 && !isFacingRight) { Flip(); }
+            }
+
         }
         HandleAirborneAnimation();
         if (!wasGrounded && isGrounded)
         {
             // ...reset their air dashes.
             airDashesRemaining = maxAirDashes;
+            justWallJumped = false;
+            wallJumpInputLocked = false;
             Debug.Log("Dashes Reset to: " + airDashesRemaining);
         }
     }
@@ -158,6 +208,21 @@ public class ZreyMovements : MonoBehaviour
 
             // 4. Apply the velocity directly to the Rigidbody.
             rb.linearVelocity = new Vector2(currentDashSpeed * dashDirection, 0);
+        }
+        else if (justWallJumped)
+        {
+            if (wallJumpInputLocked)
+            {
+                return;
+            }
+
+            // If input is NOT locked, check if the player wants to take over.
+            if (moveInput.x != 0)
+            {
+                // Player is taking control. Cut the momentum.
+                rb.linearVelocity = new Vector2(moveInput.x * runSpeed, rb.linearVelocity.y);
+                justWallJumped = false; // End the wall jump state.
+            }
         }
         else
         {
@@ -189,18 +254,25 @@ public class ZreyMovements : MonoBehaviour
     // --- INPUT HANDLERS AND HELPERS (Mostly unchanged) ---
     private void HandleJump(InputAction.CallbackContext context)
     {
+        // Check for wall slide condition directly here. This is more reliable.
+        bool onWall = Physics2D.OverlapCircle(wallCheck.position, wallCheckRadius, wallLayer) && !isGrounded;
+
+        if (onWall)
+        {
+            PerformWallJump();
+            return;
+        }
+
+        // Your existing ground/air jump logic
         if (isGrounded)
         {
             PerformJump();
         }
-        // If we are in the air, we can only buffer a jump if we are NOT dashing.
-        // This prevents buffering a jump during an air dash.
         else if (!isDashing)
         {
             jumpBufferCounter = jumpBufferTime;
         }
     }
-
     private void HandleDash(InputAction.CallbackContext context)
     {
         // --- DECIDE WHICH DASH TO USE ---
@@ -305,6 +377,130 @@ public class ZreyMovements : MonoBehaviour
         animator.SetTrigger(jumpTriggerHash);
         jumpBufferCounter = 0f;
     }
+    private void PerformWallJump()
+    {
+        Debug.Log("PERFORMING DYNAMIC WALL JUMP!");
+
+
+        if (wallJumpCoroutine != null)
+        {
+            StopCoroutine(wallJumpCoroutine);
+        }
+
+        // --- THIS IS THE FIX ---
+        // Before adding any new force, we must guarantee that all previous
+        // velocity from the last jump is completely erased.
+        rb.linearVelocity = Vector2.zero;
+        // --- END OF FIX ---
+
+        // Now, we apply the new force to a clean slate.
+        float jumpDirectionX = isFacingRight ? -1f : 1f;
+        rb.velocity = new Vector2(wallJumpForce.x * jumpDirectionX, wallJumpForce.y);
+
+        animator.SetTrigger(wallJumpTriggerHash);
+        Flip();
+
+        wallJumpCoroutine = StartCoroutine(WallJumpInputLock());
+    }
+
+    private IEnumerator WallJumpInputLock()
+    {
+        // 1. Start the wall jump state and lock input.
+        justWallJumped = true;
+        wallJumpInputLocked = true;
+        isWallSliding = false;
+        animator.SetBool(isWallSlidingBoolHash, false);
+
+        // 2. Wait for the lock duration.
+        // During this time, FixedUpdate sees wallJumpInputLocked is true and does nothing.
+        yield return new WaitForSeconds(wallJumpInputLockTime);
+
+        // 3. After the timer, unlock input.
+        // The player can now move to cut the momentum.
+        wallJumpInputLocked = false;
+        Debug.Log("Wall jump air control is now available.");
+    }
+    private void HandleWallMechanics()
+    {
+        // Store the state from the previous frame. This is key for the animation trigger.
+        bool wasTouchingWall = isTouchingWall;
+        isTouchingWall = Physics2D.OverlapCircle(wallCheck.position, wallCheckRadius, wallLayer);
+        if (justWallJumped)
+        {
+            // --- THIS IS THE FIX ---
+            // Check if we are now touching a wall again.
+            if (Physics2D.OverlapCircle(wallCheck.position, wallCheckRadius, wallLayer))
+            {
+                // If we hit a new wall, the post-jump state is over.
+                // Instantly lower the shield so the rest of the function can run.
+                justWallJumped = false;
+                Debug.Log("Hit a new wall. Wall jump lock is OFF.");
+            }
+            else
+            {
+                // If we are still flying in the air, we don't want the rest of the
+                // wall mechanics to run, so we exit here.
+                return;
+            }
+        }
+        // --- THE GUARANTEED ANIMATION TRIGGER ---
+        // If we were NOT touching a wall last frame, but we ARE now, and we're in the air...
+        if (!wasTouchingWall && isTouchingWall && !isGrounded)
+        {
+            // ...this is the exact frame of contact. Fire the trigger.
+            animator.SetTrigger(touchWallTriggerHash);
+            Debug.Log("TOUCH WALL TRIGGER FIRED!");
+            wallStickCounter = 0f;
+        }
+
+        // Determine the wall slide state.
+        if (isTouchingWall && !isGrounded && !justWallJumped)
+        {
+            isWallSliding = true;
+        }
+        else
+        {
+            isWallSliding = false;
+        }
+
+        // --- THE GRAVITY STICK FIX ---
+        // This logic now runs based on the state we just determined.
+        if (isWallSliding)
+        {
+            wallStickCounter += Time.deltaTime;
+
+            if (wallStickCounter < wallStickTime)
+            {
+                // STICK PHASE: This part is correct. Gravity is 0, velocity is 0.
+                rb.gravityScale = 0f;
+                rb.linearVelocity = Vector2.zero;
+            }
+            else
+            {
+                // --- THE ACCELERATION FIX ---
+                // SLIDE PHASE: Restore gravity and accelerate downward.
+                rb.gravityScale = originalGravityScale;
+                animator.SetBool(isWallSlidingBoolHash, true);
+
+                // Calculate how far into the acceleration we are.
+                float timeSinceStickEnd = wallStickCounter - wallStickTime;
+                float accelerationProgress = Mathf.Clamp01(timeSinceStickEnd / wallSlideAccelerationTime);
+
+                // Use Lerp to smoothly transition from min to max speed.
+                float currentSlideSpeed = Mathf.Lerp(minWallSlideSpeed, maxWallSlideSpeed, accelerationProgress);
+
+                // Apply the new accelerating downward velocity.
+                rb.linearVelocity = new Vector2(rb.linearVelocity.x, -currentSlideSpeed);
+            }
+        }
+        else
+        {
+            // If we are not on a wall, always restore gravity and reset the counter.
+            rb.gravityScale = originalGravityScale;
+            wallStickCounter = 0;
+            animator.SetBool(isWallSlidingBoolHash, false);
+        }
+    }
     private void HandleMovementAnimation()
     {
         animator.SetBool(isRunningHash, moveInput.x != 0);
@@ -326,22 +522,24 @@ public class ZreyMovements : MonoBehaviour
             }
         }
     }
-  
+
     private void Flip()
     {
-        if (moveInput.x < 0 && isFacingRight)
-        {
-            transform.localRotation = Quaternion.Euler(leftFacingRotation);
-            transform.localScale = leftFacingScale;
-            isFacingRight = false;
-            FlipChildObjects(-1f);
-        }
-        else if (moveInput.x > 0 && !isFacingRight)
+        // Determine the flip direction based on the current facing direction.
+        // This makes it usable by both player input and the wall jump.
+        if (!isFacingRight) // If facing left, flip right
         {
             transform.localRotation = Quaternion.Euler(rightFacingRotation);
             transform.localScale = rightFacingScale;
             isFacingRight = true;
             FlipChildObjects(1f);
+        }
+        else // If facing right, flip left
+        {
+            transform.localRotation = Quaternion.Euler(leftFacingRotation);
+            transform.localScale = leftFacingScale;
+            isFacingRight = false;
+            FlipChildObjects(-1f);
         }
     }
 
