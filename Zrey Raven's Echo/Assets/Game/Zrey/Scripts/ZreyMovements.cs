@@ -323,6 +323,17 @@ public class ZreyMovements : MonoBehaviour
         Debug.Log("Air Dashed! Remaining: " + airDashesRemaining);
         
     }
+    public void FaceDirection(float direction)
+    {
+        if (direction > 0 && !isFacingRight)
+        {
+            Flip();
+        }
+        else if (direction < 0 && isFacingRight)
+        {
+            Flip();
+        }
+    }
     private IEnumerator AirDashTeleportSequence()
     {
         // --- 1. VANISH PHASE ---

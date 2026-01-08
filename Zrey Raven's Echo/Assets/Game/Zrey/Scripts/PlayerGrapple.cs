@@ -167,14 +167,10 @@ public class PlayerGrapple : MonoBehaviour
 
     private IEnumerator GrappleToPoint()
     {
-        // --- 1. THE "PRE-PRIMED JUMP" FIX ---
-        // We check for the jump input IMMEDIATELY, as soon as the grapple starts.
-        // This creates a buffer and allows the player to press both buttons at once.
-        bool jumpIsPrimed = inputActions.Player.Jump.WasPressedThisFrame();
-        if (jumpIsPrimed) { Debug.Log("Grapple Jump PRE-PRIMED!"); }
-        // --- END OF FIX ---
-
-        // --- 2. START ANIMATION & ZIP ---
+        // --- 1. START ANIMATION & ZIP ---
+        float directionToTarget = targetPoint.transform.position.x - transform.position.x;
+        // Tell the player controller to face that direction.
+        playerController.FaceDirection(directionToTarget);
         // This part is already working correctly.
         playerController.GetComponent<Animator>().SetTrigger(throwChainsTriggerHash);
         lineRenderer.enabled = true;
@@ -187,6 +183,11 @@ public class PlayerGrapple : MonoBehaviour
         rb.bodyType = RigidbodyType2D.Kinematic;
         rb.velocity = Vector2.zero;
 
+        // --- 2. THE "PRIMED JUMP" FIX ---
+        // We create a new local variable to track if the player wants to jump at the end.
+        bool jumpIsPrimed = false;
+        // --- END OF FIX ---
+
         Vector3 targetHangPos = targetPoint.GetHangPosition();
         float zipDuration = Vector3.Distance(transform.position, targetHangPos) / grappleZipSpeed;
         float timer = 0f;
@@ -194,13 +195,17 @@ public class PlayerGrapple : MonoBehaviour
         // This is the main "zip" loop.
         while (timer < zipDuration)
         {
-            // We still check for the jump input here, in case the player decides to jump mid-zip.
+            // --- THIS IS THE CORE LOGIC CHANGE ---
+            // If the player presses jump while zipping...
             if (inputActions.Player.Jump.WasPressedThisFrame())
             {
+                // ...we set our flag to true. We DO NOT break the loop.
                 jumpIsPrimed = true;
-                Debug.Log("Grapple Jump Primed Mid-Zip!");
+                Debug.Log("Grapple Jump Primed!");
             }
+            // --- END OF CHANGE ---
 
+            // The player continues to move towards the hang position, regardless of the jump press.
             transform.position = Vector3.MoveTowards(transform.position, targetHangPos, grappleZipSpeed * Time.deltaTime);
             timer += Time.deltaTime;
             yield return null;
@@ -209,32 +214,24 @@ public class PlayerGrapple : MonoBehaviour
         // --- 3. END OF GRAPPLE ACTION ---
         // The player has reached the hang point. Now we decide what to do.
 
+        // --- THIS IS THE FINAL DECISION ---
+        // If the jump was primed during the zip...
         if (jumpIsPrimed)
         {
-            // The jump was primed. Perform the slingshot.
+            // ...perform the jump-off immediately.
             Debug.Log("Executing Primed Grapple Jump!");
             JumpOffHang(); // This is your existing, working jump-off method.
         }
         else
         {
-            // The jump was NOT primed. Perform the normal hang.
-
-            // --- 4. THE "DISABLE LINE RENDERER" FIX ---
-            // We are now hanging, so we can turn off the chain animation and renderer.
-            if (grappleCoroutine != null)
-            {
-                StopCoroutine(grappleCoroutine);
-                grappleCoroutine = null;
-            }
-            lineRenderer.enabled = false;
-            // --- END OF FIX ---
-
+            // If the jump was NOT primed, perform the normal hang.
             rb.constraints = RigidbodyConstraints2D.FreezePositionX | RigidbodyConstraints2D.FreezeRotation;
             isCurrentlyHanging = true;
             playerController.GetComponent<Animator>().SetBool(startHangBoolHash, true);
         }
-    }
-
+        // --- END OF DECISION ---
+    
+}
 
     private void StopHanging()
     {
