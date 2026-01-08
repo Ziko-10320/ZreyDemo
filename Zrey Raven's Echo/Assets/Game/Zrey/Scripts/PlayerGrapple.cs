@@ -167,80 +167,74 @@ public class PlayerGrapple : MonoBehaviour
 
     private IEnumerator GrappleToPoint()
     {
-        // --- 1. THROW ANIMATION ---
-        // As soon as the input is verified, play the "throw" animation.
-        playerController.GetComponent<Animator>().SetTrigger(throwChainsTriggerHash);
+        // --- 1. THE "PRE-PRIMED JUMP" FIX ---
+        // We check for the jump input IMMEDIATELY, as soon as the grapple starts.
+        // This creates a buffer and allows the player to press both buttons at once.
+        bool jumpIsPrimed = inputActions.Player.Jump.WasPressedThisFrame();
+        if (jumpIsPrimed) { Debug.Log("Grapple Jump PRE-PRIMED!"); }
+        // --- END OF FIX ---
 
-        // Start the chain animation coroutine.
+        // --- 2. START ANIMATION & ZIP ---
+        // This part is already working correctly.
+        playerController.GetComponent<Animator>().SetTrigger(throwChainsTriggerHash);
         lineRenderer.enabled = true;
         grappleCoroutine = StartCoroutine(AnimateGrappleChain(targetPoint.transform.position));
 
-        // Wait for the chain to hit the target.
         float extendDuration = Vector3.Distance(chainStartPoint.position, targetPoint.transform.position) / chainExtendSpeed;
         yield return new WaitForSeconds(extendDuration);
 
-        // --- 2. GRAPPLE/ZIP ANIMATION ---
-        // The chain has hit. Start the "zipping" animation.
         playerController.GetComponent<Animator>().SetTrigger(startGrappleTriggerHash);
-
-        // Lock the player's physics while they are being zipped.
         rb.bodyType = RigidbodyType2D.Kinematic;
-        rb.linearVelocity = Vector2.zero;
+        rb.velocity = Vector2.zero;
 
-        // Initialize state variables for the zip.
-        bool bailedForMomentum = false;
         Vector3 targetHangPos = targetPoint.GetHangPosition();
         float zipDuration = Vector3.Distance(transform.position, targetHangPos) / grappleZipSpeed;
         float timer = 0f;
 
-        // Main "zip" loop where the player travels along the chain.
+        // This is the main "zip" loop.
         while (timer < zipDuration)
         {
+            // We still check for the jump input here, in case the player decides to jump mid-zip.
             if (inputActions.Player.Jump.WasPressedThisFrame())
             {
-                bailedForMomentum = true;
-                break;
+                jumpIsPrimed = true;
+                Debug.Log("Grapple Jump Primed Mid-Zip!");
             }
+
             transform.position = Vector3.MoveTowards(transform.position, targetHangPos, grappleZipSpeed * Time.deltaTime);
             timer += Time.deltaTime;
             yield return null;
         }
 
-       
+        // --- 3. END OF GRAPPLE ACTION ---
+        // The player has reached the hang point. Now we decide what to do.
 
-        if (bailedForMomentum)
+        if (jumpIsPrimed)
         {
-            // Player bailed out. Give them a momentum boost.
-            rb.bodyType = RigidbodyType2D.Dynamic;
-            Vector2 launchDirection = ((Vector2)(targetHangPos - transform.position).normalized + (Vector2.up * 0.4f)).normalized;
-            rb.linearVelocity = launchDirection * momentumBoostForce;
-            StopHanging(); // Clean up everything.
+            // The jump was primed. Perform the slingshot.
+            Debug.Log("Executing Primed Grapple Jump!");
+            JumpOffHang(); // This is your existing, working jump-off method.
         }
         else
         {
-            // --- 4. THE "FREEZE IN PLACE" HANG FIX ---
-            // Player reached the end. They are now hanging.
+            // The jump was NOT primed. Perform the normal hang.
 
-            // The player's physics are already Kinematic, which freezes them.
-            // We just need to set their final position.
-            transform.position = targetHangPos;
-            rb.constraints = RigidbodyConstraints2D.FreezePositionX | RigidbodyConstraints2D.FreezeRotation;
-            // Disable the line renderer and stop the animation coroutine.
+            // --- 4. THE "DISABLE LINE RENDERER" FIX ---
+            // We are now hanging, so we can turn off the chain animation and renderer.
             if (grappleCoroutine != null)
             {
                 StopCoroutine(grappleCoroutine);
                 grappleCoroutine = null;
             }
             lineRenderer.enabled = false;
+            // --- END OF FIX ---
 
-            // We DO NOT enable the DistanceJoint.
-            distanceJoint.enabled = false;
-
-            // Set the state and play the hang animation.
+            rb.constraints = RigidbodyConstraints2D.FreezePositionX | RigidbodyConstraints2D.FreezeRotation;
             isCurrentlyHanging = true;
             playerController.GetComponent<Animator>().SetBool(startHangBoolHash, true);
         }
     }
+
 
     private void StopHanging()
     {
