@@ -14,7 +14,8 @@ public class ZreyMovements : MonoBehaviour
     [SerializeField] private float groundCheckRadius = 0.1f;
     [SerializeField] private LayerMask groundLayer;
     [SerializeField] private float jumpBufferTime = 0.2f;
-
+    [HideInInspector] public bool isHanging = false;
+    [HideInInspector] public float overrideMoveTimer = 0f;
     [Header("Flipping Logic")]
     [SerializeField] private Vector3 rightFacingRotation = new Vector3(0, 90, 0);
     [SerializeField] private Vector3 leftFacingRotation = new Vector3(0, -90, 0);
@@ -147,6 +148,10 @@ public class ZreyMovements : MonoBehaviour
 
     void Update()
     {
+        if (overrideMoveTimer > 0)
+        {
+            overrideMoveTimer -= Time.deltaTime;
+        }
         HandleWallMechanics();
         moveInput = inputActions.Player.Move.ReadValue<Vector2>();
 
@@ -190,6 +195,20 @@ public class ZreyMovements : MonoBehaviour
 
     void FixedUpdate()
     {
+        if (overrideMoveTimer > 0)
+        {
+            // If the override timer is active, let the grapple momentum ride.
+            return;
+        }
+
+        if (isHanging)
+        {
+            // If hanging, apply a slow strafe and don't fall.
+            // The DistanceJoint2D will handle gravity.
+            float hangingMoveSpeed = 1f;
+            rb.AddForce(new Vector2(moveInput.x * hangingMoveSpeed, 0), ForceMode2D.Force);
+            return;
+        }
         if (isDashing)
         {
             // --- STATE: DASHING (Physics) ---
@@ -325,7 +344,7 @@ public class ZreyMovements : MonoBehaviour
         if (playerRenderer != null) playerRenderer.enabled = false;
 
         // Temporarily stop physics interactions during the "in-between" state.
-        rb.isKinematic = true;
+        rb.bodyType = RigidbodyType2D.Kinematic;
         rb.linearVelocity = Vector2.zero;
 
 
@@ -353,7 +372,7 @@ public class ZreyMovements : MonoBehaviour
         // Teleport to the new position.
         Vector2 newPosition = rb.position + dashDirectionVector;
         transform.position = newPosition; // Use transform.position since rb is kinematic.
-        rb.isKinematic = false; // Turn physics back on!
+        rb.bodyType = RigidbodyType2D.Dynamic; // Turn physics back on!
 
         // Make the player visible again.
         if (playerRenderer != null) playerRenderer.enabled = true;
@@ -395,7 +414,7 @@ public class ZreyMovements : MonoBehaviour
 
         // Now, we apply the new force to a clean slate.
         float jumpDirectionX = isFacingRight ? -1f : 1f;
-        rb.velocity = new Vector2(wallJumpForce.x * jumpDirectionX, wallJumpForce.y);
+        rb.linearVelocity = new Vector2(wallJumpForce.x * jumpDirectionX, wallJumpForce.y);
 
         animator.SetTrigger(wallJumpTriggerHash);
         Flip();
