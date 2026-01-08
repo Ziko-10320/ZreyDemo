@@ -26,12 +26,42 @@ public class PlayerGrapple : MonoBehaviour
     [SerializeField] private float grappleZipSpeed = 25f;
     [SerializeField] private float momentumBoostForce = 45f;
     [SerializeField] private float momentumOverrideDuration = 0.6f;
-    [SerializeField] private float jumpOffForce = 15f;
+    [Tooltip("The VERTICAL force applied when jumping off a hang.")]
+    [SerializeField] private float jumpOffVerticalForce = 15f;
+
+    // ADD this new variable
+    [Tooltip("The HORIZONTAL force applied when jumping off a hang, based on player input.")]
+    [SerializeField] private float jumpOffHorizontalForce = 10f;
+    [SerializeField] private float jumpOffMomentum = 7f;
 
     private GrapplePoint targetPoint;
     private Coroutine grappleCoroutine;
     private bool isCurrentlyHanging = false;
 
+    [Header("Chain Animation Settings")]
+    [Tooltip("The transform where the chain shoots from.")]
+    [SerializeField] private Transform chainStartPoint; 
+
+    [Tooltip("How fast the chain extends towards the target.")]
+    [SerializeField] private float chainExtendSpeed = 50f; 
+
+    [Tooltip("The magnitude of the wave effect on the chain.")]
+    [SerializeField] private float waveMagnitude = 0.5f; 
+
+    [Tooltip("How fast the wave travels along the chain.")]
+    [SerializeField] private float waveSpeed = 10f; 
+
+    [Tooltip("How many segments the chain has. More segments = smoother wave.")]
+    [SerializeField] private int chainSegments = 20;
+   
+    // --- ADD THIS NEW VARIABLE ---
+    [Tooltip("The point on the player that will attach to the hang point (e.g., the player's hands).")]
+    [SerializeField] private Transform playerHangPoint;
+    private readonly int throwChainsTriggerHash = Animator.StringToHash("throwChains");
+    private readonly int startGrappleTriggerHash = Animator.StringToHash("startGrapple");
+    private readonly int startHangBoolHash = Animator.StringToHash("isHanging");
+    [HideInInspector] public bool justGrappleJumped = false;
+    [HideInInspector] public bool grappleJumpInputLocked = false;
     private void Awake()
     {
         inputActions = new InputSystem_Actions();
@@ -67,7 +97,7 @@ public class PlayerGrapple : MonoBehaviour
             {
                 if (inputActions.Player.Jump.WasPressedThisFrame()) JumpOffHang();
                 else if (inputActions.Player.Grapple.WasPressedThisFrame()) StopHanging();
-                if (lineRenderer.enabled) lineRenderer.SetPosition(0, transform.position);
+               
             }
             return;
         }
@@ -82,7 +112,29 @@ public class PlayerGrapple : MonoBehaviour
             }
         }
     }
+    private void FixedUpdate()
+    {
+        // If we are in the post-grapple-jump state...
+        if (justGrappleJumped)
+        {
+            // If input is currently locked, do absolutely nothing. Let the momentum ride.
+            if (grappleJumpInputLocked)
+            {
+                return;
+            }
 
+            // If input is NOT locked, check if the player wants to take over.
+            // We read the input directly here.
+            float horizontalInput = inputActions.Player.Move.ReadValue<Vector2>().x;
+            if (horizontalInput != 0)
+            {
+                // The player is taking control. End the special momentum state.
+                justGrappleJumped = false;
+                // We don't need to set velocity here, because the ZreyMovements script's
+                // FixedUpdate will immediately take over on the next frame.
+            }
+        }
+    }
     private void FindClosestGrapplePoint()
     {
         // ... (This logic is unchanged)
@@ -115,22 +167,33 @@ public class PlayerGrapple : MonoBehaviour
 
     private IEnumerator GrappleToPoint()
     {
-        // --- FIX: Use bodyType instead of isKinematic ---
-        rb.bodyType = RigidbodyType2D.Kinematic;
-        rb.linearVelocity = Vector2.zero; // Use linearVelocity
+        // --- 1. THROW ANIMATION ---
+        // As soon as the input is verified, play the "throw" animation.
+        playerController.GetComponent<Animator>().SetTrigger(throwChainsTriggerHash);
 
+        // Start the chain animation coroutine.
         lineRenderer.enabled = true;
-        lineRenderer.SetPosition(0, transform.position);
-        lineRenderer.SetPosition(1, targetPoint.transform.position);
+        grappleCoroutine = StartCoroutine(AnimateGrappleChain(targetPoint.transform.position));
 
-        yield return new WaitForSeconds(grappleWindUpTime);
+        // Wait for the chain to hit the target.
+        float extendDuration = Vector3.Distance(chainStartPoint.position, targetPoint.transform.position) / chainExtendSpeed;
+        yield return new WaitForSeconds(extendDuration);
 
+        // --- 2. GRAPPLE/ZIP ANIMATION ---
+        // The chain has hit. Start the "zipping" animation.
+        playerController.GetComponent<Animator>().SetTrigger(startGrappleTriggerHash);
+
+        // Lock the player's physics while they are being zipped.
+        rb.bodyType = RigidbodyType2D.Kinematic;
+        rb.linearVelocity = Vector2.zero;
+
+        // Initialize state variables for the zip.
         bool bailedForMomentum = false;
         Vector3 targetHangPos = targetPoint.GetHangPosition();
-        Vector2 correctMomentumDirection = (targetHangPos - transform.position).normalized;
         float zipDuration = Vector3.Distance(transform.position, targetHangPos) / grappleZipSpeed;
         float timer = 0f;
 
+        // Main "zip" loop where the player travels along the chain.
         while (timer < zipDuration)
         {
             if (inputActions.Player.Jump.WasPressedThisFrame())
@@ -139,47 +202,98 @@ public class PlayerGrapple : MonoBehaviour
                 break;
             }
             transform.position = Vector3.MoveTowards(transform.position, targetHangPos, grappleZipSpeed * Time.deltaTime);
-            lineRenderer.SetPosition(0, transform.position);
             timer += Time.deltaTime;
             yield return null;
         }
 
-        // --- FIX: Use bodyType ---
-        rb.bodyType = RigidbodyType2D.Dynamic;
+       
 
         if (bailedForMomentum)
         {
-            Vector2 launchDirection = (correctMomentumDirection + Vector2.up * 0.4f).normalized;
-            rb.linearVelocity = launchDirection * momentumBoostForce; // Use linearVelocity
-            playerController.overrideMoveTimer = momentumOverrideDuration;
-            lineRenderer.enabled = false;
+            // Player bailed out. Give them a momentum boost.
+            rb.bodyType = RigidbodyType2D.Dynamic;
+            Vector2 launchDirection = ((Vector2)(targetHangPos - transform.position).normalized + (Vector2.up * 0.4f)).normalized;
+            rb.linearVelocity = launchDirection * momentumBoostForce;
+            StopHanging(); // Clean up everything.
         }
         else
         {
-            transform.position = targetHangPos;
-            rb.linearVelocity = Vector2.zero; // Use linearVelocity
-            distanceJoint.connectedAnchor = targetPoint.transform.position;
-            distanceJoint.distance = Vector2.Distance(transform.position, targetPoint.transform.position);
-            distanceJoint.enabled = true;
-            playerController.isHanging = true;
-            isCurrentlyHanging = true;
-        }
+            // --- 4. THE "FREEZE IN PLACE" HANG FIX ---
+            // Player reached the end. They are now hanging.
 
-        grappleCoroutine = null;
+            // The player's physics are already Kinematic, which freezes them.
+            // We just need to set their final position.
+            transform.position = targetHangPos;
+            rb.constraints = RigidbodyConstraints2D.FreezePositionX | RigidbodyConstraints2D.FreezeRotation;
+            // Disable the line renderer and stop the animation coroutine.
+            if (grappleCoroutine != null)
+            {
+                StopCoroutine(grappleCoroutine);
+                grappleCoroutine = null;
+            }
+            lineRenderer.enabled = false;
+
+            // We DO NOT enable the DistanceJoint.
+            distanceJoint.enabled = false;
+
+            // Set the state and play the hang animation.
+            isCurrentlyHanging = true;
+            playerController.GetComponent<Animator>().SetBool(startHangBoolHash, true);
+        }
     }
 
     private void StopHanging()
     {
+        if (grappleCoroutine != null)
+        {
+            StopCoroutine(grappleCoroutine);
+            grappleCoroutine = null;
+        }
+        rb.constraints = RigidbodyConstraints2D.FreezeRotation;
+        // --- THIS IS THE FIX ---
+        // If we were hanging, our Rigidbody was Kinematic. We must restore it to Dynamic.
+        rb.bodyType = RigidbodyType2D.Dynamic;
+        // --- END OF FIX ---
+        playerController.GetComponent<Animator>().SetBool(startHangBoolHash, false);
         isCurrentlyHanging = false;
-        playerController.isHanging = false;
+        // playerController.isHanging = false; // For your other script
         distanceJoint.enabled = false;
         lineRenderer.enabled = false;
+        justGrappleJumped = false;
     }
+
 
     private void JumpOffHang()
     {
+        // Get the direction the player is facing.
+        float horizontalDirection = playerController.isFacingRight ? 1f : -1f;
+
+        // Stop hanging (disables constraints, etc.).
         StopHanging();
-        rb.linearVelocity = new Vector2(rb.linearVelocity.x, jumpOffForce); // Use linearVelocity
+
+        // Apply the guaranteed force.
+        rb.velocity = Vector2.zero;
+        Vector2 force = new Vector2(horizontalDirection * jumpOffHorizontalForce, jumpOffVerticalForce);
+        rb.AddForce(force, ForceMode2D.Impulse);
+
+        // --- THIS IS THE FINAL FIX ---
+        // We tell the ZreyMovements script to raise its "momentum shields".
+        // We are hijacking the working wall jump system.
+        playerController.justWallJumped = true;
+        playerController.wallJumpInputLocked = true;
+
+        // Start a coroutine to lower the input lock shield after a delay.
+        StartCoroutine(GrappleJumpInputLockRoutine());
+        // --- END OF FIX ---
+    }
+    private IEnumerator GrappleJumpInputLockRoutine()
+    {
+        // Wait for the lock duration.
+        yield return new WaitForSeconds(0.2f); // Use a value similar to your wall jump lock time.
+
+        // After the timer, tell ZreyMovements to unlock the input.
+        // Its FixedUpdate will then allow the player to take over momentum.
+        playerController.wallJumpInputLocked = false;
     }
 
     private void OnDrawGizmosSelected()
@@ -190,5 +304,63 @@ public class PlayerGrapple : MonoBehaviour
     public bool IsHanging()
     {
         return isCurrentlyHanging;
+    }
+
+    private IEnumerator AnimateGrappleChain(Vector3 targetPosition)
+    {
+        lineRenderer.positionCount = chainSegments;
+        float distance = Vector3.Distance(chainStartPoint.position, targetPosition);
+        float duration = distance / chainExtendSpeed;
+        float timer = 0f;
+
+        while (timer < duration)
+        {
+            timer += Time.deltaTime;
+            float progress = Mathf.Clamp01(timer / duration); // How far along the extension we are (0 to 1)
+
+            // Calculate the current end point of the extending chain
+            Vector3 currentEndPoint = Vector3.Lerp(chainStartPoint.position, targetPosition, progress);
+
+            for (int i = 0; i < chainSegments; i++)
+            {
+                float segmentProgress = (float)i / (chainSegments - 1);
+                Vector3 point = Vector3.Lerp(chainStartPoint.position, currentEndPoint, segmentProgress);
+
+                // --- THE WAVE/WOBBLE EFFECT ---
+                // Calculate the perpendicular direction for the wave
+                Vector3 direction = (currentEndPoint - chainStartPoint.position).normalized;
+                Vector3 perpendicular = Vector3.Cross(direction, Vector3.forward).normalized;
+
+                // Add a sine wave offset
+                float waveOffset = Mathf.Sin((segmentProgress * distance) + (Time.time * waveSpeed)) * waveMagnitude;
+
+                // Apply the offset, but make it weaker at the start and end of the chain
+                float falloff = Mathf.Sin(segmentProgress * Mathf.PI); // This is 0 at the start/end, 1 in the middle
+                point += perpendicular * waveOffset * falloff;
+
+                lineRenderer.SetPosition(i, point);
+            }
+
+            yield return null;
+        }
+
+        // After extending, keep the chain live and wavy
+        while (lineRenderer.enabled)
+        {
+            for (int i = 0; i < chainSegments; i++)
+            {
+                float segmentProgress = (float)i / (chainSegments - 1);
+                Vector3 point = Vector3.Lerp(chainStartPoint.position, targetPosition, segmentProgress);
+
+                Vector3 direction = (targetPosition - chainStartPoint.position).normalized;
+                Vector3 perpendicular = Vector3.Cross(direction, Vector3.forward).normalized;
+                float waveOffset = Mathf.Sin((segmentProgress * distance) + (Time.time * waveSpeed)) * waveMagnitude;
+                float falloff = Mathf.Sin(segmentProgress * Mathf.PI);
+                point += perpendicular * waveOffset * falloff;
+
+                lineRenderer.SetPosition(i, point);
+            }
+            yield return null;
+        }
     }
 }

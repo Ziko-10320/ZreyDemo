@@ -36,7 +36,7 @@ public class ZreyMovements : MonoBehaviour
     private Vector2 moveInput;
 
     // --- State Variables ---
-    private bool isFacingRight = true;
+    public bool isFacingRight = true;
     private bool isGrounded;
     private float jumpBufferCounter;
     private bool isDashing = false; // Our master state switch
@@ -115,14 +115,15 @@ public class ZreyMovements : MonoBehaviour
     private bool isTouchingWall;
     private bool isWallSliding;
     private float wallStickCounter;
-    private bool justWallJumped = false;
+    [HideInInspector] public bool justWallJumped = false;
     // --- New Animation Hashes ---
     private readonly int touchWallTriggerHash = Animator.StringToHash("touchWall");
     private readonly int isWallSlidingBoolHash = Animator.StringToHash("isWallSliding");
     private readonly int wallJumpTriggerHash = Animator.StringToHash("wallJump");
     [SerializeField] private float wallJumpMomentum = 6f;
     private Coroutine wallJumpCoroutine;
-    private bool wallJumpInputLocked = false;
+    [HideInInspector] public bool wallJumpInputLocked = false;
+    public bool justGrappleJumped = false;
     void Awake()
     {
         if (rb == null) rb = GetComponent<Rigidbody2D>();
@@ -156,9 +157,14 @@ public class ZreyMovements : MonoBehaviour
         moveInput = inputActions.Player.Move.ReadValue<Vector2>();
 
         // We only freeze input if we are actively sliding on a wall.
-        if (isWallSliding)
+        if (isHanging || isWallSliding)
         {
-            moveInput = new Vector2(0, moveInput.y);
+            moveInput = Vector2.zero;
+        }
+        else
+        {
+            // Only read input if the player is in a normal, controllable state.
+            moveInput = inputActions.Player.Move.ReadValue<Vector2>();
         }
 
         // Ground Check
@@ -201,14 +207,7 @@ public class ZreyMovements : MonoBehaviour
             return;
         }
 
-        if (isHanging)
-        {
-            // If hanging, apply a slow strafe and don't fall.
-            // The DistanceJoint2D will handle gravity.
-            float hangingMoveSpeed = 1f;
-            rb.AddForce(new Vector2(moveInput.x * hangingMoveSpeed, 0), ForceMode2D.Force);
-            return;
-        }
+        
         if (isDashing)
         {
             // --- STATE: DASHING (Physics) ---
@@ -245,9 +244,10 @@ public class ZreyMovements : MonoBehaviour
         }
         else
         {
-            // --- STATE: NORMAL (Physics) ---
-            // This is your normal, reliable run/idle movement.
-            rb.linearVelocity = new Vector2(moveInput.x * runSpeed, rb.linearVelocity.y);
+            if (!justGrappleJumped)
+            {
+                rb.linearVelocity = new Vector2(moveInput.x * runSpeed, rb.linearVelocity.y);
+            }
         }
     }
     // --- PUBLIC METHODS FOR ANIMATION EVENTS ---
