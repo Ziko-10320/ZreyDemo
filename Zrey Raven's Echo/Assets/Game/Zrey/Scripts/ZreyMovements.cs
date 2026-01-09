@@ -52,13 +52,13 @@ public class ZreyMovements : MonoBehaviour
     private readonly int dashTriggerHash = Animator.StringToHash("dash");
     [Header("Physics Dash Settings")]
     [Tooltip("The overall distance the player will dash.")]
-    [SerializeField] private float dashDistance = 5f; 
+    [SerializeField] private float dashDistance = 5f;
 
     [Tooltip("The total duration of the dash in seconds.")]
     [SerializeField] private float dashDuration = 0.5f;
 
     [Tooltip("The speed curve of the dash. X-axis is time (0 to 1), Y-axis is speed multiplier (0 to 1).")]
-    [SerializeField]private AnimationCurve dashSpeedCurve;
+    [SerializeField] private AnimationCurve dashSpeedCurve;
 
 
     private float dashTimer;
@@ -90,10 +90,10 @@ public class ZreyMovements : MonoBehaviour
 
     [Header("Wall Mechanics Settings")]
     [Tooltip("The child object used to detect walls.")]
-    [SerializeField] private Transform wallCheck; 
+    [SerializeField] private Transform wallCheck;
 
     [Tooltip("The radius of the wall check sphere.")]
-    [SerializeField] private float wallCheckRadius = 0.2f; 
+    [SerializeField] private float wallCheckRadius = 0.2f;
 
     [Tooltip("The layer that should be considered a wall.")]
     [SerializeField] private LayerMask wallLayer; // This can be the same as your Ground layer or a new one."
@@ -104,14 +104,14 @@ public class ZreyMovements : MonoBehaviour
     [SerializeField] private float wallSlideAccelerationTime = 2f;
 
     [Tooltip("The time in seconds the player sticks to the wall before sliding.")]
-    [SerializeField] private float wallStickTime = 0.5f; 
+    [SerializeField] private float wallStickTime = 0.5f;
 
     [Tooltip("The force of the wall jump, applied diagonally.")]
     [SerializeField] private Vector2 wallJumpForce = new Vector2(8f, 16f);
     [SerializeField] private float wallJumpInputLockTime = 0.3f;
 
 
-// --- Private State Variables ---
+    // --- Private State Variables ---
     private bool isTouchingWall;
     private bool isWallSliding;
     private float wallStickCounter;
@@ -207,7 +207,7 @@ public class ZreyMovements : MonoBehaviour
             return;
         }
 
-        
+
         if (isDashing)
         {
             // --- STATE: DASHING (Physics) ---
@@ -249,6 +249,7 @@ public class ZreyMovements : MonoBehaviour
                 rb.linearVelocity = new Vector2(moveInput.x * runSpeed, rb.linearVelocity.y);
             }
         }
+
     }
     // --- PUBLIC METHODS FOR ANIMATION EVENTS ---
     /// </summary>
@@ -259,7 +260,7 @@ public class ZreyMovements : MonoBehaviour
 
         // Store the direction the player is facing when the dash starts.
         dashDirection = isFacingRight ? 1f : -1f;
-        
+
     }
 
     /// <summary>
@@ -268,7 +269,7 @@ public class ZreyMovements : MonoBehaviour
     public void DisableDash()
     {
         isDashing = false;
-       
+
     }
     // --- INPUT HANDLERS AND HELPERS (Mostly unchanged) ---
     private void HandleJump(InputAction.CallbackContext context)
@@ -321,18 +322,7 @@ public class ZreyMovements : MonoBehaviour
         airDashesRemaining--;
         StartCoroutine(AirDashTeleportSequence());
         Debug.Log("Air Dashed! Remaining: " + airDashesRemaining);
-        
-    }
-    public void FaceDirection(float direction)
-    {
-        if (direction > 0 && !isFacingRight)
-        {
-            Flip();
-        }
-        else if (direction < 0 && isFacingRight)
-        {
-            Flip();
-        }
+
     }
     private IEnumerator AirDashTeleportSequence()
     {
@@ -581,7 +571,7 @@ public class ZreyMovements : MonoBehaviour
             obj.transform.localScale = new Vector3(newXScale, obj.transform.localScale.y, obj.transform.localScale.z);
         }
     }
-   
+
     private void OnDrawGizmosSelected()
     {
         if (groundCheck == null) return;
