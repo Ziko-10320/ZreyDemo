@@ -322,23 +322,24 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 8
   targetIndicator: {fileID: 0}
-  playerGrapple: {fileID: 4255265407103154712}
   maxGrappleRange: 50
   grappleWindUpTime: 0.15
   grappleZipSpeed: 70
+  zipToHangCurve:
+    serializedVersion: 2
+    m_Curve: []
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  commitDistance: 2
   momentumBoostForce: 45
   momentumOverrideDuration: 1
-  jumpOffVerticalForce: 30
-  jumpOffHorizontalForce: 10
-  jumpOffMomentum: 5
+  jumpOffForce: 15
   chainStartPoint: {fileID: 3597623450377597885}
   chainExtendSpeed: 90
   waveMagnitude: 0.32
   waveSpeed: 8
   chainSegments: 15
-  playerHangPoint: {fileID: 967999711586225744}
-  justGrappleJumped: 0
-  grappleJumpInputLocked: 0
 --- !u!120 &2471831192286654222
 LineRenderer:
   serializedVersion: 3
@@ -860,7 +861,6 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 8950379818910661532}
-  - {fileID: 2784931341444380421}
   m_Father: {fileID: 2360281084151722010}
   m_LocalEulerAnglesHint: {x: 2.071, y: -5.996, z: -5.719}
 --- !u!1 &1425925631268080525
@@ -2498,6 +2498,7 @@ Transform:
   m_Children:
   - {fileID: 4101328316462301304}
   - {fileID: 5720321434068620673}
+  - {fileID: 2784931341444380421}
   m_Father: {fileID: 5435269905598739389}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &7899756589270546024
@@ -2587,13 +2588,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 8240859462108891921}
   serializedVersion: 2
-  m_LocalRotation: {x: -0.63292694, y: -0.4569904, z: 0.58001965, w: -0.23268114}
-  m_LocalPosition: {x: 0.25313735, y: -0.044062432, z: 0.011579359}
+  m_LocalRotation: {x: -0.6881057, y: -0.4248402, z: 0.5478908, w: -0.21409573}
+  m_LocalPosition: {x: 0.24518414, y: 0.26671422, z: 0.034878105}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 5274874011003504395}
-  m_Father: {fileID: 5720321434068620673}
+  m_Father: {fileID: 2360281084151722010}
   m_LocalEulerAnglesHint: {x: 124.44501, y: 67.234, z: -33.061005}
 --- !u!1 &8242681182355546544
 GameObject:
