@@ -124,6 +124,8 @@ public class ZreyMovements : MonoBehaviour
     private Coroutine wallJumpCoroutine;
     [HideInInspector] public bool wallJumpInputLocked = false;
     public bool justGrappleJumped = false;
+    [HideInInspector] public bool isLungeActive = false;
+    [HideInInspector] public Vector2 lungeVelocity;
     void Awake()
     {
         if (rb == null) rb = GetComponent<Rigidbody2D>();
@@ -562,7 +564,10 @@ public class ZreyMovements : MonoBehaviour
             FlipChildObjects(-1f);
         }
     }
-
+    public bool IsFacingRight()
+    {
+        return isFacingRight;
+    }
     private void FlipChildObjects(float newXScale)
     {
         if (objectsToFlip == null || objectsToFlip.Length == 0) return;
@@ -571,7 +576,11 @@ public class ZreyMovements : MonoBehaviour
             obj.transform.localScale = new Vector3(newXScale, obj.transform.localScale.y, obj.transform.localScale.z);
         }
     }
-
+  
+    public bool IsGrounded()
+    {
+        return isGrounded;
+    }
     private void OnDrawGizmosSelected()
     {
         if (groundCheck == null) return;
