@@ -30,6 +30,7 @@ public class ZreyAttacks : MonoBehaviour
     [SerializeField] private float lungeSpeed = 8f;
     [Tooltip("How long the lunge lasts (in seconds).")]
     [SerializeField] private float lungeDuration = 0.15f;
+    private Coroutine comboResetCoroutine;
     void Awake()
     {
         // Automatically get components if they aren't assigned.
@@ -53,43 +54,27 @@ public class ZreyAttacks : MonoBehaviour
         inputActions.Player.Attack.performed -= HandleAttack;
     }
 
-    void Update()
-    {
-        // This is the core combo timer. If too much time has passed since the last
-        // attack, the combo resets back to the beginning.
-        if (Time.time - lastAttackTime > comboResetTime && comboStep > 0)
-        {
-            ResetCombo();
-        }
-    }
 
-    /// <summary>
-    /// This method is called by the Input System when the player clicks the left mouse button.
-    /// </summary>
+
     private void HandleAttack(InputAction.CallbackContext context)
     {
-        // --- Attack Conditions ---
-        // We can only attack if:
-        // 1. We are not already in the middle of an attack.
-        // 2. The player is on the ground (you can remove this if you want air combos).
-        // 3. The player is not dashing or in another special state.
-        if (isAttacking || !playerMovement.IsGrounded() )
+        if (isAttacking || !playerMovement.IsGrounded()) return;
+
+        // --- THIS IS THE FIX ---
+        // If a reset timer is running, stop it. We are continuing the combo.
+        if (comboResetCoroutine != null)
         {
-            return; // Exit if we can't attack right now.
+            StopCoroutine(comboResetCoroutine);
         }
+        // --- END OF FIX ---
 
-        // If we are here, it's a valid attack input.
-        lastAttackTime = Time.time; // Record the time of this attack.
-        comboStep++; // Move to the next step in the combo.
-
-        // If the combo goes past the 4th attack, loop it back to the 1st.
-        if (comboStep > 4)
-        {
-            comboStep = 1;
-        }
-
-        // Perform the attack corresponding to the current combo step.
+        comboStep++;
         PerformAttack(comboStep);
+
+        if (comboStep >= 4)
+        {
+            comboStep = 0;
+        }
     }
 
     /// <summary>
@@ -163,8 +148,20 @@ public class ZreyAttacks : MonoBehaviour
     public void EndAttack()
     {
         isAttacking = false;
-        // You might want to unlock movement here.
-        // For example: playerMovement.SetAttacking(false);
-        Debug.Log($"Attack {comboStep} animation finished. Ready for next input.");
+
+        // --- THIS IS THE FIX ---
+        // Start a coroutine that will reset the combo after a delay.
+        comboResetCoroutine = StartCoroutine(ComboResetRoutine());
+        // --- END OF FIX ---
+
+        Debug.Log($"Attack {comboStep} finished. Combo reset timer started.");
+    }
+    private IEnumerator ComboResetRoutine()
+    {
+        yield return new WaitForSeconds(comboResetTime);
+
+        // If we get here, it means the player didn't press the attack button in time.
+        Debug.Log("<color=orange>Combo Reset Timer Expired.</color>");
+        comboStep = 0;
     }
 }
