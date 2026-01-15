@@ -22,7 +22,7 @@ public class ZreyMovements : MonoBehaviour
     [SerializeField] private Vector3 rightFacingScale = new Vector3(1, 1, 1);
     [SerializeField] private Vector3 leftFacingScale = new Vector3(1, -1, 1);
     [SerializeField] private GameObject[] objectsToFlip;
-
+    public bool hasGrappleMomentum = false;
     // --- THIS IS THE KEY TO YOUR SETUP ---
     [Header("Manual Dash Root Motion")]
     [Tooltip("The child object that is animated to create the dash movement.")]
@@ -173,7 +173,29 @@ public class ZreyMovements : MonoBehaviour
         bool wasGrounded = isGrounded;
         isGrounded = Physics2D.OverlapCircle(groundCheck.position, groundCheckRadius, groundLayer);
         if (isGrounded != wasGrounded) { animator.SetBool(isGroundedHash, isGrounded); }
+        if (hasGrappleMomentum && isGrounded)
+        {
+            // First, reset the state flag.
+            hasGrappleMomentum = false;
 
+            // Now, check for player input AT THIS MOMENT.
+            float horizontalInput = inputActions.Player.Move.ReadValue<Vector2>().x;
+
+            if (Mathf.Abs(horizontalInput) > 0.1f)
+            {
+                // --- The player WANTS to run. ---
+                // Immediately switch to the normal run speed. No stop, no freeze.
+                rb.linearVelocity = new Vector2(horizontalInput * runSpeed, rb.linearVelocity.y);
+                Debug.Log("<color=green>Grapple Momentum -> Seamlessly Transitioned to Run!</color>");
+            }
+            else
+            {
+                // --- The player is NOT holding a direction. ---
+                // Bring them to a crisp, clean stop.
+                rb.linearVelocity = new Vector2(0, rb.linearVelocity.y);
+                Debug.Log("<color=orange>Grapple Momentum Cancelled on Landing (Player Idle).</color>");
+            }
+        }
         // Jump Buffer
         if (jumpBufferCounter > 0) { jumpBufferCounter -= Time.deltaTime; }
         if (!wasGrounded && isGrounded && jumpBufferCounter > 0) { PerformJump(); }

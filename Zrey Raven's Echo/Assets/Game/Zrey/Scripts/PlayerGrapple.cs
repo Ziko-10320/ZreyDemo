@@ -158,6 +158,7 @@ public class PlayerGrapple : MonoBehaviour
             Vector2 launchDirection = (correctMomentumDirection + Vector2.up * 0.4f).normalized;
             rb.linearVelocity = launchDirection * momentumBoostForce;
             playerController.overrideMoveTimer = momentumOverrideDuration;
+            playerController.hasGrappleMomentum = true;
             StopChainAnimation();
         }
         else

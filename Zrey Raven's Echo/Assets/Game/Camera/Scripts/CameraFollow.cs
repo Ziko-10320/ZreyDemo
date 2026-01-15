@@ -1,6 +1,6 @@
-// CameraFollow.cs (UPGRADED WITH LOOKAHEAD)
+// CameraFollow.cs (FINAL UPGRADE - DUAL INPUT PANNING)
 using UnityEngine;
-using UnityEngine.InputSystem; // We need this for the new input system
+using UnityEngine.InputSystem;
 
 public class CameraFollow : MonoBehaviour
 {
@@ -10,30 +10,26 @@ public class CameraFollow : MonoBehaviour
     [Header("Follow Settings")]
     [Range(0.01f, 1.0f)]
     [SerializeField] private float smoothSpeed = 0.125f;
-    [SerializeField] private Vector3 baseOffset = new Vector3(0, 0, -10); // Renamed from "offset"
+    [SerializeField] private Vector3 baseOffset = new Vector3(0, 0, -10);
 
     [Header("Axis Locking")]
     [SerializeField] private bool lockYAxis = false;
 
-    // --- NEW LOOKAHEAD SETTINGS ---
-    [Header("Grapple Lookahead Settings")]
+    [Header("Lookahead Settings")]
     [Tooltip("Assign the Player object here so the camera can check if it's grappling.")]
     [SerializeField] private PlayerGrapple playerGrapple;
-
     [Tooltip("The max distance the camera will pan when holding a direction.")]
-    [SerializeField] private Vector2 lookaheadDistance = new Vector2(8f, 5f); // X and Y pan distance
-
-    [Tooltip("How long you need to hold a key before the camera starts panning.")]
+    [SerializeField] private Vector2 lookaheadDistance = new Vector2(8f, 5f);
+    [Tooltip("How long you need to hold a movement key (WASD) while hanging before the camera pans.")]
     [SerializeField] private float holdToPanTime = 0.5f;
-
-    [Tooltip("How quickly the camera pans to the lookahead position.")]
+    [Tooltip("How quickly the camera pans to the lookahead position and returns to center.")]
     [SerializeField] private float panSpeed = 2f;
 
     // --- Private State Variables ---
-    private Vector3 currentOffset; // This will be our dynamic offset
+    private Vector3 currentOffset;
     private float holdTimer = 0f;
     private Vector2 panDirection = Vector2.zero;
-    private InputSystem_Actions inputActions; // For reading W, A, S, D
+    private InputSystem_Actions inputActions;
 
     private void Awake()
     {
@@ -52,7 +48,6 @@ public class CameraFollow : MonoBehaviour
 
     void Start()
     {
-        // At the start, our current offset is just the base offset
         currentOffset = baseOffset;
     }
 
@@ -64,11 +59,10 @@ public class CameraFollow : MonoBehaviour
             return;
         }
 
-        // --- 1. HANDLE LOOKAHEAD LOGIC (Only if hanging) ---
-        HandleGrappleLookahead();
+        // --- 1. HANDLE ALL CAMERA PANNING LOGIC ---
+        HandleCameraPan();
 
         // --- 2. CALCULATE DESIRED POSITION ---
-        // We now use our dynamic 'currentOffset' instead of the fixed baseOffset
         Vector3 desiredPosition = target.position + currentOffset;
 
         // --- 3. APPLY Y-AXIS LOCK (IF ENABLED) ---
@@ -84,67 +78,65 @@ public class CameraFollow : MonoBehaviour
         transform.position = smoothedPosition;
     }
 
-    private void HandleGrappleLookahead()
+    // --- THIS IS THE NEW, UNIFIED FUNCTION ---
+    private void HandleCameraPan()
     {
-        // Check if the playerGrapple script exists and if the player is currently hanging
-        if (playerGrapple != null && playerGrapple.IsHanging())
+        // Read both input actions every frame.
+        Vector2 manualLookInput = inputActions.Player.Look.ReadValue<Vector2>();
+        Vector2 movementInput = inputActions.Player.Move.ReadValue<Vector2>();
+
+        Vector2 desiredPanDirection = Vector2.zero;
+
+        // --- PRIORITY 1: MANUAL LOOK (ARROW KEYS) ---
+        // If the player is using the arrow keys, this ALWAYS takes priority.
+        if (manualLookInput.magnitude > 0.1f)
         {
-            // Read the W, A, S, D input from the player
-            Vector2 moveInput = inputActions.Player.Move.ReadValue<Vector2>();
-
-            if (moveInput.magnitude > 0.1f) // Is the player holding a direction?
-            {
-                // If we just started holding a new direction, reset the timer
-                if (moveInput != panDirection)
-                {
-                    holdTimer = 0f;
-                    panDirection = moveInput;
-                }
-
-                holdTimer += Time.deltaTime;
-
-                // If we've held the key long enough, start panning
-                if (holdTimer >= holdToPanTime)
-                {
-                    // Calculate the target offset based on the direction and lookahead distance
-                    Vector3 targetOffset = baseOffset + new Vector3(
-                        panDirection.x * lookaheadDistance.x,
-                        panDirection.y * lookaheadDistance.y,
-                        0
-                    );
-                    // Smoothly move our current offset towards the target offset
-                    currentOffset = Vector3.Lerp(currentOffset, targetOffset, panSpeed * Time.deltaTime);
-                }
-            }
-            else // Player is not holding any direction
-            {
-                // Reset the timer and pan direction
-                holdTimer = 0f;
-                panDirection = Vector2.zero;
-            }
+            desiredPanDirection = manualLookInput;
+            // We don't need a hold timer for manual look, it should be instant.
+            holdTimer = holdToPanTime;
         }
-        else // If not hanging, or no grapple script assigned
+        // --- PRIORITY 2: HANGING LOOKAHEAD (WASD) ---
+        // Else, if the player is hanging and using movement keys...
+        else if (playerGrapple != null && playerGrapple.IsHanging() && movementInput.magnitude > 0.1f)
         {
-            // Always reset the timer and pan direction when not hanging
+            // If we just started holding a new direction, reset the timer.
+            if (movementInput != panDirection)
+            {
+                holdTimer = 0f;
+            }
+            holdTimer += Time.deltaTime;
+
+            // Only set the pan direction if the hold time is met.
+            if (holdTimer >= holdToPanTime)
+            {
+                desiredPanDirection = movementInput;
+            }
+            panDirection = movementInput; // Store the current input regardless of timer.
+        }
+        else
+        {
+            // If neither condition is met, reset everything.
             holdTimer = 0f;
             panDirection = Vector2.zero;
         }
 
-        // If we are not panning, always smoothly return the offset to its base position
-        if (panDirection == Vector2.zero)
+        // --- APPLY THE PANNING ---
+        // If we have a direction to pan in...
+        if (desiredPanDirection.magnitude > 0.1f)
+        {
+            // Calculate the target offset.
+            Vector3 targetOffset = baseOffset + new Vector3(
+                desiredPanDirection.x * lookaheadDistance.x,
+                desiredPanDirection.y * lookaheadDistance.y,
+                0
+            );
+            // Smoothly move towards it.
+            currentOffset = Vector3.Lerp(currentOffset, targetOffset, panSpeed * Time.deltaTime);
+        }
+        else // Otherwise, return to center.
         {
             currentOffset = Vector3.Lerp(currentOffset, baseOffset, panSpeed * Time.deltaTime);
         }
-    }
-
-    // Public function to check the hanging state from PlayerGrapple
-    public bool IsPlayerHanging()
-    {
-        if (playerGrapple != null)
-        {
-            return playerGrapple.IsHanging();
-        }
-        return false;
     }
 
     public void SetTarget(Transform newTarget)
