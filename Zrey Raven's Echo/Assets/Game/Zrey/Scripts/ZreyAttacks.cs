@@ -1,4 +1,4 @@
-// ZreyAttacks.cs - A clean, focused combo attack system.
+using FirstGearGames.SmoothCameraShaker;
 using System.Collections;
 using UnityEngine;
 using UnityEngine.InputSystem; // Using the new Input System
@@ -21,16 +21,14 @@ public class ZreyAttacks : MonoBehaviour
     private float lastAttackTime = 0f;
     private InputSystem_Actions inputActions;
 
-    // --- Animation Hashes (for performance) ---
-    private readonly int attack1TriggerHash = Animator.StringToHash("attack1");
-    private readonly int attack2TriggerHash = Animator.StringToHash("attack2");
-    private readonly int attack3TriggerHash = Animator.StringToHash("attack3");
-    private readonly int attack4TriggerHash = Animator.StringToHash("attack4");
+    private readonly int attackStepHash = Animator.StringToHash("attackStep");
+    private readonly int attackVariantHash = Animator.StringToHash("attackVariant");
     private Rigidbody2D rb;
     [SerializeField] private float lungeSpeed = 8f;
     [Tooltip("How long the lunge lasts (in seconds).")]
     [SerializeField] private float lungeDuration = 0.15f;
     private Coroutine comboResetCoroutine;
+    public ShakeData CameraShakeParry;
     void Awake()
     {
         // Automatically get components if they aren't assigned.
@@ -80,30 +78,21 @@ public class ZreyAttacks : MonoBehaviour
     /// <summary>
     /// Triggers the correct attack animation based on the combo step.
     /// </summary>
+
     private void PerformAttack(int step)
     {
-        isAttacking = true; // Set our state to "attacking".
-        // You might want to tell the movement script to lock movement here.
-        // For example: playerMovement.SetAttacking(true);
+        isAttacking = true;
 
-        // Trigger the correct animation.
-        if (step == 1)
-        {
-            animator.SetTrigger(attack1TriggerHash);
-        }
-        else if (step == 2)
-        {
-            animator.SetTrigger(attack2TriggerHash);
-        }
-        else if (step == 3)
-        {
-            animator.SetTrigger(attack3TriggerHash);
-        }
-        else if (step == 4)
-        {
-            animator.SetTrigger(attack4TriggerHash);
-        }
-        Debug.Log($"<color=green>ATTACK {step} TRIGGERED!</color>");
+        // --- THIS IS THE NEW RANDOM LOGIC ---
+        // 1. Generate a random number: 0 or 1.
+        int variant = Random.Range(0, 2); // Min is inclusive, Max is exclusive. So this gives 0 or 1.
+
+        // 2. Set the Animator parameters.
+        animator.SetInteger(attackStepHash, step);
+        animator.SetInteger(attackVariantHash, variant);
+        // --- END OF NEW LOGIC ---
+
+        Debug.Log($"<color=green>ATTACK {step} TRIGGERED! (Variant: {variant})</color>");
     }
 
     /// <summary>
@@ -149,12 +138,17 @@ public class ZreyAttacks : MonoBehaviour
     {
         isAttacking = false;
 
-        // --- THIS IS THE FIX ---
-        // Start a coroutine that will reset the combo after a delay.
-        comboResetCoroutine = StartCoroutine(ComboResetRoutine());
-        // --- END OF FIX ---
+        // --- THIS IS THE NEW, CRITICAL PART ---
+        // Reset the attackStep so the Animator can exit the Attack_Router state.
+        animator.SetInteger(attackStepHash, 0);
+        // --- END OF NEW PART ---
 
+        comboResetCoroutine = StartCoroutine(ComboResetRoutine());
         Debug.Log($"Attack {comboStep} finished. Combo reset timer started.");
+    }
+    public void CameraShake()
+    {
+        CameraShakerHandler.Shake(CameraShakeParry);
     }
     private IEnumerator ComboResetRoutine()
     {
