@@ -1,10 +1,8 @@
 using System.Collections;
 using UnityEngine;
 
-// Ensure the enemy has an Animator and Rigidbody2D component.
 [RequireComponent(typeof(Animator))]
 [RequireComponent(typeof(Rigidbody2D))]
-
 public class KnightAttack : MonoBehaviour
 {
     [Header("References")]
@@ -20,92 +18,58 @@ public class KnightAttack : MonoBehaviour
     // --- State Control ---
     private bool isAttacking = false;
     private Coroutine attackCoroutine;
+    private float lastComboTime = -10f; // **NEW:** Track when the last combo finished.
 
-    // This is called when the script first loads.
-    void Start()
+    void Awake() // **MODIFIED:** Changed from Start() to Awake() to ensure references are set early.
     {
-        // Get the components we need from this GameObject.
         animator = GetComponent<Animator>();
         rb = GetComponent<Rigidbody2D>();
-
-        // Start the main attack loop.
-        attackCoroutine = StartCoroutine(AttackLoop());
     }
 
-    /// <summary>
-    /// The main loop that waits and then initiates an attack combo.
-    /// </summary>
-    private IEnumerator AttackLoop()
-    {
-        // This loop will run for the entire life of the enemy.
-        while (true)
-        {
-            // Wait for the specified time before starting a new combo.
-            yield return new WaitForSeconds(timeBetweenCombos);
+    // **REMOVED:** We no longer start the AttackLoop automatically.
+    // The KnightAI script will now control when attacks happen.
 
-            // Start the attack combo.
-            StartCombo();
-        }
+    // **NEW:** A public property to let other scripts know if the knight is attacking.
+    public bool IsAttacking()
+    {
+        return isAttacking;
     }
 
-    /// <summary>
-    /// Kicks off the 3-hit attack combo.
-    /// </summary>
-    private void StartCombo()
+    // **MODIFIED:** This is now a public method that the KnightAI script will call.
+    public void StartCombo()
     {
-        // If we are already in an attack combo, don't start a new one.
-        if (isAttacking)
+        // If we are already attacking OR if it hasn't been long enough since the last combo...
+        if (isAttacking || Time.time < lastComboTime + timeBetweenCombos)
         {
-            return;
+            return; // ...then don't start a new combo.
         }
 
         isAttacking = true;
-        // Trigger the first attack animation. The rest will be handled by animation events.
         animator.SetTrigger("attack1");
     }
 
-    // --- ANIMATION EVENT METHODS ---
-    // These methods are designed to be called directly from the animation timeline.
-
-    /// <summary>
-    /// Called by an animation event at the end of the first attack animation.
-    /// </summary>
+    // --- ANIMATION EVENT METHODS (These remain the same) ---
     public void TriggerAttack2()
     {
         if (!isAttacking) return;
         animator.SetTrigger("attack2");
     }
 
-    /// <summary>
-    /// Called by an animation event at the end of the second attack animation.
-    /// </summary>
     public void TriggerAttack3()
     {
         if (!isAttacking) return;
         animator.SetTrigger("attack3");
     }
 
-    /// <summary>
-    /// Called by an animation event at the end of the final attack animation to reset the state.
-    /// </summary>
     public void FinishCombo()
     {
         isAttacking = false;
-        // The AttackLoop coroutine will now wait for 'timeBetweenCombos' and start again.
+        lastComboTime = Time.time; // **NEW:** Record the time this combo finished.
     }
 
-    /// <summary>
-    /// PUBLIC LUNGE METHOD: This is called by an animation event during an attack
-    /// to move the enemy forward.
-    /// </summary>
     public void Lunge()
     {
-        // Determine the direction the enemy is facing.
-        // transform.localScale.x > 0 means facing right.
-        // transform.localScale.x < 0 means facing left.
         float direction = Mathf.Sign(transform.localScale.x);
-
-        // Apply an instant force to the Rigidbody2D.
         rb.AddForce(new Vector2(direction * lungeForce, 0f), ForceMode2D.Impulse);
     }
 }
