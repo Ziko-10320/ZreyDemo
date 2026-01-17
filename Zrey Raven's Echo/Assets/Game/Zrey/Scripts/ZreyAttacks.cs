@@ -29,6 +29,28 @@ public class ZreyAttacks : MonoBehaviour
     [SerializeField] private float lungeDuration = 0.15f;
     private Coroutine comboResetCoroutine;
     public ShakeData CameraShakeParry;
+
+    [Header("Damage Settings")]
+    [Tooltip("The amount of damage each attack deals.")]
+    [SerializeField] private int attackDamage = 10; 
+
+    [Tooltip("An empty GameObject marking the center of the player's damage area.")]
+    [SerializeField] private Transform attackPoint; 
+
+    [Tooltip("The size of the damage area (Width, Height).")]
+    [SerializeField] private Vector2 attackAreaSize = new Vector2(1.5f, 1f); 
+
+    [Tooltip("The layer the enemies are on, so we know who to damage.")]
+    [SerializeField] private LayerMask enemyLayer; 
+
+    // --- Private State Variables for Damage ---
+    private bool isDamageFrameActive = false;
+    private bool hasDealtDamageThisAttack = false;
+    private Coroutine lungeCoroutine;
+    private string currentHitReactionType = "back";
+    private bool isCustomKnockbackPrimed = false;
+    private float primedKnockbackDistance;
+    private float primedKnockbackDuration;
     void Awake()
     {
         // Automatically get components if they aren't assigned.
@@ -104,18 +126,45 @@ public class ZreyAttacks : MonoBehaviour
         comboStep = 0;
     }
 
-    // --- PUBLIC METHODS FOR ANIMATION EVENTS ---
-    // These methods are called directly from your animation clips to control the flow of the combo.
+    void FixedUpdate()
+    {
+        // We only check for damage if the damage window is open.
+        if (isDamageFrameActive && !hasDealtDamageThisAttack)
+        {
+            CheckForEnemyDamage();
+        }
+    }
 
-    /// <summary>
-    /// Call this from an Animation Event at the end of each attack animation.
-    /// This tells the script that the attack is finished and it's ready for the next input.
-    /// </summary>
-    /// 
+    private void CheckForEnemyDamage()
+    {
+        // Create a box in front of the player to detect enemies.
+        Collider2D[] enemiesHit = Physics2D.OverlapBoxAll(attackPoint.position, attackAreaSize, 0f, enemyLayer);
+
+        // Loop through all the enemies we hit.
+        foreach (Collider2D enemy in enemiesHit)
+        {
+            Debug.Log("Hit: " + enemy.name);
+            KnightHealth enemyHealth = enemy.GetComponent<KnightHealth>();
+
+            // If the enemy has a KnightHealth script...
+            if (enemyHealth != null)
+            {
+                if (isCustomKnockbackPrimed)
+                {
+                    // 2. If yes, call the knight's SetCustomKnockback method RIGHT NOW.
+                    enemyHealth.SetCustomKnockback(primedKnockbackDistance, primedKnockbackDuration);
+                }
+                enemyHealth.TakeDamage(attackDamage, transform, currentHitReactionType); // Pass the player's transform for knockback direction.
+                hasDealtDamageThisAttack = true; // Mark that we've dealt damage so we don't hit again this swing.
+                break; // Exit the loop after the first enemy is hit. Remove this line if you want one swing to hit multiple enemies.
+            }
+        }
+        isCustomKnockbackPrimed = false;
+    }
     public void PerformLunge()
     {
         if (playerMovement == null) return;
-        StartCoroutine(LungeCoroutine());
+        lungeCoroutine = StartCoroutine(LungeCoroutine());
     }
 
     private IEnumerator LungeCoroutine()
@@ -146,9 +195,42 @@ public class ZreyAttacks : MonoBehaviour
         comboResetCoroutine = StartCoroutine(ComboResetRoutine());
         Debug.Log($"Attack {comboStep} finished. Combo reset timer started.");
     }
+    public void StartDamage()
+    {
+        Debug.Log("<color=red>Damage Window OPEN</color>");
+        isDamageFrameActive = true;
+        hasDealtDamageThisAttack = false; // Reset this for the new attack.
+    }
+
+    /// <summary>
+    /// Called by an Animation Event to END the damage window.
+    /// </summary>
+    public void StopDamage()
+    {
+        Debug.Log("<color=grey>Damage Window CLOSED</color>");
+        isDamageFrameActive = false;
+    }
     public void CameraShake()
     {
         CameraShakerHandler.Shake(CameraShakeParry);
+    }
+    public void PrimeCustomKnockback(string values)
+    {
+        // --- THIS IS THE FIX FOR THE STRING FORMAT ---
+        // Unity's Animation Event field does not need extra quotes.
+        // Just type: 4.5,0.3
+        // We also use CultureInfo.InvariantCulture to ensure '.' is always the decimal separator.
+        string[] splitValues = values.Split(',');
+        if (splitValues.Length != 2) return;
+
+        if (float.TryParse(splitValues[0], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out float distance) &&
+            float.TryParse(splitValues[1], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out float duration))
+        {
+            isCustomKnockbackPrimed = true;
+            primedKnockbackDistance = distance;
+            primedKnockbackDuration = duration;
+            Debug.Log($"<color=lime>Player has PRIMED a custom knockback! D:{distance}, T:{duration}</color>");
+        }
     }
     private IEnumerator ComboResetRoutine()
     {
@@ -157,5 +239,69 @@ public class ZreyAttacks : MonoBehaviour
         // If we get here, it means the player didn't press the attack button in time.
         Debug.Log("<color=orange>Combo Reset Timer Expired.</color>");
         comboStep = 0;
+    }
+
+    public void ApplyKnockback(Transform attacker, float knockbackDistance, float knockbackDuration)
+    {
+        // Stop any previous knockback to handle rapid hits.
+        // You might already have a knockback coroutine reference; if so, use it.
+        // For now, we'll just start a new one.
+        StartCoroutine(PlayerKnockbackRoutine(attacker, knockbackDistance, knockbackDuration));
+    }
+
+    private IEnumerator PlayerKnockbackRoutine(Transform attacker, float knockbackDistance, float knockbackDuration)
+    {
+        if (lungeCoroutine != null)
+        {
+            StopCoroutine(lungeCoroutine);
+            Debug.Log("<color=orange>Lunge interrupted by parry!</color>");
+        }
+
+        // --- THIS IS THE FIX ---
+        // We are now using the knockbackDistance and knockbackDuration parameters
+        // that were PASSED INTO this function from the KnightHealth script.
+        Vector2 knockbackDirection = (transform.position - attacker.position).normalized;
+        Vector2 knockbackVelocity = knockbackDirection * (knockbackDistance / knockbackDuration);
+        // --- END OF FIX ---
+
+        float timer = 0f;
+        while (timer < knockbackDuration)
+        {
+            rb.linearVelocity = knockbackVelocity;
+            timer += Time.deltaTime;
+            yield return null;
+        }
+
+        if (rb.linearVelocity == knockbackVelocity)
+        {
+            rb.linearVelocity = Vector2.zero;
+        }
+    }
+    public void TelegraphAttack()
+    {
+        // Define how far away enemies should be able to "see" the attack starting.
+        float notificationRange = 10f;
+        Collider2D[] nearbyEnemies = Physics2D.OverlapCircleAll(transform.position, notificationRange, enemyLayer);
+
+        foreach (Collider2D enemy in nearbyEnemies)
+        {
+            KnightHealth enemyHealth = enemy.GetComponent<KnightHealth>();
+            if (enemyHealth != null)
+            {
+                // Tell the enemy that we are starting an attack.
+                enemyHealth.OnPlayerAttackTelegraphed(transform);
+            }
+        }
+    }
+    public void SetHitReactionType(string hitType)
+    {
+        currentHitReactionType = hitType;
+    }
+    private void OnDrawGizmosSelected()
+    {
+        if (attackPoint == null) return;
+
+        Gizmos.color = Color.red;
+        Gizmos.DrawWireCube(attackPoint.position, attackAreaSize);
     }
 }

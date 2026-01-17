@@ -1,3 +1,4 @@
+using FirstGearGames.SmoothCameraShaker;
 using System.Collections;
 using UnityEngine;
 
@@ -19,7 +20,7 @@ public class KnightAttack : MonoBehaviour
     private bool isAttacking = false;
     private Coroutine attackCoroutine;
     private float lastComboTime = -10f; // **NEW:** Track when the last combo finished.
-
+    public ShakeData CameraShakeParry;
     void Awake() // **MODIFIED:** Changed from Start() to Awake() to ensure references are set early.
     {
         animator = GetComponent<Animator>();
@@ -66,7 +67,10 @@ public class KnightAttack : MonoBehaviour
         isAttacking = false;
         lastComboTime = Time.time; // **NEW:** Record the time this combo finished.
     }
-
+    public void CameraShake()
+    {
+        CameraShakerHandler.Shake(CameraShakeParry);
+    }
     public void Lunge()
     {
         float direction = Mathf.Sign(transform.localScale.x);

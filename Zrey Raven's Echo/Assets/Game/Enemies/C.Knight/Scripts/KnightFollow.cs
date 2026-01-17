@@ -6,7 +6,7 @@ using System.Collections;
 [RequireComponent(typeof(Rigidbody2D))]
 [RequireComponent(typeof(KnightAttack))] // Make sure the attack script is also on this enemy
 
-public class KnightAI : MonoBehaviour
+public class KnightFollow : MonoBehaviour
 {
     [Header("AI References")]
     [Tooltip("The target the knight will follow (the player).")]
@@ -105,13 +105,13 @@ public class KnightAI : MonoBehaviour
         if (playerTarget.position.x > transform.position.x && transform.localScale.x < 0)
         {
             // Flip the knight to face right.
-            transform.localScale = new Vector3(1, 1, 1);
+            transform.localScale = new Vector3((float)1.1237, (float)1.1237, (float)1.1237);
         }
         // If the player is to the left of the knight and the knight is facing right...
         else if (playerTarget.position.x < transform.position.x && transform.localScale.x > 0)
         {
             // Flip the knight to face left.
-            transform.localScale = new Vector3(-1, 1, 1);
+            transform.localScale = new Vector3((float)-1.1237, (float)1.1237, (float)1.1237);
         }
     }
 
