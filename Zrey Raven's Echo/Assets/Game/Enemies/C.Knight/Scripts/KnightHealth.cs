@@ -88,12 +88,29 @@ public class KnightHealth : MonoBehaviour
     private bool useCustomKnockback = false;
     private float customKnockbackDistance;
     private float customKnockbackDuration;
+    private ZreyAttacks zreyAttacks;
+    public Transform playerTarget;
     void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
         animator = GetComponent<Animator>();
         currentHealth = maxHealth;
         currentGuard = maxGuard;
+        if (playerTarget == null)
+        {
+            GameObject playerObject = GameObject.FindGameObjectWithTag("Player");
+            if (playerObject != null)
+            {
+                playerTarget = playerObject.transform;
+            }
+        }
+
+        // --- THIS IS THE FIX. THIS IS THE MISSING PIECE. ---
+        // If we have a player target, get their attack script so we can talk to it.
+        if (playerTarget != null)
+        {
+           zreyAttacks = playerTarget.GetComponent<ZreyAttacks>();
+        }
     }
     void Update()
     {
@@ -367,7 +384,58 @@ public class KnightHealth : MonoBehaviour
         isBlocking = true;
         Debug.Log("Knight: Block Window OPEN");
     }
+    public void ApplyDamageAndKnockback(AttackData attackData)
+    {
+        // --- 1. READ THE DATA from the Scriptable Object ---
+        int damage = attackData.damage;
+        string hitType = attackData.hitType;
+        float distance = attackData.knockbackDistance;
+        float duration = attackData.knockbackDuration;
 
+        Transform attacker = GameObject.FindGameObjectWithTag("Player").transform;
+        if (attacker == null) return;
+
+        Debug.Log($"<color=red>--- ATTACK DATA RECEIVED ---</color>\n" +
+                  $"Damage: {damage}, HitType: {hitType}, Knockback: {distance}, Duration: {duration}");
+
+        // --- 2. APPLY THE LOGIC (This part is exactly the same as before) ---
+        if (isGuardBroken)
+        {
+            PlayHitReaction(hitType);
+            currentHealth -= damage;
+            SpawnBloodVFX();
+            knockbackCoroutine = StartCoroutine(KnockbackRoutine(attacker, distance, duration));
+            if (currentHealth <= 0) Die();
+            return;
+        }
+
+        if (isBlocking)
+        {
+            zreyAttacks.ApplyKnockback(transform, playerKnockbackOnBlock, playerKnockbackDurationOnBlock);
+            if (knockbackCoroutine != null) StopCoroutine(knockbackCoroutine);
+            knockbackCoroutine = StartCoroutine(KnockbackRoutine(attacker, blockRecoilDistance, blockRecoilDuration));
+            timeSinceLastBlock = 0f;
+            if (blockSparksPrefab != null && blockSparksPoint != null)
+            {
+                Instantiate(blockSparksPrefab, blockSparksPoint.position, blockSparksPoint.rotation);
+            }
+            CameraShakerHandler.Shake(CameraShakeParry);
+            currentGuard -= guardDamagePerBlock;
+            if (currentGuard <= 0) StartCoroutine(GuardBrokenSequence());
+            return;
+        }
+
+        PlayHitReaction(hitType);
+        currentHealth -= damage;
+        SpawnBloodVFX();
+        knockbackCoroutine = StartCoroutine(KnockbackRoutine(attacker, distance, duration));
+        if (currentHealth <= 0) Die();
+    }
+    public bool IsStunned()
+    {
+        // The knight is considered "stunned" if their guard is broken OR if they are being knocked back by a hit.
+        return isGuardBroken || isBeingKnockedBack;
+    }
     /// <summary>
     /// Called by an Animation Event at the END of the block animation.
     /// </summary>

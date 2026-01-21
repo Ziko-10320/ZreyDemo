@@ -221,7 +221,7 @@ public class HazardController : MonoBehaviour
             PlayerHealth playerHealth = other.GetComponentInParent<PlayerHealth>();
             if (playerHealth != null)
             {
-                playerHealth.TakeDamage(damageAmount);
+                playerHealth.TakeDamage(damageAmount, transform, null);
             }
         }
     }

@@ -21105,17 +21105,10 @@ AnimationClip:
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
-  - time: 0.075
-    functionName: SetHitReactionType
-    data: down
-    objectReferenceParameter: {fileID: 0}
-    floatParameter: 0
-    intParameter: 0
-    messageOptions: 0
-  - time: 0.1
-    functionName: StartDamage
+  - time: 0.125
+    functionName: AttackEnemy
     data: 
-    objectReferenceParameter: {fileID: 0}
+    objectReferenceParameter: {fileID: 11400000, guid: e4e5cccdb53520548a91bb6a63155916, type: 2}
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
@@ -21126,24 +21119,10 @@ AnimationClip:
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
-  - time: 0.175
-    functionName: SetHitReactionType
-    data: down
-    objectReferenceParameter: {fileID: 0}
-    floatParameter: 0
-    intParameter: 0
-    messageOptions: 0
-  - time: 0.175
-    functionName: StopDamage
-    data: 
-    objectReferenceParameter: {fileID: 0}
-    floatParameter: 0
-    intParameter: 0
-    messageOptions: 0
   - time: 0.2
-    functionName: StartDamage
+    functionName: AttackEnemy
     data: 
-    objectReferenceParameter: {fileID: 0}
+    objectReferenceParameter: {fileID: 11400000, guid: 8a2b07ed30574d64d855c6917b4bb7bb, type: 2}
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
@@ -21155,35 +21134,14 @@ AnimationClip:
     intParameter: 0
     messageOptions: 0
   - time: 0.3
-    functionName: SetHitReactionType
-    data: down
-    objectReferenceParameter: {fileID: 0}
-    floatParameter: 0
-    intParameter: 0
-    messageOptions: 0
-  - time: 0.3
-    functionName: StopDamage
+    functionName: AttackEnemy
     data: 
-    objectReferenceParameter: {fileID: 0}
-    floatParameter: 0
-    intParameter: 0
-    messageOptions: 0
-  - time: 0.325
-    functionName: StartDamage
-    data: 
-    objectReferenceParameter: {fileID: 0}
+    objectReferenceParameter: {fileID: 11400000, guid: e4e5cccdb53520548a91bb6a63155916, type: 2}
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
   - time: 0.375
     functionName: PerformLunge
-    data: 
-    objectReferenceParameter: {fileID: 0}
-    floatParameter: 0
-    intParameter: 0
-    messageOptions: 0
-  - time: 0.45
-    functionName: StopDamage
     data: 
     objectReferenceParameter: {fileID: 0}
     floatParameter: 0
@@ -21196,29 +21154,15 @@ AnimationClip:
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
-  - time: 0.575
-    functionName: SetHitReactionType
-    data: up
-    objectReferenceParameter: {fileID: 0}
-    floatParameter: 0
-    intParameter: 0
-    messageOptions: 0
-  - time: 0.6
-    functionName: StartDamage
+  - time: 0.625
+    functionName: AttackEnemy
     data: 
-    objectReferenceParameter: {fileID: 0}
+    objectReferenceParameter: {fileID: 11400000, guid: 8a2b07ed30574d64d855c6917b4bb7bb, type: 2}
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
   - time: 0.725
     functionName: EndAttack
-    data: 
-    objectReferenceParameter: {fileID: 0}
-    floatParameter: 0
-    intParameter: 0
-    messageOptions: 0
-  - time: 0.775
-    functionName: StopDamage
     data: 
     objectReferenceParameter: {fileID: 0}
     floatParameter: 0

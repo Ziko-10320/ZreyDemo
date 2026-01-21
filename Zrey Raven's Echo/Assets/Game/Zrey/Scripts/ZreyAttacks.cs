@@ -51,6 +51,11 @@ public class ZreyAttacks : MonoBehaviour
     private bool isCustomKnockbackPrimed = false;
     private float primedKnockbackDistance;
     private float primedKnockbackDuration;
+    [Header("Collision Settings")]
+    [Tooltip("The integer value of the Player's layer.")]
+    [SerializeField] private int playerLayerValue = 6; // Example: Change this to your actual Player layer number"
+    [Tooltip("The integer value of the Enemy's layer.")]
+    [SerializeField] private int enemyLayerValue = 7; 
     void Awake()
     {
         // Automatically get components if they aren't assigned.
@@ -59,6 +64,7 @@ public class ZreyAttacks : MonoBehaviour
         rb = GetComponent<Rigidbody2D>();
         // Set up the new Input System.
         inputActions = new InputSystem_Actions();
+        Physics2D.IgnoreLayerCollision(playerLayerValue, enemyLayerValue, true);
     }
 
     private void OnEnable()
@@ -103,8 +109,9 @@ public class ZreyAttacks : MonoBehaviour
 
     private void PerformAttack(int step)
     {
+        isCustomKnockbackPrimed = false;
         isAttacking = true;
-
+        Physics2D.IgnoreLayerCollision(playerLayerValue, enemyLayerValue, false);
         // --- THIS IS THE NEW RANDOM LOGIC ---
         // 1. Generate a random number: 0 or 1.
         int variant = Random.Range(0, 2); // Min is inclusive, Max is exclusive. So this gives 0 or 1.
@@ -126,41 +133,9 @@ public class ZreyAttacks : MonoBehaviour
         comboStep = 0;
     }
 
-    void FixedUpdate()
-    {
-        // We only check for damage if the damage window is open.
-        if (isDamageFrameActive && !hasDealtDamageThisAttack)
-        {
-            CheckForEnemyDamage();
-        }
-    }
+   
 
-    private void CheckForEnemyDamage()
-    {
-        // Create a box in front of the player to detect enemies.
-        Collider2D[] enemiesHit = Physics2D.OverlapBoxAll(attackPoint.position, attackAreaSize, 0f, enemyLayer);
-
-        // Loop through all the enemies we hit.
-        foreach (Collider2D enemy in enemiesHit)
-        {
-            Debug.Log("Hit: " + enemy.name);
-            KnightHealth enemyHealth = enemy.GetComponent<KnightHealth>();
-
-            // If the enemy has a KnightHealth script...
-            if (enemyHealth != null)
-            {
-                if (isCustomKnockbackPrimed)
-                {
-                    // 2. If yes, call the knight's SetCustomKnockback method RIGHT NOW.
-                    enemyHealth.SetCustomKnockback(primedKnockbackDistance, primedKnockbackDuration);
-                }
-                enemyHealth.TakeDamage(attackDamage, transform, currentHitReactionType); // Pass the player's transform for knockback direction.
-                hasDealtDamageThisAttack = true; // Mark that we've dealt damage so we don't hit again this swing.
-                break; // Exit the loop after the first enemy is hit. Remove this line if you want one swing to hit multiple enemies.
-            }
-        }
-        isCustomKnockbackPrimed = false;
-    }
+ 
     public void PerformLunge()
     {
         if (playerMovement == null) return;
@@ -186,7 +161,7 @@ public class ZreyAttacks : MonoBehaviour
     public void EndAttack()
     {
         isAttacking = false;
-
+        Physics2D.IgnoreLayerCollision(playerLayerValue, enemyLayerValue, true);
         // --- THIS IS THE NEW, CRITICAL PART ---
         // Reset the attackStep so the Animator can exit the Attack_Router state.
         animator.SetInteger(attackStepHash, 0);
@@ -195,41 +170,25 @@ public class ZreyAttacks : MonoBehaviour
         comboResetCoroutine = StartCoroutine(ComboResetRoutine());
         Debug.Log($"Attack {comboStep} finished. Combo reset timer started.");
     }
-    public void StartDamage()
-    {
-        Debug.Log("<color=red>Damage Window OPEN</color>");
-        isDamageFrameActive = true;
-        hasDealtDamageThisAttack = false; // Reset this for the new attack.
-    }
-
-    /// <summary>
-    /// Called by an Animation Event to END the damage window.
-    /// </summary>
-    public void StopDamage()
-    {
-        Debug.Log("<color=grey>Damage Window CLOSED</color>");
-        isDamageFrameActive = false;
-    }
+  
     public void CameraShake()
     {
         CameraShakerHandler.Shake(CameraShakeParry);
     }
-    public void PrimeCustomKnockback(string values)
+    public void AttackEnemy(AttackData attackData)
     {
-        // --- THIS IS THE FIX FOR THE STRING FORMAT ---
-        // Unity's Animation Event field does not need extra quotes.
-        // Just type: 4.5,0.3
-        // We also use CultureInfo.InvariantCulture to ensure '.' is always the decimal separator.
-        string[] splitValues = values.Split(',');
-        if (splitValues.Length != 2) return;
+        // Find all enemies in the attack box.
+        Collider2D[] enemiesHit = Physics2D.OverlapBoxAll(attackPoint.position, attackAreaSize, 0f, enemyLayer);
 
-        if (float.TryParse(splitValues[0], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out float distance) &&
-            float.TryParse(splitValues[1], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out float duration))
+        foreach (Collider2D enemy in enemiesHit)
         {
-            isCustomKnockbackPrimed = true;
-            primedKnockbackDistance = distance;
-            primedKnockbackDuration = duration;
-            Debug.Log($"<color=lime>Player has PRIMED a custom knockback! D:{distance}, T:{duration}</color>");
+            KnightHealth enemyHealth = enemy.GetComponent<KnightHealth>();
+            if (enemyHealth != null)
+            {
+                // Call the new, all-in-one function on the knight, passing the data container.
+                enemyHealth.ApplyDamageAndKnockback(attackData);
+                break; // Hit one enemy and stop.
+            }
         }
     }
     private IEnumerator ComboResetRoutine()
@@ -293,10 +252,7 @@ public class ZreyAttacks : MonoBehaviour
             }
         }
     }
-    public void SetHitReactionType(string hitType)
-    {
-        currentHitReactionType = hitType;
-    }
+    
     private void OnDrawGizmosSelected()
     {
         if (attackPoint == null) return;

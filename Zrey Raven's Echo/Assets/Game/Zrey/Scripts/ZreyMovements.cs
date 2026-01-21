@@ -126,6 +126,7 @@ public class ZreyMovements : MonoBehaviour
     public bool justGrappleJumped = false;
     [HideInInspector] public bool isLungeActive = false;
     [HideInInspector] public Vector2 lungeVelocity;
+    public bool CanMove { get; set; } = true;
     void Awake()
     {
         if (rb == null) rb = GetComponent<Rigidbody2D>();
@@ -225,6 +226,10 @@ public class ZreyMovements : MonoBehaviour
 
     void FixedUpdate()
     {
+        if (!CanMove)
+        {
+            return;
+        }
         if (overrideMoveTimer > 0)
         {
             // If the override timer is active, let the grapple momentum ride.

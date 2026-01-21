@@ -5429,7 +5429,7 @@ AnimationClip:
         outWeight: 0.33333334
       - serializedVersion: 3
         time: 0.14285715
-        value: 0.7
+        value: 0.8
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -5459,7 +5459,7 @@ AnimationClip:
         outWeight: 0.33333334
       - serializedVersion: 3
         time: 0.14285715
-        value: 60
+        value: 55
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -7439,7 +7439,7 @@ AnimationClip:
         outWeight: 0.33333334
       - serializedVersion: 3
         time: 0.14285715
-        value: 0.7
+        value: 0.8
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -7469,7 +7469,7 @@ AnimationClip:
         outWeight: 0.33333334
       - serializedVersion: 3
         time: 0.14285715
-        value: 60
+        value: 55
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -27568,24 +27568,10 @@ AnimationClip:
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
-  - time: 0.028571429
-    functionName: SetHitReactionType
-    data: up
-    objectReferenceParameter: {fileID: 0}
-    floatParameter: 0
-    intParameter: 0
-    messageOptions: 0
-  - time: 0.057142857
-    functionName: StartDamage
-    data: 
-    objectReferenceParameter: {fileID: 0}
-    floatParameter: 0
-    intParameter: 0
-    messageOptions: 0
   - time: 0.114285715
-    functionName: SetEnemyCustomKnockback
-    data: '''3,0.25'''
-    objectReferenceParameter: {fileID: 0}
+    functionName: AttackEnemy
+    data: 
+    objectReferenceParameter: {fileID: 11400000, guid: 8b23c304b7b08d9418c283efaad9c547, type: 2}
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
@@ -27596,87 +27582,38 @@ AnimationClip:
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
-  - time: 0.17142858
-    functionName: StopDamage
-    data: 
-    objectReferenceParameter: {fileID: 0}
-    floatParameter: 0
-    intParameter: 0
-    messageOptions: 0
-  - time: 0.2
-    functionName: SetHitReactionType
-    data: down
-    objectReferenceParameter: {fileID: 0}
-    floatParameter: 0
-    intParameter: 0
-    messageOptions: 0
   - time: 0.22857143
-    functionName: StartDamage
+    functionName: AttackEnemy
     data: 
-    objectReferenceParameter: {fileID: 0}
-    floatParameter: 0
-    intParameter: 0
-    messageOptions: 0
-  - time: 0.31428573
-    functionName: StopDamage
-    data: 
-    objectReferenceParameter: {fileID: 0}
+    objectReferenceParameter: {fileID: 11400000, guid: e4e5cccdb53520548a91bb6a63155916, type: 2}
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
   - time: 0.34285715
     functionName: TelegraphAttack
     data: 
-    objectReferenceParameter: {fileID: 0}
-    floatParameter: 0
-    intParameter: 0
-    messageOptions: 0
-  - time: 0.34285715
-    functionName: SetHitReactionType
-    data: up
     objectReferenceParameter: {fileID: 0}
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
   - time: 0.37142858
-    functionName: StartDamage
+    functionName: AttackEnemy
     data: 
-    objectReferenceParameter: {fileID: 0}
+    objectReferenceParameter: {fileID: 11400000, guid: 8a2b07ed30574d64d855c6917b4bb7bb, type: 2}
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
-  - time: 0.45714286
-    functionName: StopDamage
+  - time: 0.42857143
+    functionName: AttackEnemy
     data: 
-    objectReferenceParameter: {fileID: 0}
+    objectReferenceParameter: {fileID: 11400000, guid: 8a2b07ed30574d64d855c6917b4bb7bb, type: 2}
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
-  - time: 0.4857143
-    functionName: SetHitReactionType
-    data: down
-    objectReferenceParameter: {fileID: 0}
-    floatParameter: 0
-    intParameter: 0
-    messageOptions: 0
-  - time: 0.51428574
-    functionName: StartDamage
+  - time: 0.54285717
+    functionName: AttackEnemy
     data: 
-    objectReferenceParameter: {fileID: 0}
-    floatParameter: 0
-    intParameter: 0
-    messageOptions: 0
-  - time: 0.6
-    functionName: StopDamage
-    data: 
-    objectReferenceParameter: {fileID: 0}
-    floatParameter: 0
-    intParameter: 0
-    messageOptions: 0
-  - time: 0.6571429
-    functionName: StartDamage
-    data: 
-    objectReferenceParameter: {fileID: 0}
+    objectReferenceParameter: {fileID: 11400000, guid: 8b23c304b7b08d9418c283efaad9c547, type: 2}
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
@@ -27687,37 +27624,16 @@ AnimationClip:
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
-  - time: 0.6857143
-    functionName: SetHitReactionType
-    data: up
-    objectReferenceParameter: {fileID: 0}
-    floatParameter: 0
-    intParameter: 0
-    messageOptions: 0
   - time: 0.71428573
-    functionName: StopDamage
+    functionName: AttackEnemy
     data: 
-    objectReferenceParameter: {fileID: 0}
+    objectReferenceParameter: {fileID: 11400000, guid: 8b23c304b7b08d9418c283efaad9c547, type: 2}
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
   - time: 0.8857143
     functionName: TelegraphAttack
     data: 
-    objectReferenceParameter: {fileID: 0}
-    floatParameter: 0
-    intParameter: 0
-    messageOptions: 0
-  - time: 0.94285715
-    functionName: PrimeCustomKnockback
-    data: 7,0.45
-    objectReferenceParameter: {fileID: 0}
-    floatParameter: 0
-    intParameter: 0
-    messageOptions: 0
-  - time: 0.9714286
-    functionName: SetHitReactionType
-    data: finalback
     objectReferenceParameter: {fileID: 0}
     floatParameter: 0
     intParameter: 0
@@ -27729,17 +27645,10 @@ AnimationClip:
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
-  - time: 1.0285715
-    functionName: StartDamage
+  - time: 1.0571429
+    functionName: AttackEnemy
     data: 
-    objectReferenceParameter: {fileID: 0}
-    floatParameter: 0
-    intParameter: 0
-    messageOptions: 0
-  - time: 1.2
-    functionName: StopDamage
-    data: 
-    objectReferenceParameter: {fileID: 0}
+    objectReferenceParameter: {fileID: 11400000, guid: bf8bc349fe872d84abc9244ff234dfb3, type: 2}
     floatParameter: 0
     intParameter: 0
     messageOptions: 0

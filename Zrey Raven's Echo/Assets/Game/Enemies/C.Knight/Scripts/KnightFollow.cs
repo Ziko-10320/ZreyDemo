@@ -1,142 +1,128 @@
 using UnityEngine;
-using System.Collections;
 
-// Ensure the enemy has the components we need to function.
 [RequireComponent(typeof(Animator))]
 [RequireComponent(typeof(Rigidbody2D))]
-[RequireComponent(typeof(KnightAttack))] // Make sure the attack script is also on this enemy
-
+[RequireComponent(typeof(KnightAttack))]
 public class KnightFollow : MonoBehaviour
 {
     [Header("AI References")]
-    [Tooltip("The target the knight will follow (the player).")]
     public Transform playerTarget;
     private Animator animator;
     private Rigidbody2D rb;
-    private KnightAttack knightAttack; // A reference to the attack script
+    private KnightAttack knightAttack;
+    private KnightHealth knightHealth;
 
     [Header("AI Behavior")]
-    [Tooltip("The distance at which the knight will start attacking the player.")]
     public float attackRange = 2f;
-    [Tooltip("The distance at which the knight will stop following the player.")]
     public float chaseRange = 10f;
-    [Tooltip("How much force to apply with each 'step' during the walk animation.")]
-    public float moveForce = 4f;
+    public float moveSpeed = 3f;
 
     // --- State Control ---
-    private bool isWalking = false;
+    private bool shouldBeWalking = false;
 
     void Awake()
     {
-        // Get all the components we need.
         animator = GetComponent<Animator>();
         rb = GetComponent<Rigidbody2D>();
         knightAttack = GetComponent<KnightAttack>();
+        knightHealth = GetComponent<KnightHealth>();
 
-        // Try to find the player automatically if no target is set.
-        // This looks for a GameObject with the "Player" tag.
         if (playerTarget == null)
         {
             GameObject playerObject = GameObject.FindGameObjectWithTag("Player");
-            if (playerObject != null)
-            {
-                playerTarget = playerObject.transform;
-            }
+            if (playerObject != null) playerTarget = playerObject.transform;
         }
     }
 
     void Update()
     {
-        // If we don't have a target, do nothing.
-        if (playerTarget == null) return;
+        if (playerTarget == null || (knightHealth != null && knightHealth.IsStunned()))
+        {
+            StopWalking(); // Tell the animator to stop.
+            return;
+        }
 
-        // Calculate the distance to the player.
         float distanceToPlayer = Vector2.Distance(transform.position, playerTarget.position);
 
-        // --- DECISION MAKING ---
-
-        // If the player is within attack range AND we are not already attacking...
         if (distanceToPlayer <= attackRange && !knightAttack.IsAttacking())
         {
-            // Stop walking and tell the KnightAttack script to start its combo.
             StopWalking();
             knightAttack.StartCombo();
         }
-        // Else, if the player is within chase range AND we are not attacking...
-        else if (distanceToPlayer <= chaseRange && !knightAttack.IsAttacking())
+        else if (distanceToPlayer > attackRange && distanceToPlayer <= chaseRange && !knightAttack.IsAttacking())
         {
-            // Start walking towards the player.
             StartWalking();
         }
-        // Otherwise (player is too far away or we are busy attacking)...
         else
         {
-            // Stop walking.
             StopWalking();
         }
 
-        // Always make the knight face the player.
         FacePlayer();
     }
 
+    // The FixedUpdate movement logic has been DELETED.
+
     private void StartWalking()
     {
-        // If we are already walking, do nothing.
-        if (isWalking) return;
-
-        isWalking = true;
-        // Tell the Animator to start the walking animation loop.
+        if (shouldBeWalking) return;
+        shouldBeWalking = true;
         animator.SetBool("isWalking", true);
     }
 
     private void StopWalking()
     {
-        // If we are already stopped, do nothing.
-        if (!isWalking) return;
-
-        isWalking = false;
-        // Tell the Animator to stop the walking animation loop.
+        if (!shouldBeWalking) return;
+        shouldBeWalking = false;
         animator.SetBool("isWalking", false);
+        // We also call StopMovement here as a failsafe to prevent sliding if the animation is interrupted.
+        StopMovement();
+    }
+
+    // --- NEW PUBLIC METHODS FOR ANIMATION EVENTS ---
+
+    /// <summary>
+    /// Called by an Animation Event at the START of the walk cycle.
+    /// Applies a continuous velocity.
+    /// </summary>
+    public void StartMovement()
+    {
+        // Determine direction towards the player.
+        float direction = Mathf.Sign(playerTarget.position.x - transform.position.x);
+        // Apply a consistent velocity.
+        rb.linearVelocity = new Vector2(direction * moveSpeed, rb.linearVelocity.y);
+        Debug.Log("<color=green>StartMovement Event Called</color>");
+    }
+
+    /// <summary>
+    /// Called by an Animation Event at the END of the walk cycle.
+    /// Stops all horizontal movement.
+    /// </summary>
+    public void StopMovement()
+    {
+        // CRITICAL: Set horizontal velocity to zero to prevent sliding.
+        rb.linearVelocity = new Vector2(0, rb.linearVelocity.y);
+        Debug.Log("<color=red>StopMovement Event Called</color>");
     }
 
     private void FacePlayer()
     {
-        // If the player is to the right of the knight and the knight is facing left...
-        if (playerTarget.position.x > transform.position.x && transform.localScale.x < 0)
+        if (playerTarget == null) return;
+        if (playerTarget.position.x > transform.position.x)
         {
-            // Flip the knight to face right.
-            transform.localScale = new Vector3((float)1.1237, (float)1.1237, (float)1.1237);
+            transform.localScale = new Vector3(Mathf.Abs(transform.localScale.x), transform.localScale.y, transform.localScale.z);
         }
-        // If the player is to the left of the knight and the knight is facing right...
-        else if (playerTarget.position.x < transform.position.x && transform.localScale.x > 0)
+        else
         {
-            // Flip the knight to face left.
-            transform.localScale = new Vector3((float)-1.1237, (float)1.1237, (float)1.1237);
+            transform.localScale = new Vector3(-Mathf.Abs(transform.localScale.x), transform.localScale.y, transform.localScale.z);
         }
     }
 
-    // --- ANIMATION EVENT METHOD ---
-    // This public method will be called from the walk animation itself.
-    public void TakeStep()
-    {
-        // If we are not supposed to be walking, don't take a step.
-        if (!isWalking) return;
-
-        // Determine direction and apply a force pulse to move the knight forward.
-        float direction = Mathf.Sign(transform.localScale.x);
-        rb.AddForce(new Vector2(direction * moveForce, 0f), ForceMode2D.Impulse);
-    }
-
-    // This is called by Unity to draw Gizmos in the Scene view for easy debugging.
     void OnDrawGizmosSelected()
     {
-        // Set the color for the Gizmos.
         Gizmos.color = Color.red;
-        // Draw a wire sphere representing the attack range.
         Gizmos.DrawWireSphere(transform.position, attackRange);
-
         Gizmos.color = Color.yellow;
-        // Draw a wire sphere representing the chase range.
         Gizmos.DrawWireSphere(transform.position, chaseRange);
     }
 }
