@@ -1,5 +1,4 @@
-// PASTE THIS ENTIRE SCRIPT INTO PlayerHealth.cs
-
+using FirstGearGames.SmoothCameraShaker;
 using System.Collections;
 using UnityEngine;
 using UnityEngine.UI; // Required for Slider
@@ -28,6 +27,30 @@ public class PlayerHealth : MonoBehaviour
     private readonly int getHitFinalBackTriggerHash = Animator.StringToHash("finalBack");
     private readonly int deathTriggerHash = Animator.StringToHash("death"); // For death animation
     private ZreyMovements playerMovements;
+    [Header("Defense & Parry")]
+    [Tooltip("How much damage is blocked (e.g., 0.75 means 75% of damage is ignored).")]
+    [Range(0f, 1f)] public float damageReduction = 0.75f; 
+    [Tooltip("How long the parry window stays open after starting a block (in seconds).")]
+    public float parryWindow = 0.15f;
+    [Tooltip("How long the player is stunned and cannot move after taking a normal hit.")]
+    public float hitStunDuration = 0.5f;
+    [Tooltip("The VFX to spawn on a successful block.")]
+    public GameObject blockVFX;
+    [Tooltip("The VFX to spawn on a successful parry.")]
+    public GameObject parryVFX;
+    [Tooltip("The point where block/parry VFX should spawn.")]
+    public Transform defenseVFXSpawnPoint;
+
+    // --- ADD NEW PRIVATE STATE VARIABLES ---
+    private bool isBlocking = false;
+    private bool isParryWindowActive = false;
+    private InputSystem_Actions inputActions; // For the block input
+    private Coroutine parryWindowCoroutine;
+    // --- ADD NEW ANIMATION HASHES ---
+    private readonly int isBlockingBoolHash = Animator.StringToHash("isBlocking");
+    private readonly int parry1TriggerHash = Animator.StringToHash("parry1");
+    private readonly int parry2TriggerHash = Animator.StringToHash("parry2");
+    public ShakeData CameraShakeParry;
     void Awake()
     {
         // --- THIS IS THE GUARANTEE ---
@@ -41,8 +64,23 @@ public class PlayerHealth : MonoBehaviour
         if (rb == null) Debug.LogError("FATAL ERROR: Rigidbody2D is missing on Player!", this);
         if (animator == null) Debug.LogError("FATAL ERROR: Animator is missing on Player!", this);
         if (playerAttacks == null) Debug.LogError("FATAL ERROR: ZreyAttacks script is missing on Player!", this);
+        inputActions = new InputSystem_Actions();
+    }
+    private void OnEnable()
+    {
+        inputActions.Enable();
+        // When the "Block" action is started (Right-click pressed)
+        inputActions.Player.Block.started += ctx => StartBlocking();
+        // When the "Block" action is canceled (Right-click released)
+        inputActions.Player.Block.canceled += ctx => StopBlocking();
     }
 
+    private void OnDisable()
+    {
+        inputActions.Disable();
+        inputActions.Player.Block.started -= ctx => StartBlocking();
+        inputActions.Player.Block.canceled -= ctx => StopBlocking();
+    }
     void Start()
     {
         currentHealth = maxHealth;
@@ -59,6 +97,82 @@ public class PlayerHealth : MonoBehaviour
     {
         // If already dead, do nothing.
         if (currentHealth <= 0) return;
+        if (isParryWindowActive)
+        {
+            Debug.Log("<color=lime>PARRY SUCCESSFUL!</color>");
+            CameraShakerHandler.Shake(CameraShakeParry); // Shake the camera
+
+            // Force the animator out of the block state to play the parry anim
+            isBlocking = false;
+            animator.SetBool(isBlockingBoolHash, false);
+
+            // Randomly choose between parry1 and parry2
+            int parryAnim = Random.Range(0, 2);
+            animator.SetTrigger(parryAnim == 0 ? parry1TriggerHash : parry2TriggerHash);
+
+            if (parryVFX != null) Instantiate(parryVFX, defenseVFXSpawnPoint.position, Quaternion.identity);
+
+            // Let the player move again after a parry
+            playerMovements.CanMove = true;
+
+            if (knockbackCoroutine != null) StopCoroutine(knockbackCoroutine);
+
+            // Create a temporary ImpactData for the parry knockback
+            ImpactData parryImpact = ScriptableObject.CreateInstance<ImpactData>();
+            parryImpact.knockbackDistance = impact.knockbackDistance * 0.1f; // Half distance
+            parryImpact.knockbackDuration = impact.knockbackDuration * 0.4f;
+            parryImpact.hitReactionType = "none"; // No hit animation
+
+            knockbackCoroutine = StartCoroutine(HitReactionRoutine(attacker, parryImpact));
+
+            KnightAttack enemyAttack = attacker.GetComponent<KnightAttack>();
+            KnightHealth enemyHealth = attacker.GetComponent<KnightHealth>();
+
+            if (enemyHealth != null)
+            {
+                // 2. ALWAYS apply the small knockback to the knight on ANY parry.
+                enemyHealth.ApplyParryKnockback(transform);
+
+                // 3. ASK if the attack was the final one.
+                if (enemyAttack != null && enemyAttack.IsFinalComboAttack())
+                {
+                    // 4. If YES, ALSO command the enemy to play the stunned animation.
+                    Debug.Log("<color=lime>PARRIED THE FINAL ATTACK! Stunning the knight!</color>");
+                    enemyHealth.GetParried(transform);
+                }
+                else
+                {
+                    Debug.Log("<color=yellow>Parried a normal attack. Knight is knocked back but not stunned.</color>");
+                }
+            }
+
+            return; // Stop all further execution. No damage, no knockback.
+        }
+
+        // --- 2. BLOCK LOGIC (from your old script) ---
+        if (isBlocking)
+        {
+            Debug.Log("<color=cyan>BLOCK SUCCESSFUL!</color>");
+            CameraShakerHandler.Shake(CameraShakeParry); // Shake on block too
+
+            int reducedDamage = Mathf.RoundToInt(damageAmount * (1f - damageReduction));
+            currentHealth -= reducedDamage;
+            if (healthSlider != null) healthSlider.value = currentHealth;
+
+            if (blockVFX != null) Instantiate(blockVFX, defenseVFXSpawnPoint.position, Quaternion.identity);
+            if (knockbackCoroutine != null) StopCoroutine(knockbackCoroutine);
+
+            // Create a temporary ImpactData for the parry knockback
+            ImpactData parryImpact = ScriptableObject.CreateInstance<ImpactData>();
+            parryImpact.knockbackDistance = impact.knockbackDistance * 0.5f; // Half distance
+            parryImpact.knockbackDuration = impact.knockbackDuration;
+            parryImpact.hitReactionType = "none"; // No hit animation
+            SpawnBlood();
+            knockbackCoroutine = StartCoroutine(HitReactionRoutine(attacker, parryImpact));
+           
+            if (currentHealth <= 0) Die(attacker);
+            return; // Stop all further execution.
+        }
 
         currentHealth -= damageAmount;
         if (healthSlider != null) healthSlider.value = currentHealth;
@@ -75,17 +189,44 @@ public class PlayerHealth : MonoBehaviour
             Die(attacker); // Pass the attacker for a final knockback
             return; // Stop everything else.
         }
-
-        // --- IF NOT DEAD, DO ALL THE REACTIONS ---
-
-        if (knockbackCoroutine != null) StopCoroutine(knockbackCoroutine);
-        knockbackCoroutine = StartCoroutine(KnockbackRoutine(attacker, impact.knockbackDistance, impact.knockbackDuration));
-
-        PlayHitReaction(impact.hitReactionType);
-        // 3. BLOOD VFX
         SpawnBlood();
+        // --- IF NOT DEAD, DO ALL THE REACTIONS ---
+        if (knockbackCoroutine != null) StopCoroutine(knockbackCoroutine);
+        knockbackCoroutine = StartCoroutine(HitReactionRoutine(attacker, impact));
+    
     }
+    private IEnumerator HitReactionRoutine(Transform attacker, ImpactData impact)
+    {
+        if (playerMovements != null) playerMovements.CanMove = false;
+        // 2. PLAY ANIMATION
+        PlayHitReaction(impact.hitReactionType);
+        
 
+        // 3. APPLY KNOCKBACK
+        Vector2 horizontalDirection = new Vector2(Mathf.Sign(transform.position.x - attacker.position.x), 0).normalized;
+        Vector2 knockbackVelocity = horizontalDirection * (impact.knockbackDistance / impact.knockbackDuration);
+
+        float timer = 0f;
+        while (timer < impact.knockbackDuration)
+        {
+            if (rb != null) rb.velocity = new Vector2(knockbackVelocity.x, rb.velocity.y);
+            timer += Time.deltaTime;
+            yield return null;
+        }
+
+        // 4. APPLY HIT STUN (wait for the remaining time)
+        float remainingStunTime = hitStunDuration - impact.knockbackDuration;
+        if (remainingStunTime > 0)
+        {
+            // Stop moving during the stun.
+            if (rb != null) rb.velocity = new Vector2(0, rb.velocity.y);
+            yield return new WaitForSeconds(remainingStunTime);
+        }
+
+        // 5. RELINQUISH CONTROL
+        playerMovements.CanMove = true;
+        knockbackCoroutine = null;
+    }
     private void PlayHitReaction(string hitType)
     {
         animator.ResetTrigger(getHitBackTriggerHash);
@@ -108,46 +249,36 @@ public class PlayerHealth : MonoBehaviour
         }
     }
 
-    private IEnumerator KnockbackRoutine(Transform attacker, float distance, float duration)
+
+    private void StartBlocking()
     {
-        if (playerMovements != null) playerMovements.CanMove = false;
+        if (playerAttacks.IsAttacking() || isBlocking) return;
 
-        // --- THIS IS THE X-AXIS FIX ---
-        // 1. Calculate the full direction first.
-        Vector2 knockbackDirection = (transform.position - attacker.position).normalized;
+        isBlocking = true;
+        animator.SetBool(isBlockingBoolHash, true);
+        playerMovements.CanMove = false;
+        if (rb != null) rb.velocity = new Vector2(0, rb.velocity.y);
 
-        // 2. Create a new direction vector that ONLY has the X component.
-        Vector2 horizontalDirection = new Vector2(knockbackDirection.x, 0).normalized;
-
-        // 3. Calculate the velocity using the purely horizontal direction.
-        Vector2 knockbackVelocity = horizontalDirection * (distance / duration);
-        // --- END OF X-AXIS FIX ---
-
-        Debug.Log($"<color=yellow>APPLYING KNOCKBACK! Velocity: {knockbackVelocity}</color>");
-
-        float timer = 0f;
-        while (timer < duration)
-        {
-            // We forcefully set the velocity every frame to override other scripts.
-            // We preserve the current vertical velocity to allow for normal gravity.
-            if (rb != null)
-            {
-                rb.linearVelocity = new Vector2(knockbackVelocity.x, rb.linearVelocity.y);
-            }
-
-            timer += Time.deltaTime;
-            yield return null;
-        }
-        if (playerMovements != null) playerMovements.CanMove = true;
-        // After the knockback, set the horizontal velocity to zero, but again, leave the Y velocity alone.
-        if (rb != null)
-        {
-            rb.linearVelocity = new Vector2(0, rb.linearVelocity.y);
-        }
-
-        knockbackCoroutine = null;
+        if (parryWindowCoroutine != null) StopCoroutine(parryWindowCoroutine);
+        parryWindowCoroutine = StartCoroutine(ParryWindowCoroutine());
     }
-    // --- THE NEW, BULLETPROOF DIE METHOD ---
+
+    private void StopBlocking()
+    {
+        if (!isBlocking) return;
+
+        isBlocking = false;
+        animator.SetBool(isBlockingBoolHash, false);
+        playerMovements.CanMove = true;
+        isParryWindowActive = false;
+    }
+
+    private IEnumerator ParryWindowCoroutine()
+    {
+        isParryWindowActive = true;
+        yield return new WaitForSeconds(parryWindow);
+        isParryWindowActive = false;
+    }
     private void Die(Transform killer)
     {
         Debug.Log("<color=black>PLAYER IS DEAD.</color>");

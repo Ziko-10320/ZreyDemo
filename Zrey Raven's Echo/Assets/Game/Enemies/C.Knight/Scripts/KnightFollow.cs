@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 
 [RequireComponent(typeof(Animator))]
@@ -19,6 +20,15 @@ public class KnightFollow : MonoBehaviour
 
     // --- State Control ---
     private bool shouldBeWalking = false;
+    private bool isBlocking = false;
+    private bool isPreparingCounter = false; // <<< --- ADD THIS NEW LINE
+    private float timeSinceLastBlock = 0f;
+    private readonly int counterAttackTriggerHash = Animator.StringToHash("counterAttack");
+    private bool isActionLocked = false;
+    [Header("Counter Attack Logic")]
+    [Tooltip("How long to wait after the warning before lunging.")]
+    [SerializeField] private float counterWarningDelay = 0.6f; 
+    private bool isLocked = false;
 
     void Awake()
     {
@@ -36,6 +46,10 @@ public class KnightFollow : MonoBehaviour
 
     void Update()
     {
+        if (isLocked)
+        {
+            return; // STOP EVERYTHING.
+        }
         if (playerTarget == null || (knightHealth != null && knightHealth.IsStunned()))
         {
             StopWalking(); // Tell the animator to stop.
@@ -117,7 +131,65 @@ public class KnightFollow : MonoBehaviour
             transform.localScale = new Vector3(-Mathf.Abs(transform.localScale.x), transform.localScale.y, transform.localScale.z);
         }
     }
+    public void ForceCounterAttack()
+    {
+        // We don't check anything. We just start the sequence.
+        StartCoroutine(CounterAttackSequence());
+    }
 
+    /// <summary>
+    /// The sequence for the counter-attack, taken from your proven logic.
+    /// </summary>
+    private IEnumerator CounterAttackSequence()
+    {
+        // 1. LOCK THE BRAIN. The Update() loop is now disabled.
+        isLocked = true;
+        Debug.Log("<color=red>AI BRAIN LOCKED. Starting Counter Sequence.</color>");
+
+        // Optional: Play a warning glint/sound here.
+
+        // 2. Wait for the warning delay.
+        yield return new WaitForSeconds(counterWarningDelay);
+
+        // 3. Now, command the attack script to start the combo.
+        // Because the brain is locked, nothing can interrupt this.
+        if (knightAttack != null)
+        {
+            Debug.Log("Warning finished. Firing counter combo!");
+            knightAttack.StartCounterCombo();
+        }
+
+        // 4. Wait for the attack to finish (adjust this time to your combo length).
+        yield return new WaitForSeconds(1.5f);
+
+
+        if (knightHealth != null)
+        {
+            knightHealth.ResetBlockCounter();
+        }
+        // 5. UNLOCK THE BRAIN. The Update() loop can now run again.
+        isLocked = false;
+        Debug.Log("<color=green>Counter sequence complete. AI BRAIN UNLOCKED.</color>");
+    }
+    public void OnPlayerAttackTelegraphed(Transform player)
+    {
+        // --- THIS IS THE FIX ---
+        // If the knight is preparing a counter OR is already mid-combo,
+        // he is UNBREAKABLE. Ignore everything.
+        if (isPreparingCounter || knightAttack.IsAttacking())
+        {
+            Debug.Log("<color=red>KNIGHT IS UNBREAKABLE! Ignoring telegraph.</color>");
+            return;
+        }
+        // --- END OF FIX ---
+
+        // If not unbreakable, proceed with the normal block logic.
+        isBlocking = true;
+        timeSinceLastBlock = 0f;
+        FacePlayer();
+    }
+ 
+    
     void OnDrawGizmosSelected()
     {
         Gizmos.color = Color.red;

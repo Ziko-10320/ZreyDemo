@@ -55,7 +55,10 @@ public class ZreyAttacks : MonoBehaviour
     [Tooltip("The integer value of the Player's layer.")]
     [SerializeField] private int playerLayerValue = 6; // Example: Change this to your actual Player layer number"
     [Tooltip("The integer value of the Enemy's layer.")]
-    [SerializeField] private int enemyLayerValue = 7; 
+    [SerializeField] private int enemyLayerValue = 7;
+    [SerializeField] private float attackTimeout = 2f; 
+
+    private Coroutine attackWatchdogCoroutine;
     void Awake()
     {
         // Automatically get components if they aren't assigned.
@@ -112,6 +115,8 @@ public class ZreyAttacks : MonoBehaviour
         isCustomKnockbackPrimed = false;
         isAttacking = true;
         Physics2D.IgnoreLayerCollision(playerLayerValue, enemyLayerValue, false);
+        if (attackWatchdogCoroutine != null) StopCoroutine(attackWatchdogCoroutine);
+        attackWatchdogCoroutine = StartCoroutine(AttackWatchdogRoutine());
         // --- THIS IS THE NEW RANDOM LOGIC ---
         // 1. Generate a random number: 0 or 1.
         int variant = Random.Range(0, 2); // Min is inclusive, Max is exclusive. So this gives 0 or 1.
@@ -133,9 +138,25 @@ public class ZreyAttacks : MonoBehaviour
         comboStep = 0;
     }
 
-   
+    private IEnumerator AttackWatchdogRoutine()
+    {
+        // Wait for the specified timeout duration.
+        yield return new WaitForSeconds(attackTimeout);
 
- 
+        // If we get here, it means EndAttack() was never called cleanly.
+        // We check if isAttacking is STILL true.
+        if (isAttacking)
+        {
+            Debug.LogWarning($"<color=orange>PLAYER ATTACK TIMEOUT! Forcibly resetting state.</color>");
+            // Force the attack to end.
+            EndAttack();
+        }
+    }
+
+    public bool IsAttacking()
+    {
+        return isAttacking;
+    }
     public void PerformLunge()
     {
         if (playerMovement == null) return;
@@ -160,6 +181,11 @@ public class ZreyAttacks : MonoBehaviour
     }
     public void EndAttack()
     {
+        if (attackWatchdogCoroutine != null)
+        {
+            StopCoroutine(attackWatchdogCoroutine);
+            attackWatchdogCoroutine = null;
+        }
         isAttacking = false;
         Physics2D.IgnoreLayerCollision(playerLayerValue, enemyLayerValue, true);
         // --- THIS IS THE NEW, CRITICAL PART ---
@@ -170,7 +196,14 @@ public class ZreyAttacks : MonoBehaviour
         comboResetCoroutine = StartCoroutine(ComboResetRoutine());
         Debug.Log($"Attack {comboStep} finished. Combo reset timer started.");
     }
-  
+    public void StopLunge()
+    {
+        if (lungeCoroutine != null)
+        {
+            StopCoroutine(lungeCoroutine);
+            Debug.Log("<color=orange>Player lunge interrupted by taking damage!</color>");
+        }
+    }
     public void CameraShake()
     {
         CameraShakerHandler.Shake(CameraShakeParry);
