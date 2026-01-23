@@ -127,6 +127,8 @@ public class ZreyMovements : MonoBehaviour
     [HideInInspector] public bool isLungeActive = false;
     [HideInInspector] public Vector2 lungeVelocity;
     public bool CanMove { get; set; } = true;
+
+    [SerializeField] private ZreyTrail playerTrail; 
     void Awake()
     {
         if (rb == null) rb = GetComponent<Rigidbody2D>();
@@ -134,6 +136,7 @@ public class ZreyMovements : MonoBehaviour
         inputActions = new InputSystem_Actions();
         airDashesRemaining = maxAirDashes;
         originalGravityScale = rb.gravityScale;
+        if (playerTrail == null) playerTrail = GetComponent<ZreyTrail>();
     }
 
     private void OnEnable()
@@ -328,6 +331,10 @@ public class ZreyMovements : MonoBehaviour
 
         if (isGrounded)
         {
+            if (playerTrail != null)
+            {
+                playerTrail.StartTrail();
+            }
             // --- GROUND DASH ---
             // If on the ground, perform the physics-based dash.
             if (!isDashing)
@@ -337,6 +344,10 @@ public class ZreyMovements : MonoBehaviour
         }
         else
         {
+            if (playerTrail != null)
+            {
+                playerTrail.StartTrail();
+            }
             // --- AIR DASH ---
             // If in the air, perform the teleport dash, if any are left.
             if (airDashesRemaining > 0)
