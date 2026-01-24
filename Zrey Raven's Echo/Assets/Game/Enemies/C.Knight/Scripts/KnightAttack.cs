@@ -213,12 +213,12 @@ public class KnightAttack : MonoBehaviour
         float timer = 0f;
         while (timer < duration)
         {
-            if (rb != null) rb.velocity = new Vector2(knockbackVelocity.x, rb.velocity.y);
+            if (rb != null) rb.linearVelocity = new Vector2(knockbackVelocity.x, rb.linearVelocity.y);
             timer += Time.deltaTime;
             yield return null;
         }
 
-        if (rb != null) rb.velocity = new Vector2(0, rb.velocity.y);
+        if (rb != null) rb.linearVelocity = new Vector2(0, rb.linearVelocity.y);
         knockbackCoroutine = null;
     }
     public void StartCounterCombo()

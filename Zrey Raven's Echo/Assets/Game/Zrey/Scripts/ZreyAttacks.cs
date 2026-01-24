@@ -59,6 +59,16 @@ public class ZreyAttacks : MonoBehaviour
     [SerializeField] private float attackTimeout = 2f; 
 
     private Coroutine attackWatchdogCoroutine;
+    [Header("Down Slam Settings")]
+    [Tooltip("The downward force applied to the player during the down slam.")]
+    [SerializeField] private float downSlamForce = 20f; 
+    [Tooltip("The Scriptable Object defining the damage and impact of the down slam.")]
+    [SerializeField] private AttackData downSlamAttackData; 
+
+    private bool isDownSlamming = false;
+
+    private readonly int downSlamLoopTriggerHash = Animator.StringToHash("downSlamLoop");
+    private readonly int downSlamImpactTriggerHash = Animator.StringToHash("downSlamImpact");
     void Awake()
     {
         // Automatically get components if they aren't assigned.
@@ -83,29 +93,91 @@ public class ZreyAttacks : MonoBehaviour
         inputActions.Player.Attack.performed -= HandleAttack;
     }
 
-
-
-    private void HandleAttack(InputAction.CallbackContext context)
+    void FixedUpdate()
     {
-        if (isAttacking || !playerMovement.IsGrounded()) return;
-
-        // --- THIS IS THE FIX ---
-        // If a reset timer is running, stop it. We are continuing the combo.
-        if (comboResetCoroutine != null)
+        // If we are in the down slam state...
+        if (isDownSlamming)
         {
-            StopCoroutine(comboResetCoroutine);
-        }
-        // --- END OF FIX ---
-
-        comboStep++;
-        PerformAttack(comboStep);
-
-        if (comboStep >= 4)
-        {
-            comboStep = 0;
+            // ...constantly apply a downward force to the Rigidbody.
+            rb.linearVelocity = new Vector2(0, -downSlamForce);
         }
     }
 
+    private void HandleAttack(InputAction.CallbackContext context)
+    {
+        if (isAttacking || isDownSlamming)
+        {
+            return;
+        }
+
+        // 2. If we are not attacking, THEN decide what to do.
+        if (!playerMovement.IsGrounded())
+        {
+            // We are in the air and not busy, so perform a down slam.
+            PerformDownSlam();
+        }
+        else // We are on the ground
+        {
+            // Perform a normal ground combo attack.
+            if (comboResetCoroutine != null) StopCoroutine(comboResetCoroutine);
+            comboStep++;
+            PerformAttack(comboStep);
+            if (comboStep >= 4) comboStep = 0;
+        }
+    }
+    private void PerformDownSlam()
+    {
+        Debug.Log("<color=magenta>DOWN SLAM STARTED!</color>");
+        isDownSlamming = true;
+        isAttacking = true;
+        // Tell the movement script to stop normal control.
+        playerMovement.CanMove = false;
+        animator.ResetTrigger(downSlamImpactTriggerHash);
+        // Play the looping "falling" part of the slam.
+        animator.SetTrigger(downSlamLoopTriggerHash);
+       
+    }
+
+    /// <summary>
+    /// Called by ZreyMovements when the player lands during a down slam.
+    /// </summary>
+    public void EndDownSlam()
+    {
+        if (!playerMovement.IsGrounded())
+        {
+            Debug.LogError("EndDownSlam was called, but player is NOT grounded! Aborting impact.");
+            return;
+        }
+        if (!isDownSlamming) return; // Failsafe
+
+        Debug.Log("<color=magenta>DOWN SLAM IMPACT!</color>");
+        isDownSlamming = false;
+
+        // Play the impact animation.
+        animator.SetTrigger(downSlamImpactTriggerHash);
+
+        // Deal damage in an area around the player.
+        // We can reuse the AttackEnemy method for this.
+        if (downSlamAttackData != null)
+        {
+            AttackEnemy(downSlamAttackData);
+        }
+
+        // Give control back to the player after a short delay.
+        StartCoroutine(DownSlamRecoveryRoutine());
+    }
+
+    private IEnumerator DownSlamRecoveryRoutine()
+    {
+        // Wait for the impact animation to have some weight.
+        yield return new WaitForSeconds(0.15f); // Adjust this delay as needed.
+       
+        playerMovement.CanMove = true;
+    }
+    public bool IsDownSlamming()
+    {
+        return isDownSlamming;
+    }
     /// <summary>
     /// Triggers the correct attack animation based on the combo step.
     /// </summary>

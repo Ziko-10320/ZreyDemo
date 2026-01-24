@@ -128,7 +128,8 @@ public class ZreyMovements : MonoBehaviour
     [HideInInspector] public Vector2 lungeVelocity;
     public bool CanMove { get; set; } = true;
 
-    [SerializeField] private ZreyTrail playerTrail; 
+    [SerializeField] private ZreyTrail playerTrail;
+    private ZreyAttacks playerAttacks;
     void Awake()
     {
         if (rb == null) rb = GetComponent<Rigidbody2D>();
@@ -137,6 +138,7 @@ public class ZreyMovements : MonoBehaviour
         airDashesRemaining = maxAirDashes;
         originalGravityScale = rb.gravityScale;
         if (playerTrail == null) playerTrail = GetComponent<ZreyTrail>();
+        if (playerAttacks == null) playerAttacks = GetComponent<ZreyAttacks>();
     }
 
     private void OnEnable()
@@ -218,6 +220,11 @@ public class ZreyMovements : MonoBehaviour
         HandleAirborneAnimation();
         if (!wasGrounded && isGrounded)
         {
+            if (playerAttacks != null && playerAttacks.IsDownSlamming())
+            {
+                // If yes, tell it to end the slam and create the impact.
+                playerAttacks.EndDownSlam();
+            }
             // ...reset their air dashes.
             airDashesRemaining = maxAirDashes;
             justWallJumped = false;
@@ -355,6 +362,12 @@ public class ZreyMovements : MonoBehaviour
                 PerformAirDash();
             }
         }
+    }
+    public bool IsDashing()
+    {
+        // The 'isDashing' variable already controls the dash state in your script.
+        // We just need to expose its value to other scripts.
+        return isDashing;
     }
     private void PerformAirDash()
     {

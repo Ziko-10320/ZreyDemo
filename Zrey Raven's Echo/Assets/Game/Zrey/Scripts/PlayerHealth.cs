@@ -209,7 +209,7 @@ public class PlayerHealth : MonoBehaviour
         float timer = 0f;
         while (timer < impact.knockbackDuration)
         {
-            if (rb != null) rb.velocity = new Vector2(knockbackVelocity.x, rb.velocity.y);
+            if (rb != null) rb.linearVelocity = new Vector2(knockbackVelocity.x, rb.linearVelocity.y);
             timer += Time.deltaTime;
             yield return null;
         }
@@ -219,7 +219,7 @@ public class PlayerHealth : MonoBehaviour
         if (remainingStunTime > 0)
         {
             // Stop moving during the stun.
-            if (rb != null) rb.velocity = new Vector2(0, rb.velocity.y);
+            if (rb != null) rb.linearVelocity = new Vector2(0, rb.linearVelocity.y);
             yield return new WaitForSeconds(remainingStunTime);
         }
 
@@ -257,7 +257,7 @@ public class PlayerHealth : MonoBehaviour
         isBlocking = true;
         animator.SetBool(isBlockingBoolHash, true);
         playerMovements.CanMove = false;
-        if (rb != null) rb.velocity = new Vector2(0, rb.velocity.y);
+        if (rb != null) rb.linearVelocity = new Vector2(0, rb.linearVelocity.y);
 
         if (parryWindowCoroutine != null) StopCoroutine(parryWindowCoroutine);
         parryWindowCoroutine = StartCoroutine(ParryWindowCoroutine());
