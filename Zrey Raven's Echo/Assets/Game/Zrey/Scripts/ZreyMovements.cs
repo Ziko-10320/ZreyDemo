@@ -31,7 +31,8 @@ public class ZreyMovements : MonoBehaviour
     [Header("Components")]
     [SerializeField] private Rigidbody2D rb;
     [SerializeField] private Animator animator;
-
+    [SerializeField] private Animator rootZreyAnimator;
+    [SerializeField] private LayerMask dashCollisionLayer;
     private InputSystem_Actions inputActions;
     private Vector2 moveInput;
 
@@ -50,6 +51,7 @@ public class ZreyMovements : MonoBehaviour
     private readonly int jumpTriggerHash = Animator.StringToHash("jump");
     private readonly int isFallingHash = Animator.StringToHash("isFalling");
     private readonly int dashTriggerHash = Animator.StringToHash("dash");
+    private readonly int rootDashTriggerHash = Animator.StringToHash("rootDash");
     [Header("Physics Dash Settings")]
     [Tooltip("The overall distance the player will dash.")]
     [SerializeField] private float dashDistance = 5f;
@@ -295,22 +297,57 @@ public class ZreyMovements : MonoBehaviour
     public void EnableDash()
     {
         isDashing = true;
-        dashTimer = 0f; // Reset the dash timer
-
-        // Store the direction the player is facing when the dash starts.
-        dashDirection = isFacingRight ? 1f : -1f;
-
     }
 
     /// <summary>
-    /// Ends the physics-based dash. Called by an animation event.
+    /// Called by an animation event at the END of the dash.
     /// </summary>
     public void DisableDash()
     {
         isDashing = false;
-
     }
-    // --- INPUT HANDLERS AND HELPERS (Mostly unchanged) ---
+
+    private void OnAnimatorMove()
+    {
+        // If the root animator doesn't exist or we are not dashing, do nothing.
+        if (rootZreyAnimator == null || !isDashing)
+        {
+            return;
+        }
+
+        // --- THIS IS THE RAYCAST CORRECTION FIX ---
+
+        // 1. GET THE MOVEMENT. Get the amount of movement the root motion wants to apply in this frame.
+        Vector3 rootMotionDelta = rootZreyAnimator.deltaPosition;
+
+        // 2. FIRE THE RAYCAST.
+        // We cast from our current position, in the direction of the movement, for the exact distance of the movement.
+        RaycastHit2D hit = Physics2D.Raycast(transform.position, rootMotionDelta.normalized, rootMotionDelta.magnitude, dashCollisionLayer);
+
+        // 3. MAKE THE DECISION.
+        if (hit.collider != null)
+        {
+            // --- WE HIT A WALL ---
+            // Move the player to the exact point of impact, plus a small offset so we don't get stuck inside the wall.
+            Vector3 impactPosition = hit.point + (hit.normal * 0.1f);
+            transform.position = new Vector3(impactPosition.x, impactPosition.y, transform.position.z);
+
+            // Optional: Play a "thud" sound or spark effect here.
+            Debug.Log("<color=red>ROOT MOTION BLOCKED BY WALL!</color>");
+
+            // Since we hit a wall, we should probably end the dash state.
+            isDashing = false;
+            animator.Play("Idle"); // Force the visual animator back to idle.
+            rootZreyAnimator.Play("Idle"); // Force the root animator back to idle.
+        }
+        else
+        {
+            // --- THE PATH IS CLEAR ---
+            // Apply the root motion movement directly to the transform.
+            transform.position += rootMotionDelta;
+        }
+        // --- END OF FIX ---
+    }
     private void HandleJump(InputAction.CallbackContext context)
     {
         // Check for wall slide condition directly here. This is more reliable.
@@ -347,6 +384,10 @@ public class ZreyMovements : MonoBehaviour
             if (!isDashing)
             {
                 animator.SetTrigger(dashTriggerHash);
+            }
+            if (rootZreyAnimator != null)
+            {
+                rootZreyAnimator.SetTrigger(rootDashTriggerHash);
             }
         }
         else
