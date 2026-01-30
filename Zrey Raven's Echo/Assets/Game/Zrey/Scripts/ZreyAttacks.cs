@@ -318,27 +318,51 @@ public class ZreyAttacks : MonoBehaviour
         if (lungeCoroutine != null)
         {
             StopCoroutine(lungeCoroutine);
-            Debug.Log("<color=orange>Lunge interrupted by parry!</color>");
         }
 
-        // --- THIS IS THE FIX ---
-        // We are now using the knockbackDistance and knockbackDuration parameters
-        // that were PASSED INTO this function from the KnightHealth script.
-        Vector2 knockbackDirection = (transform.position - attacker.position).normalized;
-        Vector2 knockbackVelocity = knockbackDirection * (knockbackDistance / knockbackDuration);
+        // --- THIS IS THE DIAGNOSTIC FIX ---
+
+        Debug.Log($"<color=yellow>--- COMMAND RECEIVED ---</color>\n" +
+                  $"EXECUTOR: ZreyAttacks.PlayerKnockbackRoutine\n" +
+                  $"SOURCE (Attacker): {attacker.name} at position {attacker.position}\n" +
+                  $"PLAYER: {this.transform.name} at position {this.transform.position}");
+
+        // 1. Calculate the direction vector.
+        Vector2 directionVector = (transform.position - attacker.position).normalized;
+        Debug.Log($"Step 1: Raw Direction Vector = {directionVector}");
+
+        // 2. Isolate the horizontal component.
+        Vector2 horizontalKnockbackDirection = new Vector2(directionVector.x, 0).normalized;
+        Debug.Log($"Step 2: Horizontal Direction = {horizontalKnockbackDirection}");
+
+        // 3. Calculate the final velocity.
+        Vector2 knockbackVelocity = horizontalKnockbackDirection * (knockbackDistance / knockbackDuration);
+        Debug.Log($"Step 3: Final Knockback Velocity = {knockbackVelocity}");
+
         // --- END OF FIX ---
+
+        if (horizontalKnockbackDirection == Vector2.zero)
+        {
+            Debug.LogError("Knockback direction was zero! Aborting knockback.", this);
+            yield break;
+        }
 
         float timer = 0f;
         while (timer < knockbackDuration)
         {
-            rb.linearVelocity = knockbackVelocity;
+            // We will add a log here too, to see if the velocity is being applied.
+            if (rb != null)
+            {
+                rb.linearVelocity = knockbackVelocity;
+                Debug.Log($"Frame {Time.frameCount}: Applying velocity {rb.linearVelocity}");
+            }
             timer += Time.deltaTime;
             yield return null;
         }
 
-        if (rb.linearVelocity == knockbackVelocity)
+        if (rb != null && rb.linearVelocity.x == knockbackVelocity.x)
         {
-            rb.linearVelocity = Vector2.zero;
+            rb.linearVelocity = new Vector2(0, rb.linearVelocity.y);
         }
     }
     public void TelegraphAttack()
@@ -349,15 +373,25 @@ public class ZreyAttacks : MonoBehaviour
 
         foreach (Collider2D enemy in nearbyEnemies)
         {
-            KnightHealth enemyHealth = enemy.GetComponent<KnightHealth>();
-            if (enemyHealth != null)
+            KnightAI enemyAI = enemy.GetComponent<KnightAI>();
+            if (enemyAI != null)
             {
-                // Tell the enemy that we are starting an attack.
-                enemyHealth.OnPlayerAttackTelegraphed(transform);
+                // Tell the AI BRAIN that we are starting an attack.
+                enemyAI.OnPlayerAttackTelegraphed(this.transform);
             }
         }
     }
-    
+    public void CancelAttack()
+    {
+        // If we are not attacking, there's nothing to cancel.
+        if (!isAttacking) return;
+
+        Debug.LogWarning("<color=orange>ATTACK CANCELLED by a higher priority action (e.g., Block)!</color>");
+
+        // We call the same EndAttack() method that our animation events use.
+        // This ensures the state is cleaned up correctly (isAttacking = false, collisions reset, etc.).
+        EndAttack();
+    }
     private void OnDrawGizmosSelected()
     {
         if (attackPoint == null) return;

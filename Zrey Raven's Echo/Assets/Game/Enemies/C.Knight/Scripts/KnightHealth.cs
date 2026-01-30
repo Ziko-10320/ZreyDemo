@@ -43,6 +43,10 @@ public class KnightHealth : MonoBehaviour
     // --- Components & Animation Hashes ---
     private Animator animator; // We need the animator now.
     private readonly int blockTriggerHash = Animator.StringToHash("block");
+    private readonly int block2TriggerHash = Animator.StringToHash("block2");
+    private readonly int block3TriggerHash = Animator.StringToHash("block3");
+    private int lastBlockAnimationIndex = -1; // -1 means no block has been played yet.
+    private int consecutivePlayCount = 0;
     public ShakeData CameraShakeParry;
     private bool isBeingKnockedBack = false;
 
@@ -61,8 +65,9 @@ public class KnightHealth : MonoBehaviour
     [SerializeField] private float guardRecoveryDelay = 4f; 
 
     [Tooltip("How fast the knight's guard meter recovers per second.")]
-    [SerializeField] private float guardRecoveryRate = 15f; 
+    [SerializeField] private float guardRecoveryRate = 15f;
 
+    [SerializeField] private float guardDamageOnParried = 50f; 
    
     private float currentGuard;
     private bool isGuardBroken = false;
@@ -79,6 +84,12 @@ public class KnightHealth : MonoBehaviour
 
     [Tooltip("The specific point on the knight's body where blood VFX will spawn.")]
     [SerializeField] private Transform bloodSpawnPoint;
+
+    [Tooltip("The prefab for the persistent wound effect (decal, etc.).")]
+    [SerializeField] private GameObject woundEffectPrefab;  
+
+    [Tooltip("The specific point on the knight's body where the wound should appear.")]
+    [SerializeField] private Transform woundSpawnPoint; 
     private readonly int fallTriggerHash = Animator.StringToHash("fall");
     private readonly int finalBackTriggerHash = Animator.StringToHash("finalBack");
 
@@ -91,15 +102,35 @@ public class KnightHealth : MonoBehaviour
     private ZreyAttacks zreyAttacks;
     public Transform playerTarget;
 
-    [Header("Counter Attack Settings")]
-    [Tooltip("The minimum number of blocks before a counter attack is possible.")]
-    [SerializeField] private int minBlocksToCounter = 5; 
-    [Tooltip("The maximum number of blocks before a counter attack is possible.")]
-    [SerializeField] private int maxBlocksToCounter = 10; 
-    private int blocksSinceLastCounter = 0;
-    private int blocksNeededForNextCounter = 0;
+   
     private KnightFollow followAI;
-    private bool isCountering = false;
+   
+    [Header("Flash Damage Effect")]
+    [Tooltip("The SkinnedMeshRenderer of the knight's 3D model.")]
+    [SerializeField] private SkinnedMeshRenderer knightMeshRenderer; 
+
+    [Tooltip("The special material that has the flash effect shader.")]
+    [SerializeField] private Material flashMaterial; 
+
+    [Tooltip("How fast the flash effect happens (e.g., 0.2 seconds).")]
+    [SerializeField] private float flashDuration = 0.2f; 
+
+    private Material originalMaterial;
+    private Coroutine flashCoroutine;
+    private KnightAI knightAI;
+    [Header("Counter Attack Settings")]
+
+    [SerializeField] private int minBlocksToCounter = 3; 
+    [Tooltip("The maximum number of blocks before a counter attack is possible.")]
+    [SerializeField] private int maxBlocksToCounter = 6; 
+
+// 3. ADD BACK the variable to store the current random threshold.
+private int blocksNeededForNextCounter = 0;
+
+    private int blocksSinceLastCounter = 0;
+    [HideInInspector] public bool isUnbreakable = false;
+    private KnightAttack knightAttack;
+
     void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
@@ -115,20 +146,36 @@ public class KnightHealth : MonoBehaviour
                 playerTarget = playerObject.transform;
             }
         }
-        SetNewCounterThreshold();
+      
         // --- THIS IS THE FIX. THIS IS THE MISSING PIECE. ---
         // If we have a player target, get their attack script so we can talk to it.
         if (playerTarget != null)
         {
            zreyAttacks = playerTarget.GetComponent<ZreyAttacks>();
         }
+        if (knightMeshRenderer == null)
+        {
+            // Try to find it automatically if not assigned.
+            knightMeshRenderer = GetComponentInChildren<SkinnedMeshRenderer>();
+        }
+
+        if (knightMeshRenderer != null)
+        {
+            originalMaterial = knightMeshRenderer.material;
+        }
+        else
+        {
+            Debug.LogError("FATAL ERROR: Knight Mesh Renderer is not assigned and could not be found!", this);
+        }
+        knightAI = GetComponent<KnightAI>();
+        knightAttack = GetComponent<KnightAttack>();
+        if (knightAI == null)
+        {
+            Debug.LogError("FATAL ERROR: KnightAI script is missing! The knight will have no brain.", this);
+        }
+        SetNewCounterThreshold();
     }
-    private void SetNewCounterThreshold()
-    {
-        blocksNeededForNextCounter = Random.Range(minBlocksToCounter, maxBlocksToCounter + 1);
-        Debug.Log($"<color=purple>Knight will counter after {blocksNeededForNextCounter} blocks.</color>");
-        blocksSinceLastCounter = 0; // Reset the counter
-    }
+
     void Update()
     {
         // --- THIS IS THE GUARD RECOVERY LOGIC ---
@@ -203,7 +250,6 @@ public class KnightHealth : MonoBehaviour
             currentGuard -= guardDamagePerBlock; // SUBTRACT damage from the guard meter.
             Debug.Log("Current Guard: " + currentGuard + " / " + maxGuard);
 
-            // Check if the guard meter has been DEPLETED.
            
 
             // Apply knockback to the PLAYER.
@@ -213,15 +259,11 @@ public class KnightHealth : MonoBehaviour
                 playerAttacks.ApplyKnockback(transform, playerKnockbackOnBlock, playerKnockbackDurationOnBlock);
             }
             blocksSinceLastCounter++;
-            Debug.Log($"Blocks since last counter: {blocksSinceLastCounter}/{blocksNeededForNextCounter}");
-
-            if (blocksSinceLastCounter >= blocksNeededForNextCounter && !isCountering)
+            if (blocksSinceLastCounter >= blocksNeededForNextCounter)
             {
-                isCountering = true;
-                if (followAI != null)
+                if (knightAI != null)
                 {
-                    Debug.Log("<color=red>HEALTH SCRIPT: Commanding AI to ForceCounterAttack!</color>");
-                    followAI.ForceCounterAttack();
+                    knightAI.TriggerCounterAttack();
                 }
             }
             if (currentGuard <= 0)
@@ -279,22 +321,46 @@ public class KnightHealth : MonoBehaviour
     private IEnumerator KnockbackRoutine(Transform attacker, float distance, float duration)
     {
         isBeingKnockedBack = true;
-        // Determine the direction of the knockback.
-        Vector2 knockbackDirection = (transform.position - attacker.position).normalized;
 
-        // Calculate the knockback velocity.
+        // --- THIS IS THE FINAL, FUCKING, GUARANTEED FIX ---
+
+        // 1. Failsafe: If we don't have a reference to our own AI brain, we can't get direction.
+        if (followAI != null)
+        {
+            followAI.FacePlayer();
+        }
+        else
+        {
+            Debug.LogError("KnightFollow script (followAI) is not assigned! Knockback will fail.", this);
+            isBeingKnockedBack = false;
+            yield break;
+        }
+
+        // 2. THE REAL LOGIC: ASK OUR OWN BRAIN which way we are facing.
+        //    The knockback direction is the OPPOSITE of our facing direction.
+        //    If we are facing right (+1), knockback is left (-1).
+        //    If we are facing left (-1), knockback is right (+1).
+        float knockbackDirectionX = followAI.IsFacingRight() ? -1f : 1f;
+
+        // 3. Create the final, clean knockback direction vector.
+        Vector2 knockbackDirection = new Vector2(knockbackDirectionX, 0);
+
+        // --- END OF FIX ---
+
+        Debug.Log($"<color=lime>--- KNIGHT KNOCKBACK ---</color>\n" +
+                  $"Knight is facing right: {followAI.IsFacingRight()}\n" +
+                  $"Final Knockback Direction: {knockbackDirection.x}");
+
         Vector2 knockbackVelocity = knockbackDirection * (distance / duration);
 
         float timer = 0f;
         while (timer < duration)
         {
-            // Apply the velocity directly. This overrides other movement.
             rb.linearVelocity = knockbackVelocity;
             timer += Time.deltaTime;
-            yield return null; // Wait for the next frame.
+            yield return null;
         }
 
-        // After the duration, reset the velocity to prevent sliding.
         rb.linearVelocity = Vector2.zero;
         knockbackCoroutine = null;
         isBeingKnockedBack = false;
@@ -307,26 +373,127 @@ public class KnightHealth : MonoBehaviour
         // For now, we'll just destroy the GameObject.
         Destroy(gameObject, 0.1f);
     }
-    public void OnPlayerAttackTelegraphed(Transform player)
+    public void TakePostureDamageOnParry()
     {
-        if (isGuardBroken)
+        // Failsafe: If the guard is already broken, we can't break it again.
+        if (isGuardBroken) return;
+
+        Debug.Log($"<color=orange>KNIGHT'S POSTURE DAMAGED BY PARRY! Taking {guardDamageOnParried} guard damage.</color>");
+
+        // Subtract the damage from the guard meter.
+        currentGuard -= guardDamageOnParried;
+        timeSinceLastBlock = 0f; // A parry is a form of block, so reset the recovery timer.
+
+        // Check if this parry was the one that broke the guard.
+        if (currentGuard <= 0)
         {
-            return;
+            // GUARD BREAK!
+            // We don't need to call GetParried() here, because the GuardBrokenSequence
+            // already plays a stun animation.
+            StartCoroutine(GuardBrokenSequence());
         }
-        // --- THIS IS THE FIX ---
-        // 1. If we are already being hit or the player is too far, do nothing.
-        if (isBeingKnockedBack || Vector2.Distance(transform.position, player.position) > blockRange)
+    }
+    private void TriggerRandomBlock()
+    {
+        int nextBlockIndex;
+
+        // --- THE "SMART RANDOMNESS" LOGIC ---
+
+        // 1. Check if the last animation has been played twice in a row.
+        if (consecutivePlayCount >= 1)
+        {
+            // A. If YES, we MUST pick a DIFFERENT animation.
+            Debug.Log("<color=orange>Forcing a different block animation!</color>");
+            do
+            {
+                nextBlockIndex = Random.Range(1, 4); // Pick a number from 1, 2, or 3.
+            } while (nextBlockIndex == lastBlockAnimationIndex); // Keep picking until it's a new one.
+        }
+        else
+        {
+            // B. If NO, we can pick any animation randomly.
+            nextBlockIndex = Random.Range(1, 4); // Pick a number from 1, 2, or 3.
+        }
+
+        // --- UPDATE THE STATE FOR THE NEXT BLOCK ---
+
+        // 2. Check if the new pick is the same as the last one.
+        if (nextBlockIndex == lastBlockAnimationIndex)
+        {
+            // If it's the same, increment the consecutive counter.
+            consecutivePlayCount++;
+        }
+        else
+        {
+            // If it's different, reset the counter to 1.
+            consecutivePlayCount = 1;
+        }
+
+        // 3. Remember this new animation as the "last one" for the next time.
+        lastBlockAnimationIndex = nextBlockIndex;
+
+        Debug.Log($"Playing Block Animation #{nextBlockIndex}. Consecutive Count: {consecutivePlayCount}");
+
+        // --- TRIGGER THE CHOSEN ANIMATION ---
+
+        // 4. Use a switch to fire the correct trigger based on our smart decision.
+        switch (nextBlockIndex)
+        {
+            case 1:
+                animator.ResetTrigger(blockTriggerHash);
+                animator.SetTrigger(blockTriggerHash);
+                break;
+            case 2:
+                animator.ResetTrigger(block2TriggerHash);
+                animator.SetTrigger(block2TriggerHash);
+                break;
+            case 3:
+                animator.ResetTrigger(block3TriggerHash);
+                animator.SetTrigger(block3TriggerHash);
+                break;
+        }
+    }
+
+    public void PerformBlock(Transform player)
+    {
+        // This is the same logic that used to be in OnPlayerAttackTelegraphed.
+        // We still check for stun and range as a final safety measure.
+        if (isGuardBroken || isBeingKnockedBack || Vector2.Distance(transform.position, player.position) > blockRange)
         {
             return;
         }
 
-        // 2. Reset the trigger before setting it again. This is a robust way
-        //    to ensure the Animator is ready to receive the signal.
-        animator.ResetTrigger(blockTriggerHash);
-        animator.SetTrigger(blockTriggerHash);
-        // --- END OF FIX ---
+        // Because the brain has given the command, we execute the block.
+        TriggerRandomBlock();
+    }
+    private IEnumerator FlashDamageEffect()
+    {
+        // 1. SWAP to the flash material.
+        knightMeshRenderer.material = flashMaterial;
 
-        Debug.Log("Knight is attempting to block NOW.");
+        // 2. ANIMATE the flash amount from 0 -> 1.
+        float elapsedTime = 0f;
+        while (elapsedTime < flashDuration / 2)
+        {
+            float flashAmount = Mathf.Lerp(0f, 1f, elapsedTime / (flashDuration / 2));
+            flashMaterial.SetFloat("_FlashAmount", flashAmount);
+            elapsedTime += Time.deltaTime;
+            yield return null;
+        }
+
+        // 3. ANIMATE the flash amount from 1 -> 0.
+        elapsedTime = 0f;
+        while (elapsedTime < flashDuration / 2)
+        {
+            float flashAmount = Mathf.Lerp(1f, 0f, elapsedTime / (flashDuration / 2));
+            flashMaterial.SetFloat("_FlashAmount", flashAmount);
+            elapsedTime += Time.deltaTime;
+            yield return null;
+        }
+
+        // 4. RESTORE the original material.
+        knightMeshRenderer.material = originalMaterial;
+        flashCoroutine = null; // Mark the coroutine as finished.
     }
     private IEnumerator GuardBrokenSequence()
     {
@@ -392,6 +559,23 @@ public class KnightHealth : MonoBehaviour
                 break;
         }
     }
+    private void SpawnWoundEffect()
+    {
+        // --- Safety Checks ---
+        if (woundEffectPrefab == null || woundSpawnPoint == null)
+        {
+            // If either the prefab or the spawn point is missing, do nothing.
+            // This prevents errors if you don't want to use the effect.
+            return;
+        }
+
+        // --- The Spawn Logic ---
+        // Instantiate the wound prefab at the spawn point's position and rotation.
+        // We make it a child of the spawn point so that if the knight moves, the wound moves with him.
+        Instantiate(woundEffectPrefab, woundSpawnPoint.position, woundSpawnPoint.rotation, woundSpawnPoint);
+
+        Debug.Log("<color=purple>Wound Effect Spawned!</color>");
+    }
     private IEnumerator BlockCooldownRoutine()
     {
         canBlock = false;
@@ -415,6 +599,18 @@ public class KnightHealth : MonoBehaviour
     }
     public void ApplyDamageAndKnockback(AttackData attackData)
     {
+        if (knightAttack != null && knightAttack.IsAttacking())
+        {
+            // 2. If YES, do NOTHING. The knight is invincible during his combo.
+            Debug.Log("<color=red>KNIGHT IS INVINCIBLE (mid-combo)! Damage ignored.</color>");
+            // Optionally, you can spawn a "clank" effect here to show the attack was ineffective.
+            return;
+        }
+        if (isUnbreakable)
+        {
+            Debug.Log("<color=red>KNIGHT IS INVINCIBLE! Damage ignored.</color>");
+            return;
+        }
         // --- 1. READ THE DATA from the Scriptable Object ---
         int damage = attackData.damage;
         string hitType = attackData.hitType;
@@ -433,6 +629,9 @@ public class KnightHealth : MonoBehaviour
             PlayHitReaction(hitType);
             currentHealth -= damage;
             SpawnBloodVFX();
+            SpawnWoundEffect();
+            if (flashCoroutine != null) StopCoroutine(flashCoroutine);
+            flashCoroutine = StartCoroutine(FlashDamageEffect());
             knockbackCoroutine = StartCoroutine(KnockbackRoutine(attacker, distance, duration));
             if (currentHealth <= 0) Die();
             return;
@@ -440,29 +639,35 @@ public class KnightHealth : MonoBehaviour
 
         if (isBlocking)
         {
-            zreyAttacks.ApplyKnockback(transform, playerKnockbackOnBlock, playerKnockbackDurationOnBlock);
+            ZreyAttacks playerAttacks = attacker.GetComponent<ZreyAttacks>();
+            if (playerAttacks != null)
+            {
+                Debug.Log($"<color=red>--- COMMAND SENT ---</color>\n" +
+                    $"COMMANDER: KnightHealth (isBlocking)\n" +
+                    $"TARGET: ZreyAttacks.ApplyKnockback\n" +
+                    $"SOURCE (Attacker): {this.transform.name} at position {this.transform.position}\n" +
+                    $"Knockback Force: {playerKnockbackOnBlock}, Duration: {playerKnockbackDurationOnBlock}");
+                // --- END OF FIX ---
+                // 2. We call ApplyKnockback and pass THIS knight's transform as the source of the knockback.
+                playerAttacks.ApplyKnockback(this.transform, playerKnockbackOnBlock, playerKnockbackDurationOnBlock);
+            }
             if (knockbackCoroutine != null) StopCoroutine(knockbackCoroutine);
             knockbackCoroutine = StartCoroutine(KnockbackRoutine(attacker, blockRecoilDistance, blockRecoilDuration));
             timeSinceLastBlock = 0f;
-            blocksSinceLastCounter++;
-            Debug.Log($"<color=yellow>COUNTER IS NOW AT: {blocksSinceLastCounter} / {blocksNeededForNextCounter}</color>");
-
-            // 2. CHECK THE COUNTER HERE.
-            if (blocksSinceLastCounter >= blocksNeededForNextCounter && !isCountering)
-            {
-                isCountering = true;
-                if (followAI != null)
-                {
-                    Debug.Log("<color=red>HEALTH SCRIPT: Commanding AI to ForceCounterAttack!</color>");
-                    followAI.ForceCounterAttack();
-                }
-            }
+           
             if (blockSparksPrefab != null && blockSparksPoint != null)
             {
                 Instantiate(blockSparksPrefab, blockSparksPoint.position, blockSparksPoint.rotation);
             }
             CameraShakerHandler.Shake(CameraShakeParry);
-
+            blocksSinceLastCounter++;
+            if (blocksSinceLastCounter >= blocksNeededForNextCounter)
+            {
+                if (knightAI != null)
+                {
+                    knightAI.TriggerCounterAttack();
+                }
+            }
             currentGuard -= guardDamagePerBlock;
             if (currentGuard <= 0) StartCoroutine(GuardBrokenSequence());
             return;
@@ -471,8 +676,30 @@ public class KnightHealth : MonoBehaviour
         PlayHitReaction(hitType);
         currentHealth -= damage;
         SpawnBloodVFX();
+        SpawnWoundEffect();
+        if (flashCoroutine != null) StopCoroutine(flashCoroutine);
+        flashCoroutine = StartCoroutine(FlashDamageEffect());
         knockbackCoroutine = StartCoroutine(KnockbackRoutine(attacker, distance, duration));
         if (currentHealth <= 0) Die();
+    }
+    private void SetNewCounterThreshold()
+    {
+        // 1. Pick a new random number between the min and max values.
+        blocksNeededForNextCounter = Random.Range(minBlocksToCounter, maxBlocksToCounter + 1);
+
+        // 2. Reset the current count to zero.
+        blocksSinceLastCounter = 0;
+
+        Debug.Log($"<color=purple>Knight AI: New counter threshold set. Will counter after {blocksNeededForNextCounter} blocks.</color>");
+    }
+
+    /// <summary>
+    /// This is the PUBLIC command that the KnightAI brain will call after a counter-attack is finished.
+    /// </summary>
+    public void ResetBlockCounter()
+    {
+        Debug.Log("<color=purple>Knight AI: Brain has commanded a counter reset.</color>");
+        SetNewCounterThreshold();
     }
     public void GetParried(Transform playerTransform)
     {
@@ -491,12 +718,7 @@ public class KnightHealth : MonoBehaviour
         if (knockbackCoroutine != null) StopCoroutine(knockbackCoroutine);
         knockbackCoroutine = StartCoroutine(KnockbackRoutine(playerTransform, parryKnockbackDistance, parryKnockbackDuration));
     }
-    public void ResetBlockCounter()
-    {
-        Debug.Log("<color=purple>Block counter has been reset by the AI brain.</color>");
-        SetNewCounterThreshold();
-        isCountering = false;
-    }
+ 
     public bool IsStunned()
     {
         // The knight is considered "stunned" if their guard is broken OR if they are being knocked back by a hit.

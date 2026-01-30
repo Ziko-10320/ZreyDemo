@@ -18,17 +18,18 @@ public class KnightFollow : MonoBehaviour
     public float chaseRange = 10f;
     public float moveSpeed = 3f;
 
+    [Header("Flipping Logic")]
+    [SerializeField] private Vector3 rightFacingRotation = new Vector3(0, 90, 0); 
+    [SerializeField] private Vector3 leftFacingRotation = new Vector3(0, -90, 0); 
+    [SerializeField] private Vector3 rightFacingScale = new Vector3(1, 1, 1); 
+    [SerializeField] private Vector3 leftFacingScale = new Vector3(1, 1, 1);
+    [SerializeField] private GameObject[] objectsToFlip;
+    private bool isFacingRight = true;
+
     // --- State Control ---
     private bool shouldBeWalking = false;
     private bool isBlocking = false;
-    private bool isPreparingCounter = false; // <<< --- ADD THIS NEW LINE
-    private float timeSinceLastBlock = 0f;
-    private readonly int counterAttackTriggerHash = Animator.StringToHash("counterAttack");
-    private bool isActionLocked = false;
-    [Header("Counter Attack Logic")]
-    [Tooltip("How long to wait after the warning before lunging.")]
-    [SerializeField] private float counterWarningDelay = 0.6f; 
-    private bool isLocked = false;
+   
 
     void Awake()
     {
@@ -43,14 +44,28 @@ public class KnightFollow : MonoBehaviour
             if (playerObject != null) playerTarget = playerObject.transform;
         }
     }
-
+    void Start()
+    {
+        // At the start of the game, check the initial direction.
+        if (playerTarget != null && playerTarget.position.x < transform.position.x)
+        {
+            // If player starts on the left, immediately set to the LEFT-facing transform.
+            transform.localRotation = Quaternion.Euler(leftFacingRotation);
+            transform.localScale = leftFacingScale;
+            isFacingRight = false;
+        }
+        else
+        {
+            // Otherwise, ensure we are in the default RIGHT-facing transform.
+            transform.localRotation = Quaternion.Euler(rightFacingRotation);
+            transform.localScale = rightFacingScale;
+            isFacingRight = true;
+        }
+    }
     void Update()
     {
-        if (isLocked)
-        {
-            return; // STOP EVERYTHING.
-        }
-        if (playerTarget == null || (knightHealth != null && knightHealth.IsStunned()))
+        
+        if (playerTarget == null || (knightHealth != null && knightHealth.IsStunned()) || knightAttack != null && knightAttack.IsAttacking())
         {
             StopWalking(); // Tell the animator to stop.
             return;
@@ -119,64 +134,61 @@ public class KnightFollow : MonoBehaviour
         Debug.Log("<color=red>StopMovement Event Called</color>");
     }
 
-    private void FacePlayer()
+    public void FacePlayer()
     {
-        if (playerTarget == null) return;
-        if (playerTarget.position.x > transform.position.x)
+      
+
+        // If the player is to the right AND we are currently facing left...
+        if (playerTarget.position.x > transform.position.x && !isFacingRight)
         {
-            transform.localScale = new Vector3(Mathf.Abs(transform.localScale.x), transform.localScale.y, transform.localScale.z);
+            // ...flip to face right INSTANTLY.
+            Flip();
+        }
+        // If the player is to the left AND we are currently facing right...
+        else if (playerTarget.position.x < transform.position.x && isFacingRight)
+        {
+            // ...flip to face left INSTANTLY.
+            Flip();
+        }
+    }
+    private void Flip()
+    {
+        if (isFacingRight)
+        {
+            // --- Flip to face LEFT ---
+            transform.localRotation = Quaternion.Euler(leftFacingRotation);
+            transform.localScale = leftFacingScale;
+            isFacingRight = false;
         }
         else
         {
-            transform.localScale = new Vector3(-Mathf.Abs(transform.localScale.x), transform.localScale.y, transform.localScale.z);
+            // --- Flip to face RIGHT ---
+            transform.localRotation = Quaternion.Euler(rightFacingRotation);
+            transform.localScale = rightFacingScale;
+            isFacingRight = true;
         }
     }
-    public void ForceCounterAttack()
+    private void FlipChildObjects(float newXScale)
     {
-        // We don't check anything. We just start the sequence.
-        StartCoroutine(CounterAttackSequence());
+        if (objectsToFlip == null || objectsToFlip.Length == 0) return;
+        foreach (GameObject obj in objectsToFlip)
+        {
+            obj.transform.localScale = new Vector3(newXScale, obj.transform.localScale.y, obj.transform.localScale.z);
+        }
     }
-
-    /// <summary>
-    /// The sequence for the counter-attack, taken from your proven logic.
-    /// </summary>
-    private IEnumerator CounterAttackSequence()
+    public bool IsFacingRight()
     {
-        // 1. LOCK THE BRAIN. The Update() loop is now disabled.
-        isLocked = true;
-        Debug.Log("<color=red>AI BRAIN LOCKED. Starting Counter Sequence.</color>");
-
-        // Optional: Play a warning glint/sound here.
-
-        // 2. Wait for the warning delay.
-        yield return new WaitForSeconds(counterWarningDelay);
-
-        // 3. Now, command the attack script to start the combo.
-        // Because the brain is locked, nothing can interrupt this.
-        if (knightAttack != null)
-        {
-            Debug.Log("Warning finished. Firing counter combo!");
-            knightAttack.StartCounterCombo();
-        }
-
-        // 4. Wait for the attack to finish (adjust this time to your combo length).
-        yield return new WaitForSeconds(1.5f);
-
-
-        if (knightHealth != null)
-        {
-            knightHealth.ResetBlockCounter();
-        }
-        // 5. UNLOCK THE BRAIN. The Update() loop can now run again.
-        isLocked = false;
-        Debug.Log("<color=green>Counter sequence complete. AI BRAIN UNLOCKED.</color>");
+        // We can read this directly from the 'isFacingRight' boolean
+        // that the Flip() method already controls.
+        return isFacingRight;
     }
+ 
     public void OnPlayerAttackTelegraphed(Transform player)
     {
         // --- THIS IS THE FIX ---
         // If the knight is preparing a counter OR is already mid-combo,
         // he is UNBREAKABLE. Ignore everything.
-        if (isPreparingCounter || knightAttack.IsAttacking())
+        if ( knightAttack.IsAttacking())
         {
             Debug.Log("<color=red>KNIGHT IS UNBREAKABLE! Ignoring telegraph.</color>");
             return;
@@ -185,7 +197,7 @@ public class KnightFollow : MonoBehaviour
 
         // If not unbreakable, proceed with the normal block logic.
         isBlocking = true;
-        timeSinceLastBlock = 0f;
+       
         FacePlayer();
     }
  

@@ -12,4 +12,9 @@ public class ImpactData : ScriptableObject
     public float knockbackDistance = 4f;
     [Tooltip("How long the player knockback from this hit lasts.")]
     public float knockbackDuration = 0.2f;
+    [Header("Directional Knockback (Optional)")]
+    [Tooltip("The upward force to apply (for launchers). Overrides horizontal knockback if > 0.")]
+    public float upwardForce = 0f;
+    [Tooltip("The downward force to apply (for slams). Overrides horizontal knockback if > 0.")]
+    public float downwardForce = 0f;
 }

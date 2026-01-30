@@ -123,7 +123,7 @@ public class PlayerHealth : MonoBehaviour
             parryImpact.knockbackDuration = impact.knockbackDuration * 0.4f;
             parryImpact.hitReactionType = "none"; // No hit animation
 
-            knockbackCoroutine = StartCoroutine(HitReactionRoutine(attacker, parryImpact));
+            knockbackCoroutine = StartCoroutine(ParryKnockbackRoutine(attacker, parryImpact));
 
             KnightAttack enemyAttack = attacker.GetComponent<KnightAttack>();
             KnightHealth enemyHealth = attacker.GetComponent<KnightHealth>();
@@ -132,7 +132,7 @@ public class PlayerHealth : MonoBehaviour
             {
                 // 2. ALWAYS apply the small knockback to the knight on ANY parry.
                 enemyHealth.ApplyParryKnockback(transform);
-
+                enemyHealth.TakePostureDamageOnParry();
                 // 3. ASK if the attack was the final one.
                 if (enemyAttack != null && enemyAttack.IsFinalComboAttack())
                 {
@@ -195,17 +195,13 @@ public class PlayerHealth : MonoBehaviour
         knockbackCoroutine = StartCoroutine(HitReactionRoutine(attacker, impact));
     
     }
-    private IEnumerator HitReactionRoutine(Transform attacker, ImpactData impact)
+    private IEnumerator ParryKnockbackRoutine(Transform attacker, ImpactData impact)
     {
-        if (playerMovements != null) playerMovements.CanMove = false;
-        // 2. PLAY ANIMATION
-        PlayHitReaction(impact.hitReactionType);
-        
+        // Calculate the small knockback velocity.
+        float horizontalDirection = Mathf.Sign(transform.position.x - attacker.position.x);
+        Vector2 knockbackVelocity = new Vector2(horizontalDirection * (impact.knockbackDistance / impact.knockbackDuration), 0);
 
-        // 3. APPLY KNOCKBACK
-        Vector2 horizontalDirection = new Vector2(Mathf.Sign(transform.position.x - attacker.position.x), 0).normalized;
-        Vector2 knockbackVelocity = horizontalDirection * (impact.knockbackDistance / impact.knockbackDuration);
-
+        // Apply the knockback over its short duration.
         float timer = 0f;
         while (timer < impact.knockbackDuration)
         {
@@ -214,6 +210,68 @@ public class PlayerHealth : MonoBehaviour
             yield return null;
         }
 
+        // After the knockback, reset horizontal velocity but allow the player to keep moving.
+        if (rb != null) rb.linearVelocity = new Vector2(0, rb.linearVelocity.y);
+    }
+    private IEnumerator HitReactionRoutine(Transform attacker, ImpactData impact)
+    {
+        if (playerMovements != null) playerMovements.CanMove = false;
+        // 2. PLAY ANIMATION
+        PlayHitReaction(impact.hitReactionType);
+
+        float horizontalVelocity = 0f;
+        if (impact.knockbackDistance > 0 && impact.knockbackDuration > 0)
+        {
+            horizontalVelocity = (impact.knockbackDistance / impact.knockbackDuration) * Mathf.Sign(transform.position.x - attacker.position.x);
+        }
+
+        // B. Calculate the VERTICAL velocity component.
+        //    This is the upward or downward "explosion." It will be 0 if the forces are 0.
+        float verticalVelocity = 0f;
+        if (impact.upwardForce > 0)
+        {
+            verticalVelocity = impact.upwardForce;
+        }
+        else if (impact.downwardForce > 0)
+        {
+            verticalVelocity = -impact.downwardForce;
+        }
+
+        Debug.Log($"<color=lime>--- UNIFIED KNOCKBACK CALCULATION ---</color>\n" +
+                  $"Horizontal Velocity Component: {horizontalVelocity}\n" +
+                  $"Vertical Velocity Component: {verticalVelocity}");
+
+        // --- 3. THE UNIFIED PHYSICS APPLICATION ---
+
+        // We use a timer that runs for the LONGER of the two durations: the hit stun or the knockback.
+        float maxDuration = Mathf.Max(hitStunDuration, impact.knockbackDuration);
+        float timer = 0f;
+
+        // Apply the initial vertical impulse ONCE.
+        if (rb != null && verticalVelocity != 0)
+        {
+            rb.linearVelocity = new Vector2(rb.linearVelocity.x, verticalVelocity);
+        }
+
+        // Now, we loop. In every frame of the loop, we apply the SUSTAINED horizontal force.
+        while (timer < maxDuration)
+        {
+            if (rb != null)
+            {
+                // We continuously set the horizontal velocity, but we let the physics engine
+                // handle the vertical velocity (gravity will take over after the initial impulse).
+                rb.linearVelocity = new Vector2(horizontalVelocity, rb.linearVelocity.y);
+            }
+
+            // We stop applying the horizontal force after its duration is over.
+            if (timer >= impact.knockbackDuration)
+            {
+                horizontalVelocity = 0;
+            }
+
+            timer += Time.deltaTime;
+            yield return null;
+        }
         // 4. APPLY HIT STUN (wait for the remaining time)
         float remainingStunTime = hitStunDuration - impact.knockbackDuration;
         if (remainingStunTime > 0)
@@ -252,8 +310,11 @@ public class PlayerHealth : MonoBehaviour
 
     private void StartBlocking()
     {
-        if (playerAttacks.IsAttacking() || isBlocking) return;
-
+        if ( isBlocking) return;
+        if (playerAttacks != null)
+        {
+            playerAttacks.CancelAttack(); // We will create this new method.
+        }
         isBlocking = true;
         animator.SetBool(isBlockingBoolHash, true);
         playerMovements.CanMove = false;

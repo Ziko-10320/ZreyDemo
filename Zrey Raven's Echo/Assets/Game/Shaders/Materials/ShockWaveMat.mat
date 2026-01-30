@@ -32,7 +32,7 @@ Material:
   m_CustomRenderQueue: -1
   stringTagMap: {}
   disabledShaderPasses: []
-  m_LockedProperties: 
+  m_LockedProperties: _RingSpawnPosition
   m_SavedProperties:
     serializedVersion: 3
     m_TexEnvs:
@@ -54,13 +54,33 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
+    - _AlphaClip: 0
+    - _AlphaToMask: 0
     - _Angleoffset: 4
+    - _Blend: 0
+    - _BlendModePreserveSpecular: 1
+    - _CastShadows: 1
+    - _Cull: 0
     - _DistortionStrength: 0
+    - _DstBlend: 0
+    - _DstBlendAlpha: 0
+    - _OffsetNormal: 0.5
+    - _QueueControl: -1
+    - _QueueOffset: 0
+    - _ReceiveShadows: 1
     - _ShockWveStrength: -0.1
     - _Size: 0.09
     - _SpeedDistortion: 1
+    - _SrcBlend: 1
+    - _SrcBlendAlpha: 1
+    - _StrenghtNormal: 8
+    - _Surface: 1
     - _WaveDistanceFromCenter: -0.1
+    - _WorkflowMode: 1
     - _XSizeRatio: 1.777
+    - _ZTest: 4
+    - _ZWrite: 0
+    - _ZWriteControl: 0
     m_Colors:
     - White: {r: 1, g: 1, b: 1, a: 1}
     - _RingSpawnPosition: {r: 0.5, g: 0.5, b: 0, a: 0}

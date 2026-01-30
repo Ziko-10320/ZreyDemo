@@ -46,12 +46,22 @@ public class KnightAttack : MonoBehaviour
     private int currentComboStep = 0;
     [SerializeField] private float comboTimeout = 4f;
     private KnightFollow followAI;
+    [Header("AI Integration")]
+    [Tooltip("The total duration of the main attack combo.")]
+    [SerializeField] private float comboDuration = 2.5f; 
+    [Tooltip("The total duration of the counter-attack animation.")]
+    [SerializeField] private float counterAttackDuration = 1.5f;
+    private KnightHealth health;
+    private readonly int counterAttackTriggerHash = Animator.StringToHash("counterAttack");
+    private readonly int specialAttackTriggerHash = Animator.StringToHash("specialAttack");
+
     void Awake() 
     {
         animator = GetComponent<Animator>();
         rb = GetComponent<Rigidbody2D>();
         Physics2D.IgnoreLayerCollision(playerLayerValue, enemyLayerValue, true);
         followAI = GetComponent<KnightFollow>();
+        health = GetComponent<KnightHealth>();
     }
 
     void Update()
@@ -81,6 +91,7 @@ public class KnightAttack : MonoBehaviour
     {
         Debug.Log("<color=orange>Knight Damage Window OPEN</color>");
         Physics2D.IgnoreLayerCollision(playerLayerValue, enemyLayerValue, false);
+        if (health != null) health.isUnbreakable = true;
         isDamageWindowOpen = true;
     }
 
@@ -91,8 +102,10 @@ public class KnightAttack : MonoBehaviour
     {
         Debug.Log("<color=grey>Knight Damage Window CLOSED</color>");
         Physics2D.IgnoreLayerCollision(playerLayerValue, enemyLayerValue, true);
+        if (health != null) health.isUnbreakable = false;
         isDamageWindowOpen = false;
     }
+
     public bool IsAttacking()
     {
         return isAttacking;
@@ -159,6 +172,13 @@ public class KnightAttack : MonoBehaviour
         currentComboStep = 0;
         lastComboTime = Time.time; // **NEW:** Record the time this combo finished.
     }
+    public void FinishCounterAttack()
+    {
+        // This method ONLY sets the isAttacking flag to false.
+        // It does NOT touch the combo timer or any other combo logic.
+        isAttacking = false;
+        Debug.Log("<color=cyan>KnightAttack: Counter-Attack Animation Finished. Resetting isAttacking flag.</color>");
+    }
     public bool IsFinalComboAttack()
     {
         return currentComboStep == 3;
@@ -175,7 +195,9 @@ public class KnightAttack : MonoBehaviour
     // --- ADD THIS NEW COROUTINE ---
     private IEnumerator LungeCoroutine()
     {
-        float direction = Mathf.Sign(transform.localScale.x);
+        
+        if (followAI == null) yield break;
+        float direction = followAI.IsFacingRight() ? 1f : -1f;
         rb.linearVelocity = new Vector2(direction * lungeForce, 0f); // Use velocity for smooth movement
 
         // Wait for the duration of the lunge.
@@ -221,22 +243,32 @@ public class KnightAttack : MonoBehaviour
         if (rb != null) rb.linearVelocity = new Vector2(0, rb.linearVelocity.y);
         knockbackCoroutine = null;
     }
-    public void StartCounterCombo()
+
+    public void StartCounterAttack()
     {
-        // We only check if we are already attacking. We IGNORE the cooldown timer.
-        if (isAttacking) return;
+        // --- THIS IS THE FIX ---
+        // 1. COMMAND the health script to become unbreakable.
+        if (health != null) health.isUnbreakable = true;
+        // --- END OF FIX ---
 
-        // The rest of the logic is the same as StartCombo.
         isAttacking = true;
-        currentComboStep = 1;
-        animator.SetTrigger("attack1");
-
-        if (comboWatchdogCoroutine != null) StopCoroutine(comboWatchdogCoroutine);
-        comboWatchdogCoroutine = StartCoroutine(ComboWatchdogRoutine());
-
-       
+        animator.SetTrigger(counterAttackTriggerHash);
     }
-   
+
+    public void StartSpecialAttack()
+    {
+        // We don't need many checks here because the AI brain has already decided.
+        // We can cancel a normal combo if needed.
+        if (isAttacking)
+        {
+            FinishCombo(); // Cleanly end the normal combo state.
+        }
+
+        isAttacking = true; // The knight is now busy with the special attack.
+        animator.SetTrigger(specialAttackTriggerHash);
+    }
+    public float GetComboDuration() { return comboDuration; }
+    public float GetCounterAttackDuration() { return counterAttackDuration; }
     private void OnDrawGizmosSelected()
     {
         if (attackPoint == null) return;

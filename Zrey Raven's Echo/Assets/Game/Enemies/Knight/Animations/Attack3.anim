@@ -3744,22 +3744,6 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: {x: 1.5130621, y: 1.5130621, z: 1.5130622}
-        inSlope: {x: 0, y: 0, z: 0}
-        outSlope: {x: 0, y: 0, z: 0}
-        tangentMode: 0
-        weightedMode: 0
-        inWeight: {x: 0.33333334, y: 0.33333334, z: 0.33333334}
-        outWeight: {x: 0.33333334, y: 0.33333334, z: 0.33333334}
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    path: 'FinisherMove/ColliderMove/mixamorig:Hips/Cape '
-  - curve:
-      serializedVersion: 2
-      m_Curve:
-      - serializedVersion: 3
-        time: 0
         value: {x: 128.53635, y: 128.53635, z: 128.53633}
         inSlope: {x: 0, y: 0, z: 0}
         outSlope: {x: 0, y: 0, z: 0}
@@ -3943,7 +3927,7 @@ AnimationClip:
         outWeight: 0.33333334
       - serializedVersion: 3
         time: 0.14444445
-        value: 0.25
+        value: 0.3
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -3965,6 +3949,15 @@ AnimationClip:
       - serializedVersion: 3
         time: 0
         value: 9
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 136
+        weightedMode: 0
+        inWeight: 0.33333334
+        outWeight: 0.33333334
+      - serializedVersion: 3
+        time: 0.14444445
+        value: 15
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -4894,6 +4887,15 @@ AnimationClip:
       isIntCurve: 0
       isSerializeReferenceCurve: 0
     - serializedVersion: 2
+      path: 0
+      attribute: 3517386536
+      script: {fileID: 11500000, guid: 83700ce025f2ed247b4a1029388c77ef, type: 3}
+      typeID: 114
+      customType: 0
+      isPPtrCurve: 0
+      isIntCurve: 0
+      isSerializeReferenceCurve: 0
+    - serializedVersion: 2
       path: 3634843608
       attribute: 2086281974
       script: {fileID: 0}
@@ -5101,15 +5103,6 @@ AnimationClip:
       isIntCurve: 0
       isSerializeReferenceCurve: 0
     - serializedVersion: 2
-      path: 2108042468
-      attribute: 3
-      script: {fileID: 0}
-      typeID: 4
-      customType: 0
-      isPPtrCurve: 0
-      isIntCurve: 0
-      isSerializeReferenceCurve: 0
-    - serializedVersion: 2
       path: 4173544766
       attribute: 3
       script: {fileID: 0}
@@ -5123,15 +5116,6 @@ AnimationClip:
       attribute: 3
       script: {fileID: 0}
       typeID: 4
-      customType: 0
-      isPPtrCurve: 0
-      isIntCurve: 0
-      isSerializeReferenceCurve: 0
-    - serializedVersion: 2
-      path: 0
-      attribute: 3517386536
-      script: {fileID: 11500000, guid: 83700ce025f2ed247b4a1029388c77ef, type: 3}
-      typeID: 114
       customType: 0
       isPPtrCurve: 0
       isIntCurve: 0
@@ -6229,69 +6213,6 @@ AnimationClip:
     classID: 4
     script: {fileID: 0}
     flags: 16
-  - serializedVersion: 2
-    curve:
-      serializedVersion: 2
-      m_Curve:
-      - serializedVersion: 3
-        time: 0
-        value: 1.5130621
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 136
-        weightedMode: 0
-        inWeight: 0.33333334
-        outWeight: 0.33333334
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    attribute: m_LocalScale.x
-    path: 'FinisherMove/ColliderMove/mixamorig:Hips/Cape '
-    classID: 4
-    script: {fileID: 0}
-    flags: 0
-  - serializedVersion: 2
-    curve:
-      serializedVersion: 2
-      m_Curve:
-      - serializedVersion: 3
-        time: 0
-        value: 1.5130621
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 136
-        weightedMode: 0
-        inWeight: 0.33333334
-        outWeight: 0.33333334
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    attribute: m_LocalScale.y
-    path: 'FinisherMove/ColliderMove/mixamorig:Hips/Cape '
-    classID: 4
-    script: {fileID: 0}
-    flags: 0
-  - serializedVersion: 2
-    curve:
-      serializedVersion: 2
-      m_Curve:
-      - serializedVersion: 3
-        time: 0
-        value: 1.5130622
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 136
-        weightedMode: 0
-        inWeight: 0.33333334
-        outWeight: 0.33333334
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    attribute: m_LocalScale.z
-    path: 'FinisherMove/ColliderMove/mixamorig:Hips/Cape '
-    classID: 4
-    script: {fileID: 0}
-    flags: 0
   - serializedVersion: 2
     curve:
       serializedVersion: 2
@@ -15163,7 +15084,7 @@ AnimationClip:
         outWeight: 0.33333334
       - serializedVersion: 3
         time: 0.14444445
-        value: 0.25
+        value: 0.3
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -15185,6 +15106,15 @@ AnimationClip:
       - serializedVersion: 3
         time: 0
         value: 9
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 136
+        weightedMode: 0
+        inWeight: 0.33333334
+        outWeight: 0.33333334
+      - serializedVersion: 3
+        time: 0.14444445
+        value: 15
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -19442,7 +19372,7 @@ AnimationClip:
   - time: 0.14444445
     functionName: SetImpactType
     data: 
-    objectReferenceParameter: {fileID: 11400000, guid: 4375302ca51cf7843a21b470fff01ba8, type: 2}
+    objectReferenceParameter: {fileID: 11400000, guid: 8267cced9af8b9f49a05a17b2652c83e, type: 2}
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
@@ -19477,7 +19407,7 @@ AnimationClip:
   - time: 0.47777778
     functionName: SetImpactType
     data: 
-    objectReferenceParameter: {fileID: 11400000, guid: 4375302ca51cf7843a21b470fff01ba8, type: 2}
+    objectReferenceParameter: {fileID: 11400000, guid: c0d0cb9b103c1fa4fb5b045d89b6c628, type: 2}
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
@@ -19519,7 +19449,7 @@ AnimationClip:
   - time: 0.8666667
     functionName: SetImpactType
     data: 
-    objectReferenceParameter: {fileID: 11400000, guid: 4375302ca51cf7843a21b470fff01ba8, type: 2}
+    objectReferenceParameter: {fileID: 11400000, guid: c0d0cb9b103c1fa4fb5b045d89b6c628, type: 2}
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
@@ -19544,7 +19474,7 @@ AnimationClip:
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
-  - time: 1.0888889
+  - time: 1.2777778
     functionName: FinishCombo
     data: 
     objectReferenceParameter: {fileID: 0}
