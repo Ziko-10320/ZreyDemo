@@ -43,7 +43,7 @@ public class PlayerGrapple : MonoBehaviour
     private readonly int throwChainsTriggerHash = Animator.StringToHash("throwChains");
     private readonly int startGrappleTriggerHash = Animator.StringToHash("startGrapple");
     private readonly int isHangingBoolHash = Animator.StringToHash("isHanging");
-
+    private bool isGrappling = false;
     private void Awake()
     {
         inputActions = new InputSystem_Actions();
@@ -110,6 +110,7 @@ public class PlayerGrapple : MonoBehaviour
 
     private IEnumerator GrappleToPoint()
     {
+        isGrappling = true;
         // 1. Wind-up Phase: Go kinematic to freeze the player.
         rb.bodyType = RigidbodyType2D.Kinematic;
         rb.linearVelocity = Vector2.zero;
@@ -180,10 +181,14 @@ public class PlayerGrapple : MonoBehaviour
             animator.SetBool(isHangingBoolHash, true);
             // --- END OF FIX ---
         }
-
+        isGrappling = false;
         grappleCoroutine = null;
     }
-
+    public bool IsGrappling()
+    {
+        // The grapple is considered "active" if the line is currently being drawn.
+        return isGrappling;
+    }
     private void StopHanging()
     {
         isCurrentlyHanging = false;

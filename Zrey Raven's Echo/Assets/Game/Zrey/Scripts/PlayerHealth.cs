@@ -51,6 +51,7 @@ public class PlayerHealth : MonoBehaviour
     private readonly int parry1TriggerHash = Animator.StringToHash("parry1");
     private readonly int parry2TriggerHash = Animator.StringToHash("parry2");
     public ShakeData CameraShakeParry;
+    [SerializeField] private CheckpointManager checkpointManager;
     void Awake()
     {
         // --- THIS IS THE GUARANTEE ---
@@ -65,6 +66,7 @@ public class PlayerHealth : MonoBehaviour
         if (animator == null) Debug.LogError("FATAL ERROR: Animator is missing on Player!", this);
         if (playerAttacks == null) Debug.LogError("FATAL ERROR: ZreyAttacks script is missing on Player!", this);
         inputActions = new InputSystem_Actions();
+        if (checkpointManager == null) checkpointManager = FindFirstObjectByType<CheckpointManager>();
     }
     private void OnEnable()
     {
@@ -194,6 +196,61 @@ public class PlayerHealth : MonoBehaviour
         if (knockbackCoroutine != null) StopCoroutine(knockbackCoroutine);
         knockbackCoroutine = StartCoroutine(HitReactionRoutine(attacker, impact));
     
+    }
+    public void TakeUnblockableDamage(int damageAmount, Transform attacker, ImpactData impact)
+    {
+        // If already dead, do nothing.
+        if (currentHealth <= 0) return;
+
+        Debug.LogWarning($"<color=red>!!! PLAYER TOOK UNBLOCKABLE DAMAGE: {damageAmount} !!!</color>");
+
+        // --- BYPASS ALL DEFENSES ---
+        // We do NOT check for isParryWindowActive.
+        // We do NOT check for isBlocking.
+
+        // --- APPLY DAMAGE DIRECTLY ---
+        currentHealth -= damageAmount;
+        if (healthSlider != null) healthSlider.value = currentHealth;
+
+        // --- CHECK FOR DEATH ---
+        if (currentHealth <= 0)
+        {
+            Die(attacker);
+            return;
+        }
+
+        // --- APPLY ALL NORMAL HIT REACTIONS ---
+        // Even though it's unblockable, it should still cause hit stun, knockback, and blood.
+        SpawnBlood();
+        if (knockbackCoroutine != null) StopCoroutine(knockbackCoroutine);
+        knockbackCoroutine = StartCoroutine(HitReactionRoutine(attacker, impact));
+    }
+    public void TakeHazardDamage(int damageAmount)
+    {
+        // If already dead, do nothing.
+        if (currentHealth <= 0) return;
+
+        Debug.LogWarning($"<color=orange>PLAYER HIT A HAZARD! Taking {damageAmount} damage.</color>");
+
+        currentHealth -= damageAmount;
+        if (healthSlider != null) healthSlider.value = currentHealth;
+
+        // --- CHECK FOR DEATH FIRST ---
+        if (currentHealth <= 0)
+        {
+            // If the hazard damage kills the player, trigger the full death sequence.
+            Die(null); // We pass null because there is no specific "killer" transform.
+        }
+        else
+        {
+            // --- IF NOT DEAD, RESPAWN AT MINI CHECKPOINT ---
+            // This is the "slap on the wrist."
+            Debug.Log("Player is hurt by hazard. Respawning at MINI checkpoint.");
+            if (checkpointManager != null)
+            {
+                checkpointManager.RespawnAtMiniCheckpoint();
+            }
+        }
     }
     private IEnumerator ParryKnockbackRoutine(Transform attacker, ImpactData impact)
     {
@@ -343,12 +400,16 @@ public class PlayerHealth : MonoBehaviour
     private void Die(Transform killer)
     {
         Debug.Log("<color=black>PLAYER IS DEAD.</color>");
+        if (checkpointManager != null)
+        {
+            checkpointManager.RespawnAtMajorCheckpoint();
+        }
+        // 2. Restore health to full AFTER respawning.
+        currentHealth = maxHealth;
+        if (healthSlider != null) healthSlider.value = currentHealth;
 
         // Play a death animation.
         animator.SetTrigger(deathTriggerHash);
-
-       
-
         // Disable all player control scripts immediately.
         playerAttacks.enabled = false;
         GetComponent<ZreyMovements>().enabled = false;
@@ -357,7 +418,17 @@ public class PlayerHealth : MonoBehaviour
         // Use a coroutine to show the death panel and freeze time AFTER a delay.
         StartCoroutine(DeathSequence());
     }
-
+    public bool IsStunned()
+    {
+        // The player is considered "stunned" if a knockback/hit-stun coroutine is currently running.
+        return knockbackCoroutine != null;
+    }
+    public bool IsBlocking()
+    {
+        // The 'isBlocking' variable already controls the block state.
+        // We just need to expose its value.
+        return isBlocking;
+    }
     private IEnumerator DeathSequence()
     {
         // Wait for the death animation/knockback to have some impact.

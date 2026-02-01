@@ -54,6 +54,17 @@ public class KnightAttack : MonoBehaviour
     private KnightHealth health;
     private readonly int counterAttackTriggerHash = Animator.StringToHash("counterAttack");
     private readonly int specialAttackTriggerHash = Animator.StringToHash("specialAttack");
+    [Header("Special Attack Damage")]
+    [Tooltip("The ImpactData for the unblockable special attack.")]
+    [SerializeField] private ImpactData specialAttackImpactData; 
+
+    [Tooltip("The damage dealt by EACH TICK of the special attack.")]
+    [SerializeField] private int specialAttackDamagePerTick = 5; 
+
+    [Tooltip("The time (in seconds) between each damage tick.")]
+    [SerializeField] private float timeBetweenTicks = 0.2f; 
+
+    private Coroutine specialDamageCoroutine;
 
     void Awake() 
     {
@@ -66,31 +77,31 @@ public class KnightAttack : MonoBehaviour
 
     void Update()
     {
-        // If the damage window is not open, do nothing.
-        if (!isDamageWindowOpen) return;
-
-        // --- If the window IS open, check for a hit ---
-        Collider2D[] hitPlayers = Physics2D.OverlapBoxAll(attackPoint.position, attackAreaSize, 0f, playerLayer);
-
-        foreach (Collider2D player in hitPlayers)
+        if (isDamageWindowOpen)
         {
-            PlayerHealth playerHealth = player.GetComponent<PlayerHealth>();
-            if (playerHealth != null)
-            {
-                Debug.Log("<color=red>Knight hit Player!</color>");
-                playerHealth.TakeDamage(attackDamage, transform, currentImpactData);
+            Collider2D[] hitPlayers = Physics2D.OverlapBoxAll(attackPoint.position, attackAreaSize, 0f, playerLayer);
 
-                // CRITICAL: Immediately close the damage window after a successful hit.
-                // This prevents a single swing from hitting the player 50 times.
-                isDamageWindowOpen = false;
-                break; // Exit the loop.
+            foreach (Collider2D player in hitPlayers)
+            {
+                PlayerHealth playerHealth = player.GetComponent<PlayerHealth>();
+                if (playerHealth != null)
+                {
+                    Debug.Log("<color=red>Knight hit Player with normal attack!</color>");
+
+                    // This calls the normal TakeDamage, which CAN be blocked or parried.
+                    playerHealth.TakeDamage(attackDamage, transform, currentImpactData);
+
+                    // Immediately close the window to prevent hitting multiple times.
+                    isDamageWindowOpen = false;
+                    break; // Exit the loop.
+                }
             }
         }
     }
     public void StartDamage()
     {
         Debug.Log("<color=orange>Knight Damage Window OPEN</color>");
-        Physics2D.IgnoreLayerCollision(playerLayerValue, enemyLayerValue, false);
+       
         if (health != null) health.isUnbreakable = true;
         isDamageWindowOpen = true;
     }
@@ -101,11 +112,64 @@ public class KnightAttack : MonoBehaviour
     public void StopDamage()
     {
         Debug.Log("<color=grey>Knight Damage Window CLOSED</color>");
-        Physics2D.IgnoreLayerCollision(playerLayerValue, enemyLayerValue, true);
+       
         if (health != null) health.isUnbreakable = false;
         isDamageWindowOpen = false;
     }
+    public void StartSpecialDamage()
+    {
+        Debug.Log("<color=red>!!! Special Damage Over Time STARTED !!!</color>");
+        Physics2D.IgnoreLayerCollision(playerLayerValue, enemyLayerValue, false);
+        // If a previous DOT is somehow still running, stop it first.
+        if (specialDamageCoroutine != null)
+        {
+            StopCoroutine(specialDamageCoroutine);
+        }
+        // Start the new DOT coroutine.
+        specialDamageCoroutine = StartCoroutine(SpecialDamageOverTimeRoutine());
+    }
 
+    /// <summary>
+    /// Called by an Animation Event to STOP the unblockable Damage Over Time effect.
+    /// </summary>
+    public void StopSpecialDamage()
+    {
+        Debug.Log("<color=grey>Special Damage Over Time STOPPED</color>");
+        Physics2D.IgnoreLayerCollision(playerLayerValue, enemyLayerValue, true);
+        // If the DOT coroutine is running, stop it.
+        if (specialDamageCoroutine != null)
+        {
+            StopCoroutine(specialDamageCoroutine);
+            specialDamageCoroutine = null;
+        }
+    }
+    private IEnumerator SpecialDamageOverTimeRoutine()
+    {
+        // This is an infinite loop that will run as long as the coroutine is active.
+        // The StopSpecialDamage() method is what breaks us out of this loop.
+        while (true)
+        {
+            // 1. CHECK for the player in the damage area.
+            Collider2D[] hitPlayers = Physics2D.OverlapBoxAll(attackPoint.position, attackAreaSize, 0f, playerLayer);
+
+            foreach (Collider2D player in hitPlayers)
+            {
+                PlayerHealth playerHealth = player.GetComponent<PlayerHealth>();
+                if (playerHealth != null)
+                {
+                    // 2. If we find the player, DEAL UNBLOCKABLE DAMAGE.
+                    Debug.LogWarning("!!! Player hit by DOT tick! !!!");
+                    playerHealth.TakeUnblockableDamage(specialAttackDamagePerTick, this.transform, specialAttackImpactData);
+
+                    // We break here so we only damage the player once per tick, even if they have multiple colliders.
+                    break;
+                }
+            }
+
+            // 3. WAIT for the specified time before the next tick.
+            yield return new WaitForSeconds(timeBetweenTicks);
+        }
+    }
     public bool IsAttacking()
     {
         return isAttacking;

@@ -13,5 +13,7 @@ MonoBehaviour:
   m_Name: DownHit
   m_EditorClassIdentifier: Assembly-CSharp::ImpactData
   hitReactionType: down
-  knockbackDistance: 12
-  knockbackDuration: 0.45
+  knockbackDistance: 7
+  knockbackDuration: 0.2
+  upwardForce: 0
+  downwardForce: 0

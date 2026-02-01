@@ -52,6 +52,7 @@ public class ZreyMovements : MonoBehaviour
     private readonly int isFallingHash = Animator.StringToHash("isFalling");
     private readonly int dashTriggerHash = Animator.StringToHash("dash");
     private readonly int rootDashTriggerHash = Animator.StringToHash("rootDash");
+    private readonly int rootDashLeftTriggerHash = Animator.StringToHash("rootDashLeft");
     [Header("Physics Dash Settings")]
     [Tooltip("The overall distance the player will dash.")]
     [SerializeField] private float dashDistance = 5f;
@@ -132,6 +133,10 @@ public class ZreyMovements : MonoBehaviour
 
     [SerializeField] private ZreyTrail playerTrail;
     private ZreyAttacks playerAttacks;
+    private PlayerHealth playerHealth;
+    [SerializeField] private PlayerGrapple playerGrapple;
+    [HideInInspector] public bool canFlip = true;
+    private Coroutine flipLockWatchdogCoroutine;
     void Awake()
     {
         if (rb == null) rb = GetComponent<Rigidbody2D>();
@@ -141,6 +146,8 @@ public class ZreyMovements : MonoBehaviour
         originalGravityScale = rb.gravityScale;
         if (playerTrail == null) playerTrail = GetComponent<ZreyTrail>();
         if (playerAttacks == null) playerAttacks = GetComponent<ZreyAttacks>();
+        playerHealth = GetComponent<PlayerHealth>();
+        if (playerGrapple == null) playerGrapple = GetComponentInParent<PlayerGrapple>();
     }
 
     private void OnEnable()
@@ -212,12 +219,13 @@ public class ZreyMovements : MonoBehaviour
         if (!isDashing)
         {
             HandleMovementAnimation();
-            if (moveInput.x != 0 && !wallJumpInputLocked)
-            {
-                if (moveInput.x < 0 && isFacingRight) { Flip(); }
-                else if (moveInput.x > 0 && !isFacingRight) { Flip(); }
-            }
+        }
 
+
+        if (moveInput.x != 0 && canFlip && !wallJumpInputLocked)
+        {
+            if (moveInput.x < 0 && isFacingRight) { Flip(); }
+            else if (moveInput.x > 0 && !isFacingRight) { Flip(); }
         }
         HandleAirborneAnimation();
         if (!wasGrounded && isGrounded)
@@ -371,24 +379,68 @@ public class ZreyMovements : MonoBehaviour
     }
     private void HandleDash(InputAction.CallbackContext context)
     {
+        if (isDashing)
+        {
+            Debug.Log("<color=orange>Dash Input Ignored: Already Dashing.</color>");
+            return;
+        }
+        if (playerGrapple != null && playerGrapple.IsGrappling())
+        {
+            Debug.Log("<color=orange>Dash Input Ignored: Currently Grappling.</color>");
+            return;
+        }
+        if (playerHealth != null && playerHealth.IsBlocking())
+        {
+            Debug.Log("<color=orange>Dash Input Ignored: Currently Blocking.</color>");
+            return;
+        }
+        // SHIELD 2: Are we currently attacking?
+        if (playerAttacks != null && playerAttacks.IsAttacking())
+        {
+            Debug.Log("<color=orange>Dash Input Ignored: Currently Attacking.</color>");
+            return;
+        }
+
+        // SHIELD 3: Are we on a wall or hanging?
+        if (isWallSliding || isHanging)
+        {
+            Debug.Log("<color=orange>Dash Input Ignored: On a Wall or Hanging.</color>");
+            return;
+        }
+
+        // SHIELD 4: Are we stunned from taking damage?
+        if (playerHealth != null && playerHealth.IsStunned())
+        {
+            Debug.Log("<color=orange>Dash Input Ignored: Currently Stunned.</color>");
+            return;
+        }
         // --- DECIDE WHICH DASH TO USE ---
 
         if (isGrounded)
         {
-            if (playerTrail != null)
-            {
-                playerTrail.StartTrail();
-            }
-            // --- GROUND DASH ---
-            // If on the ground, perform the physics-based dash.
-            if (!isDashing)
-            {
-                animator.SetTrigger(dashTriggerHash);
-            }
+            // This part is the same: start the trail and trigger the visual dash animation.
+            if (playerTrail != null) playerTrail.StartTrail();
+            if (!isDashing) animator.SetTrigger(dashTriggerHash);
+
+            // --- THIS IS THE DIRECTIONAL ROOT MOTION FIX ---
+            // 1. Make sure the root animator exists.
             if (rootZreyAnimator != null)
             {
-                rootZreyAnimator.SetTrigger(rootDashTriggerHash);
+                // 2. ASK which way the player is facing.
+                if (isFacingRight)
+                {
+                    // 3. If facing RIGHT, trigger the normal "rootDash" animation.
+                    Debug.Log("<color=cyan>Dashing RIGHT. Triggering 'rootDash'.</color>");
+                    rootZreyAnimator.SetTrigger(rootDashTriggerHash);
+                }
+                else
+                {
+                    // 4. If facing LEFT, trigger the new "rootDashLeft" animation.
+                    Debug.Log("<color=cyan>Dashing LEFT. Triggering 'rootDashLeft'.</color>");
+                    rootZreyAnimator.SetTrigger(rootDashLeftTriggerHash);
+                }
             }
+            // --- END OF FIX ---
         }
         else
         {
@@ -668,7 +720,54 @@ public class ZreyMovements : MonoBehaviour
             obj.transform.localScale = new Vector3(newXScale, obj.transform.localScale.y, obj.transform.localScale.z);
         }
     }
-  
+    public void LockFlip()
+    {
+        canFlip = false;
+        Debug.Log("<color=red>FLIP LOCKED</color>");
+
+        // --- THIS IS THE FIX ---
+        // 1. If a previous watchdog is somehow still running, stop it.
+        if (flipLockWatchdogCoroutine != null)
+        {
+            StopCoroutine(flipLockWatchdogCoroutine);
+        }
+        // 2. Start the NEW watchdog timer.
+        flipLockWatchdogCoroutine = StartCoroutine(FlipLockWatchdogRoutine());
+        // --- END OF FIX ---
+    }
+    public void UnlockFlip()
+    {
+        // --- THIS IS THE FIX ---
+        // If the animation finished cleanly, we don't need the watchdog anymore.
+        // Stop it so it doesn't run unnecessarily.
+        if (flipLockWatchdogCoroutine != null)
+        {
+            StopCoroutine(flipLockWatchdogCoroutine);
+            flipLockWatchdogCoroutine = null;
+        }
+        // --- END OF FIX ---
+
+        canFlip = true;
+        Debug.Log("<color=green>FLIP UNLOCKED (Cleanly by Animation Event)</color>");
+    }
+    private IEnumerator FlipLockWatchdogRoutine()
+    {
+        // Wait for a duration slightly longer than your longest possible dash.
+        // If your dash is 0.5s, waiting 1s is very safe.
+        yield return new WaitForSeconds(0.85f);
+
+        // --- THE FAILSAFE ---
+        // If we get here, it means UnlockFlip() was never called by the animation event.
+        // This can only happen if the animation was interrupted.
+        if (!canFlip)
+        {
+            Debug.LogWarning("<color=orange>FLIP LOCK TIMEOUT! Animation was interrupted. Forcibly unlocking flip.</color>");
+            canFlip = true; // Force the lock to be released.
+        }
+
+        // The watchdog's job is done.
+        flipLockWatchdogCoroutine = null;
+    }
     public bool IsGrounded()
     {
         return isGrounded;

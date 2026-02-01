@@ -31780,28 +31780,21 @@ AnimationClip:
     intParameter: 0
     messageOptions: 0
   - time: 0.93333334
-    functionName: StartDamage
-    data: 
-    objectReferenceParameter: {fileID: 0}
-    floatParameter: 0
-    intParameter: 0
-    messageOptions: 0
-  - time: 1
-    functionName: StopDamage
+    functionName: StartSpecialDamage
     data: 
     objectReferenceParameter: {fileID: 0}
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
   - time: 1.0222223
-    functionName: StartDamage
+    functionName: SetImpactType
     data: 
-    objectReferenceParameter: {fileID: 0}
+    objectReferenceParameter: {fileID: 11400000, guid: 7986e04563b5ce247b98fb38df193134, type: 2}
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
-  - time: 1.0888889
-    functionName: StopDamage
+  - time: 1.0666667
+    functionName: CameraShake
     data: 
     objectReferenceParameter: {fileID: 0}
     floatParameter: 0
@@ -31814,13 +31807,6 @@ AnimationClip:
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
-  - time: 1.1333333
-    functionName: StartDamage
-    data: 
-    objectReferenceParameter: {fileID: 0}
-    floatParameter: 0
-    intParameter: 0
-    messageOptions: 0
   - time: 1.1555556
     functionName: CameraShake
     data: 
@@ -31828,36 +31814,15 @@ AnimationClip:
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
-  - time: 1.2
-    functionName: StopDamage
-    data: 
-    objectReferenceParameter: {fileID: 0}
-    floatParameter: 0
-    intParameter: 0
-    messageOptions: 0
-  - time: 1.2222222
+  - time: 1.1777778
     functionName: SetImpactType
     data: 
     objectReferenceParameter: {fileID: 11400000, guid: 7986e04563b5ce247b98fb38df193134, type: 2}
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
-  - time: 1.2444445
-    functionName: StartDamage
-    data: 
-    objectReferenceParameter: {fileID: 0}
-    floatParameter: 0
-    intParameter: 0
-    messageOptions: 0
   - time: 1.2666667
     functionName: CameraShake
-    data: 
-    objectReferenceParameter: {fileID: 0}
-    floatParameter: 0
-    intParameter: 0
-    messageOptions: 0
-  - time: 1.2888889
-    functionName: StopDamage
     data: 
     objectReferenceParameter: {fileID: 0}
     floatParameter: 0
@@ -31870,84 +31835,21 @@ AnimationClip:
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
-  - time: 1.3333334
-    functionName: StartDamage
-    data: 
-    objectReferenceParameter: {fileID: 0}
-    floatParameter: 0
-    intParameter: 0
-    messageOptions: 0
-  - time: 1.3555555
-    functionName: CameraShake
-    data: 
-    objectReferenceParameter: {fileID: 0}
-    floatParameter: 0
-    intParameter: 0
-    messageOptions: 0
-  - time: 1.3777778
-    functionName: StopDamage
-    data: 
-    objectReferenceParameter: {fileID: 0}
-    floatParameter: 0
-    intParameter: 0
-    messageOptions: 0
   - time: 1.4
     functionName: CameraShake
     data: 
     objectReferenceParameter: {fileID: 0}
-    floatParameter: 0
-    intParameter: 0
-    messageOptions: 0
-  - time: 1.4
-    functionName: SetImpactType
-    data: 
-    objectReferenceParameter: {fileID: 11400000, guid: 7986e04563b5ce247b98fb38df193134, type: 2}
-    floatParameter: 0
-    intParameter: 0
-    messageOptions: 0
-  - time: 1.4222223
-    functionName: SetImpactType
-    data: 
-    objectReferenceParameter: {fileID: 11400000, guid: 7986e04563b5ce247b98fb38df193134, type: 2}
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
   - time: 1.4444444
-    functionName: StartDamage
-    data: 
-    objectReferenceParameter: {fileID: 0}
-    floatParameter: 0
-    intParameter: 0
-    messageOptions: 0
-  - time: 1.4666667
-    functionName: CameraShake
-    data: 
-    objectReferenceParameter: {fileID: 0}
-    floatParameter: 0
-    intParameter: 0
-    messageOptions: 0
-  - time: 1.4888889
-    functionName: StopDamage
-    data: 
-    objectReferenceParameter: {fileID: 0}
-    floatParameter: 0
-    intParameter: 0
-    messageOptions: 0
-  - time: 1.5111111
     functionName: SetImpactType
     data: 
     objectReferenceParameter: {fileID: 11400000, guid: 7986e04563b5ce247b98fb38df193134, type: 2}
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
-  - time: 1.5555556
-    functionName: StartDamage
-    data: 
-    objectReferenceParameter: {fileID: 0}
-    floatParameter: 0
-    intParameter: 0
-    messageOptions: 0
-  - time: 1.5777777
+  - time: 1.5111111
     functionName: CameraShake
     data: 
     objectReferenceParameter: {fileID: 0}
@@ -31955,42 +31857,28 @@ AnimationClip:
     intParameter: 0
     messageOptions: 0
   - time: 1.6222222
-    functionName: StopDamage
-    data: 
-    objectReferenceParameter: {fileID: 0}
-    floatParameter: 0
-    intParameter: 0
-    messageOptions: 0
-  - time: 1.7111111
     functionName: CameraShake
     data: 
     objectReferenceParameter: {fileID: 0}
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
-  - time: 1.8
-    functionName: SetImpactType
-    data: 
-    objectReferenceParameter: {fileID: 11400000, guid: 7986e04563b5ce247b98fb38df193134, type: 2}
-    floatParameter: 0
-    intParameter: 0
-    messageOptions: 0
-  - time: 1.8444444
-    functionName: StartDamage
-    data: 
-    objectReferenceParameter: {fileID: 0}
-    floatParameter: 0
-    intParameter: 0
-    messageOptions: 0
-  - time: 1.8888888
+  - time: 1.7555555
     functionName: CameraShake
     data: 
     objectReferenceParameter: {fileID: 0}
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
-  - time: 1.9777777
-    functionName: StopDamage
+  - time: 2.2222223
+    functionName: CameraShake
+    data: 
+    objectReferenceParameter: {fileID: 0}
+    floatParameter: 0
+    intParameter: 0
+    messageOptions: 0
+  - time: 2.3333333
+    functionName: StopSpecialDamage
     data: 
     objectReferenceParameter: {fileID: 0}
     floatParameter: 0
