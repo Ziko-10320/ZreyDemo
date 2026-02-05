@@ -47,11 +47,13 @@ public class PlayerHealth : MonoBehaviour
     private InputSystem_Actions inputActions; // For the block input
     private Coroutine parryWindowCoroutine;
     // --- ADD NEW ANIMATION HASHES ---
-    private readonly int isBlockingBoolHash = Animator.StringToHash("isBlocking");
+    private readonly int startBlockTriggerHash = Animator.StringToHash("startBlock");
+    private readonly int stopBlockTriggerHash = Animator.StringToHash("stopBlock");
     private readonly int parry1TriggerHash = Animator.StringToHash("parry1");
     private readonly int parry2TriggerHash = Animator.StringToHash("parry2");
     public ShakeData CameraShakeParry;
     [SerializeField] private CheckpointManager checkpointManager;
+    public bool isStunned = false;
     void Awake()
     {
         // --- THIS IS THE GUARANTEE ---
@@ -106,7 +108,7 @@ public class PlayerHealth : MonoBehaviour
 
             // Force the animator out of the block state to play the parry anim
             isBlocking = false;
-            animator.SetBool(isBlockingBoolHash, false);
+           
 
             // Randomly choose between parry1 and parry2
             int parryAnim = Random.Range(0, 2);
@@ -272,6 +274,7 @@ public class PlayerHealth : MonoBehaviour
     }
     private IEnumerator HitReactionRoutine(Transform attacker, ImpactData impact)
     {
+        isStunned = true;
         if (playerMovements != null) playerMovements.CanMove = false;
         // 2. PLAY ANIMATION
         PlayHitReaction(impact.hitReactionType);
@@ -337,7 +340,7 @@ public class PlayerHealth : MonoBehaviour
             if (rb != null) rb.linearVelocity = new Vector2(0, rb.linearVelocity.y);
             yield return new WaitForSeconds(remainingStunTime);
         }
-
+        isStunned = false;
         // 5. RELINQUISH CONTROL
         playerMovements.CanMove = true;
         knockbackCoroutine = null;
@@ -367,13 +370,18 @@ public class PlayerHealth : MonoBehaviour
 
     private void StartBlocking()
     {
+        if (playerAttacks != null && playerAttacks.IsInCinematicState)
+        {
+            Debug.Log("Block Input Ignored: In Cinematic State.");
+            return;
+        }
         if ( isBlocking) return;
         if (playerAttacks != null)
         {
             playerAttacks.CancelAttack(); // We will create this new method.
         }
         isBlocking = true;
-        animator.SetBool(isBlockingBoolHash, true);
+        animator.SetTrigger(startBlockTriggerHash);
         playerMovements.CanMove = false;
         if (rb != null) rb.linearVelocity = new Vector2(0, rb.linearVelocity.y);
 
@@ -386,7 +394,7 @@ public class PlayerHealth : MonoBehaviour
         if (!isBlocking) return;
 
         isBlocking = false;
-        animator.SetBool(isBlockingBoolHash, false);
+        animator.SetTrigger(stopBlockTriggerHash);
         playerMovements.CanMove = true;
         isParryWindowActive = false;
     }
@@ -418,10 +426,10 @@ public class PlayerHealth : MonoBehaviour
         // Use a coroutine to show the death panel and freeze time AFTER a delay.
         StartCoroutine(DeathSequence());
     }
-    public bool IsStunned()
+    public bool resetisStunned()
     {
-        // The player is considered "stunned" if a knockback/hit-stun coroutine is currently running.
-        return knockbackCoroutine != null;
+        isStunned = false;
+        return isStunned;
     }
     public bool IsBlocking()
     {

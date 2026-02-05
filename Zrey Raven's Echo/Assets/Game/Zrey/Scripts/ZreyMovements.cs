@@ -137,6 +137,9 @@ public class ZreyMovements : MonoBehaviour
     [SerializeField] private PlayerGrapple playerGrapple;
     [HideInInspector] public bool canFlip = true;
     private Coroutine flipLockWatchdogCoroutine;
+    public bool justPressedDash { get; private set; }
+    private bool isInRootMotionState = false;
+  
     void Awake()
     {
         if (rb == null) rb = GetComponent<Rigidbody2D>();
@@ -166,6 +169,15 @@ public class ZreyMovements : MonoBehaviour
 
     void Update()
     {
+        if (playerAttacks != null && playerAttacks.IsInCinematicState)
+        {
+            moveInput = Vector2.zero; // Force movement input to zero.
+        }
+        else
+        {
+            moveInput = inputActions.Player.Move.ReadValue<Vector2>();
+        }
+        justPressedDash = false;
         if (overrideMoveTimer > 0)
         {
             overrideMoveTimer -= Time.deltaTime;
@@ -242,10 +254,14 @@ public class ZreyMovements : MonoBehaviour
             Debug.Log("Dashes Reset to: " + airDashesRemaining);
         }
     }
-
+    
 
     void FixedUpdate()
     {
+        if (isInRootMotionState)
+        {
+            return;
+        }
         if (!CanMove)
         {
             return;
@@ -315,49 +331,14 @@ public class ZreyMovements : MonoBehaviour
         isDashing = false;
     }
 
-    private void OnAnimatorMove()
-    {
-        // If the root animator doesn't exist or we are not dashing, do nothing.
-        if (rootZreyAnimator == null || !isDashing)
-        {
-            return;
-        }
-
-        // --- THIS IS THE RAYCAST CORRECTION FIX ---
-
-        // 1. GET THE MOVEMENT. Get the amount of movement the root motion wants to apply in this frame.
-        Vector3 rootMotionDelta = rootZreyAnimator.deltaPosition;
-
-        // 2. FIRE THE RAYCAST.
-        // We cast from our current position, in the direction of the movement, for the exact distance of the movement.
-        RaycastHit2D hit = Physics2D.Raycast(transform.position, rootMotionDelta.normalized, rootMotionDelta.magnitude, dashCollisionLayer);
-
-        // 3. MAKE THE DECISION.
-        if (hit.collider != null)
-        {
-            // --- WE HIT A WALL ---
-            // Move the player to the exact point of impact, plus a small offset so we don't get stuck inside the wall.
-            Vector3 impactPosition = hit.point + (hit.normal * 0.1f);
-            transform.position = new Vector3(impactPosition.x, impactPosition.y, transform.position.z);
-
-            // Optional: Play a "thud" sound or spark effect here.
-            Debug.Log("<color=red>ROOT MOTION BLOCKED BY WALL!</color>");
-
-            // Since we hit a wall, we should probably end the dash state.
-            isDashing = false;
-            animator.Play("Idle"); // Force the visual animator back to idle.
-            rootZreyAnimator.Play("Idle"); // Force the root animator back to idle.
-        }
-        else
-        {
-            // --- THE PATH IS CLEAR ---
-            // Apply the root motion movement directly to the transform.
-            transform.position += rootMotionDelta;
-        }
-        // --- END OF FIX ---
-    }
+   
     private void HandleJump(InputAction.CallbackContext context)
     {
+        if (playerAttacks != null && playerAttacks.IsInCinematicState)
+        {
+            Debug.Log("Jump Input Ignored: In Cinematic State.");
+            return;
+        }
         // Check for wall slide condition directly here. This is more reliable.
         bool onWall = Physics2D.OverlapCircle(wallCheck.position, wallCheckRadius, wallLayer) && !isGrounded;
 
@@ -379,6 +360,11 @@ public class ZreyMovements : MonoBehaviour
     }
     private void HandleDash(InputAction.CallbackContext context)
     {
+        if (playerAttacks != null && playerAttacks.IsInCinematicState)
+        {
+            Debug.Log("Dash Input Ignored: In Cinematic State.");
+            return;
+        }
         if (isDashing)
         {
             Debug.Log("<color=orange>Dash Input Ignored: Already Dashing.</color>");
@@ -409,52 +395,114 @@ public class ZreyMovements : MonoBehaviour
         }
 
         // SHIELD 4: Are we stunned from taking damage?
-        if (playerHealth != null && playerHealth.IsStunned())
+        if (playerHealth != null && playerHealth.isStunned)
         {
             Debug.Log("<color=orange>Dash Input Ignored: Currently Stunned.</color>");
             return;
         }
+        justPressedDash = true;
         // --- DECIDE WHICH DASH TO USE ---
+
+        if (isInRootMotionState)
+        {
+            Debug.Log("<color=orange>Dash Input Ignored: A root motion action is already in progress.</color>");
+            return;
+        }
 
         if (isGrounded)
         {
-            // This part is the same: start the trail and trigger the visual dash animation.
-            if (playerTrail != null) playerTrail.StartTrail();
-            if (!isDashing) animator.SetTrigger(dashTriggerHash);
+            // --- THIS IS THE FINAL, GUARANTEED FIX ---
 
-            // --- THIS IS THE DIRECTIONAL ROOT MOTION FIX ---
-            // 1. Make sure the root animator exists.
-            if (rootZreyAnimator != null)
+            // 1. Trigger the visual animation on the player.
+            animator.SetTrigger(dashTriggerHash);
+
+            if (isGrounded)
             {
-                // 2. ASK which way the player is facing.
+                // --- THIS IS THE FIX ---
+                // Trigger the visual animation.
+                animator.SetTrigger(dashTriggerHash);
                 if (isFacingRight)
                 {
-                    // 3. If facing RIGHT, trigger the normal "rootDash" animation.
-                    Debug.Log("<color=cyan>Dashing RIGHT. Triggering 'rootDash'.</color>");
-                    rootZreyAnimator.SetTrigger(rootDashTriggerHash);
+                    InitiateRootMotion(rootDashTriggerHash, 0.47f); // Call the renamed method
                 }
                 else
                 {
-                    // 4. If facing LEFT, trigger the new "rootDashLeft" animation.
-                    Debug.Log("<color=cyan>Dashing LEFT. Triggering 'rootDashLeft'.</color>");
-                    rootZreyAnimator.SetTrigger(rootDashLeftTriggerHash);
+                    InitiateRootMotion(rootDashLeftTriggerHash, 0.47f); // Call the renamed method
                 }
             }
-            // --- END OF FIX ---
         }
         else
         {
-            if (playerTrail != null)
-            {
-                playerTrail.StartTrail();
-            }
-            // --- AIR DASH ---
-            // If in the air, perform the teleport dash, if any are left.
+          
             if (airDashesRemaining > 0)
             {
                 PerformAirDash();
             }
         }
+    }
+    private IEnumerator SynchronizeToRootMotion(float duration)
+    {
+        // Wait for one frame to ensure the animator is in the correct state.
+        yield return null;
+
+        // --- SETUP ---
+        isInRootMotionState = true;
+        CanMove = false;
+
+        // --- THIS IS THE FINAL, GUARANTEED FIX ---
+        // 1. DISABLE THE RIGIDBODY.
+        //    We are not just making it kinematic. We are turning it off.
+        //    This tells the physics engine: "This object does not exist for you right now."
+        //    This completely and utterly severs any possible interference.
+        rb.simulated = false;
+
+        // 2. CALCULATE THE ORIGINAL OFFSET.
+        //    This is the vector from the parent (RootZrey) to the child (Zrey).
+        //    We will maintain this exact offset for the entire duration.
+        Vector3 positionOffset = transform.position - rootZreyAnimator.transform.position;
+        // --- END OF FIX ---
+
+        float timer = 0f;
+
+        // --- EXECUTION ---
+        while (timer < duration)
+        {
+            // We wait for the rendering frame to end, to ensure the animator has updated the transform.
+            yield return new WaitForEndOfFrame();
+            timer += Time.deltaTime;
+
+            // --- THE POSITION-SYNC ---
+            // 3. Get the parent's new animated position.
+            Vector3 parentPosition = rootZreyAnimator.transform.position;
+
+            // 4. Set our position directly.
+            //    Our new position is simply the parent's new position plus the original offset.
+            //    This is a perfect, 1:1 synchronization. No deltas. No velocity. No chaos.
+            transform.position = parentPosition + positionOffset;
+            // --- END OF POSITION-SYNC ---
+        }
+
+        // --- CLEANUP ---
+        isInRootMotionState = false;
+        CanMove = true;
+
+        // 5. RE-ENABLE THE RIGIDBODY.
+        //    We give control back to the physics engine.
+        rb.simulated = true;
+    }
+    public void InitiateRootMotion(int triggerHash, float duration)
+    {
+        if (isInRootMotionState) return;
+        StartCoroutine(StartRootMotionThenSync(triggerHash, duration));
+    }
+
+    // RENAME this coroutine.
+    private IEnumerator StartRootMotionThenSync(int triggerHash, float duration)
+    {
+        rootZreyAnimator.SetTrigger(triggerHash);
+        yield return null;
+        // Call the new, correct coroutine.
+        yield return StartCoroutine(SynchronizeToRootMotion(duration));
     }
     public bool IsDashing()
     {
@@ -545,6 +593,11 @@ public class ZreyMovements : MonoBehaviour
     }
     private void PerformWallJump()
     {
+        if (playerAttacks != null && playerAttacks.IsInCinematicState)
+        {
+            Debug.Log("Dash Input Ignored: In Cinematic State.");
+            return;
+        }
         Debug.Log("PERFORMING DYNAMIC WALL JUMP!");
 
 
@@ -588,6 +641,11 @@ public class ZreyMovements : MonoBehaviour
     }
     private void HandleWallMechanics()
     {
+        if (playerAttacks != null && playerAttacks.IsInCinematicState)
+        {
+            Debug.Log("Dash Input Ignored: In Cinematic State.");
+            return;
+        }
         // Store the state from the previous frame. This is key for the animation trigger.
         bool wasTouchingWall = isTouchingWall;
         isTouchingWall = Physics2D.OverlapCircle(wallCheck.position, wallCheckRadius, wallLayer);
@@ -724,7 +782,11 @@ public class ZreyMovements : MonoBehaviour
     {
         canFlip = false;
         Debug.Log("<color=red>FLIP LOCKED</color>");
-
+        CanMove = false;
+        if (rb != null)
+        {
+            rb.linearVelocity = Vector2.zero;
+        }
         // --- THIS IS THE FIX ---
         // 1. If a previous watchdog is somehow still running, stop it.
         if (flipLockWatchdogCoroutine != null)
@@ -748,6 +810,7 @@ public class ZreyMovements : MonoBehaviour
         // --- END OF FIX ---
 
         canFlip = true;
+        CanMove = true;
         Debug.Log("<color=green>FLIP UNLOCKED (Cleanly by Animation Event)</color>");
     }
     private IEnumerator FlipLockWatchdogRoutine()
@@ -768,6 +831,7 @@ public class ZreyMovements : MonoBehaviour
         // The watchdog's job is done.
         flipLockWatchdogCoroutine = null;
     }
+  
     public bool IsGrounded()
     {
         return isGrounded;

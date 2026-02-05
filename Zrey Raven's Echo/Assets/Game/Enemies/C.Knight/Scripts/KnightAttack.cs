@@ -65,7 +65,18 @@ public class KnightAttack : MonoBehaviour
     [SerializeField] private float timeBetweenTicks = 0.2f; 
 
     private Coroutine specialDamageCoroutine;
+    private Coroutine lungeCoroutine;
 
+    [Header("Backstep Settings")]
+    [Tooltip("The force applied to the knight during the backstep.")]
+    [SerializeField] private float backstepForce = 8f;  
+
+    [Tooltip("The duration of the backstep movement in seconds.")]
+    [SerializeField]private float backstepDuration = 0.3f; 
+
+   
+    private readonly int backstepTriggerHash = Animator.StringToHash("backstep");
+    private KnightAI knightAI;
     void Awake() 
     {
         animator = GetComponent<Animator>();
@@ -73,6 +84,7 @@ public class KnightAttack : MonoBehaviour
         Physics2D.IgnoreLayerCollision(playerLayerValue, enemyLayerValue, true);
         followAI = GetComponent<KnightFollow>();
         health = GetComponent<KnightHealth>();
+        knightAI = GetComponent<KnightAI>();
     }
 
     void Update()
@@ -119,6 +131,10 @@ public class KnightAttack : MonoBehaviour
     public void StartSpecialDamage()
     {
         Debug.Log("<color=red>!!! Special Damage Over Time STARTED !!!</color>");
+        if (knightAI != null)
+        {
+            knightAI.OpenCounterWindow();
+        }
         Physics2D.IgnoreLayerCollision(playerLayerValue, enemyLayerValue, false);
         // If a previous DOT is somehow still running, stop it first.
         if (specialDamageCoroutine != null)
@@ -135,6 +151,10 @@ public class KnightAttack : MonoBehaviour
     public void StopSpecialDamage()
     {
         Debug.Log("<color=grey>Special Damage Over Time STOPPED</color>");
+        if (knightAI != null)
+        {
+            knightAI.CloseCounterWindow();
+        }
         Physics2D.IgnoreLayerCollision(playerLayerValue, enemyLayerValue, true);
         // If the DOT coroutine is running, stop it.
         if (specialDamageCoroutine != null)
@@ -178,7 +198,13 @@ public class KnightAttack : MonoBehaviour
     // **MODIFIED:** This is now a public method that the KnightAI script will call.
     public void StartCombo()
     {
-      
+        if (health != null && health.IsStunned())
+        {
+            // 2. If we ARE stunned, do NOTHING.
+            //    Exit the Update loop immediately. No decisions will be made.
+            //    The AI brain is effectively "paused".
+            return;
+        }
         // If we are already attacking OR if it hasn't been long enough since the last combo...
         if (isAttacking || Time.time < lastComboTime + timeBetweenCombos)
         {
@@ -253,9 +279,11 @@ public class KnightAttack : MonoBehaviour
     }
     public void Lunge()
     {
-        StartCoroutine(LungeCoroutine());
+        // --- THIS IS THE FIX ---
+        // If a lunge is already happening, stop it first.
+        if (lungeCoroutine != null) StopCoroutine(lungeCoroutine);
+        lungeCoroutine = StartCoroutine(LungeCoroutine());
     }
-
     // --- ADD THIS NEW COROUTINE ---
     private IEnumerator LungeCoroutine()
     {
@@ -331,8 +359,90 @@ public class KnightAttack : MonoBehaviour
         isAttacking = true; // The knight is now busy with the special attack.
         animator.SetTrigger(specialAttackTriggerHash);
     }
+    public void CancelAllAttacks()
+    {
+        CancelLunge();
+        // Stop the DOT coroutine if it's running.
+        if (specialDamageCoroutine != null)
+        {
+            StopCoroutine(specialDamageCoroutine);
+            specialDamageCoroutine = null;
+        }
+        if (health != null)
+        {
+            health.BecomeVulnerable(); // This directly sets isUnbreakable = false.
+        }
+        Physics2D.IgnoreLayerCollision(playerLayerValue, enemyLayerValue, true);
+        animator.ResetTrigger(specialAttackTriggerHash);
+        animator.ResetTrigger(counterAttackTriggerHash);
+        animator.ResetTrigger("attack1"); // Assuming you have these
+        animator.ResetTrigger("attack2");
+        animator.ResetTrigger("attack3");
+        animator.ResetTrigger("getParried");
+        // Stop the normal combo if it's running.
+        if (isAttacking)
+        {
+            FinishCombo();
+        }
+
+        if (rb != null)
+        {
+            rb.linearVelocity = Vector2.zero;
+        }
+    }
+    public void CancelLunge()
+    {
+        if (lungeCoroutine != null)
+        {
+            // If it is, STOP IT. This immediately halts the lunge movement.
+            StopCoroutine(lungeCoroutine);
+            lungeCoroutine = null; // Set it to null so we know it's dead.
+            Debug.LogWarning("--- LUNGE COROUTINE KILLED BY CancelAllAttacks() ---");
+        }
+
+    }
+
     public float GetComboDuration() { return comboDuration; }
     public float GetCounterAttackDuration() { return counterAttackDuration; }
+
+    public void PerformBackstep()
+    {
+        // Play the backstep animation.
+        animator.SetTrigger(backstepTriggerHash);
+
+        // Start the physical movement coroutine.
+        StartCoroutine(BackstepMovementRoutine());
+    }
+
+    // This coroutine handles the actual physics of the backstep.
+    private IEnumerator BackstepMovementRoutine()
+    {
+        // 1. Determine the direction. The backstep is ALWAYS away from the player.
+        //    We ask the followAI which way it's facing. The backstep is the opposite direction.
+        if (followAI == null) yield break;
+        float direction = followAI.IsFacingRight() ? -1f : 1f;
+
+        // 2. Calculate the velocity.
+        Vector2 backstepVelocity = new Vector2(direction * backstepForce, 0f);
+
+        // 3. Apply the velocity for the specified duration.
+        float timer = 0f;
+        while (timer < backstepDuration)
+        {
+            if (rb != null)
+            {
+                rb.linearVelocity = backstepVelocity;
+            }
+            timer += Time.deltaTime;
+            yield return null;
+        }
+
+        // 4. Stop all movement after the backstep is finished.
+        if (rb != null)
+        {
+            rb.linearVelocity = Vector2.zero;
+        }
+    }
     private void OnDrawGizmosSelected()
     {
         if (attackPoint == null) return;

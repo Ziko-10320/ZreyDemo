@@ -130,7 +130,12 @@ private int blocksNeededForNextCounter = 0;
     private int blocksSinceLastCounter = 0;
     [HideInInspector] public bool isUnbreakable = false;
     private KnightAttack knightAttack;
+    private readonly int isWeakAndDamageableBoolHash = Animator.StringToHash("isWeakAndDamageable");
 
+    // This will be a trigger for the recovery animation.
+    private readonly int recoverPostureTriggerHash = Animator.StringToHash("recoverPosture");
+
+    [SerializeField] private float counterStunDuration = 1.5f;
     void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
@@ -285,6 +290,16 @@ private int blocksNeededForNextCounter = 0;
             StopCoroutine(knockbackCoroutine);
         }
         knockbackCoroutine = StartCoroutine(KnockbackRoutine(attacker, knockbackDistance, knockbackDuration));
+        if (currentHealth <= 0)
+        {
+            Die();
+        }
+    }
+    public void TakeDamageCounter(int damage)
+        {
+        currentHealth -= damage; // Fixed damage for counter hits.
+        Debug.Log(transform.name + " took 10 damage from counter. Health is now: " + currentHealth);
+       
         if (currentHealth <= 0)
         {
             Die();
@@ -498,21 +513,16 @@ private int blocksNeededForNextCounter = 0;
     private IEnumerator GuardBrokenSequence()
     {
         Debug.Log("<color=red>KNIGHT'S GUARD IS BROKEN!</color>");
+        animator.SetTrigger(guardBrokenTriggerHash);
 
-        // --- 1. ENTER THE BROKEN STATE ---
-        isGuardBroken = true; // The master switch that makes the knight vulnerable.
-        isBlocking = false; // Can't block if your guard is broken.
-        animator.SetTrigger(guardBrokenTriggerHash); // Play the "guardBroken" animation.
+        // --- THIS IS THE FIX ---
+        // Instead of containing all the logic, it now just calls the new universal method
+        // with the correct duration for a guard break.
+        TriggerStun(guardBrokenStunDuration);
+        // --- END OF FIX ---
 
-        // --- 2. WAIT FOR THE STUN DURATION ---
-        // The knight is now stuck in this vulnerable state.
-        yield return new WaitForSeconds(guardBrokenStunDuration);
-
-        // --- 3. RECOVER FROM THE BROKEN STATE ---
-        Debug.Log("<color=green>Knight has recovered their guard.</color>");
-        isGuardBroken = false; // No longer vulnerable.
-        currentGuard = maxGuard; // Refill the guard meter completely.
-        timeSinceLastBlock = 0f; // Reset the recovery timer.
+        // We yield for a tiny moment to ensure the trigger has time to fire before the sequence ends.
+        yield return null;
     }
     public void PlayHitReaction(string hitType)
     {
@@ -692,7 +702,46 @@ private int blocksNeededForNextCounter = 0;
 
         Debug.Log($"<color=purple>Knight AI: New counter threshold set. Will counter after {blocksNeededForNextCounter} blocks.</color>");
     }
+    public void TriggerStun(float stunDuration)
+    {
+        // Failsafe: If already stunned, don't start another stun.
+        if (isGuardBroken) return;
 
+        StartCoroutine(StunSequence(stunDuration));
+    }
+
+    // This new coroutine contains the logic that used to be in GuardBrokenSequence.
+    private IEnumerator StunSequence(float stunDuration)
+    {
+        Debug.LogWarning($"--- KNIGHT STUN SEQUENCE STARTED (Duration: {stunDuration}s) ---");
+
+        // --- PHASE 1: ENTER THE STUNNED STATE ---
+        isGuardBroken = true; // Use the existing flag to lock the AI brain.
+        isUnbreakable = false; // Force vulnerability.
+        isBlocking = false;
+
+        // We now use the boolean directly to enter the WeakDamageable loop.
+        // The Animator will handle the transition from GetCountered or GuardBroken.
+        animator.SetBool(isWeakAndDamageableBoolHash, true);
+
+
+        // --- PHASE 2: THE VULNERABLE LOOP ---
+        yield return new WaitForSeconds(stunDuration);
+
+
+        // --- PHASE 3: THE RECOVERY ---
+        Debug.Log("<color=green>Knight has recovered from stun.</color>");
+        animator.SetBool(isWeakAndDamageableBoolHash, false);
+        animator.SetTrigger(recoverPostureTriggerHash);
+
+        isGuardBroken = false;
+        currentGuard = maxGuard;
+        timeSinceLastBlock = 0f;
+    }
+    public float GetCounterStunDuration()
+    {
+        return counterStunDuration;
+    }
     /// <summary>
     /// This is the PUBLIC command that the KnightAI brain will call after a counter-attack is finished.
     /// </summary>
@@ -731,5 +780,19 @@ private int blocksNeededForNextCounter = 0;
     {
         isBlocking = false;
         Debug.Log("Knight: Block Window CLOSED");
+    }
+    public void BecomeInvincible()
+    {
+        isUnbreakable = true;
+        Debug.LogWarning("--- KNIGHT IS NOW INVINCIBLE (Animation Event) ---");
+    }
+
+    /// <summary>
+    /// Called by an Animation Event to make the knight vulnerable again.
+    /// </summary>
+    public void BecomeVulnerable()
+    {
+        isUnbreakable = false;
+        Debug.Log("<color=green>--- Knight is now VULNERABLE (Animation Event) ---</color>");
     }
 }

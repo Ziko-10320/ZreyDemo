@@ -29,7 +29,7 @@ public class KnightFollow : MonoBehaviour
     // --- State Control ---
     private bool shouldBeWalking = false;
     private bool isBlocking = false;
-   
+    private bool isFlipLocked = false;
 
     void Awake()
     {
@@ -64,7 +64,12 @@ public class KnightFollow : MonoBehaviour
     }
     void Update()
     {
-        
+
+        if (isFlipLocked)
+        {
+            // If it is locked, do nothing. Exit the method immediately.
+            return;
+        }
         if (playerTarget == null || (knightHealth != null && knightHealth.IsStunned()) || knightAttack != null && knightAttack.IsAttacking())
         {
             StopWalking(); // Tell the animator to stop.
@@ -150,6 +155,20 @@ public class KnightFollow : MonoBehaviour
             // ...flip to face left INSTANTLY.
             Flip();
         }
+    }
+    public void LockFlip()
+    {
+        isFlipLocked = true;
+        Debug.Log("<color=red>--- Knight Flip LOCKED ---</color>");
+    }
+
+    /// <summary>
+    /// Called by an Animation Event to allow the knight to flip again.
+    /// </summary>
+    public void UnlockFlip()
+    {
+        isFlipLocked = false;
+        Debug.Log("<color=green>--- Knight Flip UNLOCKED ---</color>");
     }
     private void Flip()
     {

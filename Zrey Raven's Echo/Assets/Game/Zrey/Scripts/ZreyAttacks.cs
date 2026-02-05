@@ -47,7 +47,7 @@ public class ZreyAttacks : MonoBehaviour
     private bool isDamageFrameActive = false;
     private bool hasDealtDamageThisAttack = false;
     private Coroutine lungeCoroutine;
-    private string currentHitReactionType = "back";
+    private string currentHitReactionType = "";
     private bool isCustomKnockbackPrimed = false;
     private float primedKnockbackDistance;
     private float primedKnockbackDuration;
@@ -69,30 +69,43 @@ public class ZreyAttacks : MonoBehaviour
 
     private readonly int downSlamLoopTriggerHash = Animator.StringToHash("downSlamLoop");
     private readonly int downSlamImpactTriggerHash = Animator.StringToHash("downSlamImpact");
+    private readonly int counterBurstTriggerHash = Animator.StringToHash("counterBurst");
+    private readonly int knightCounterTriggerHash = Animator.StringToHash("knightCounter");
+
+    [Header("Root Motion Components")]
+    [Tooltip("The Animator that controls the root motion proxy object.")]
+    [SerializeField] private Animator rootZreyAnimator;
+    private readonly int rootKnightCounterTriggerHash = Animator.StringToHash("RootKnightCounter");
+    private readonly int rootKnightCounterLeftTriggerHash = Animator.StringToHash("RootKnightCounterLeft");
+    private bool isCountering = false;
+
+    [SerializeField] private ZreyTrail playerTrail;
+
+    [Header("Counter Attack Settings")] 
+    [Tooltip("The amount of pure damage the knight counter deals, with no knockback.")]
+    [SerializeField] private int counterDamage = 50;
+    public bool IsInCinematicState { get; private set; } = false;
     void Awake()
     {
         // Automatically get components if they aren't assigned.
         if (animator == null) animator = GetComponent<Animator>();
         if (playerMovement == null) playerMovement = GetComponent<ZreyMovements>();
         rb = GetComponent<Rigidbody2D>();
-        // Set up the new Input System.
-        inputActions = new InputSystem_Actions();
+         if (playerTrail == null) playerTrail = GetComponent<ZreyTrail>();
+      
         Physics2D.IgnoreLayerCollision(playerLayerValue, enemyLayerValue, true);
     }
 
-    private void OnEnable()
+    void Update()
     {
-        inputActions.Enable();
-        // When the "Fire" action (Left Mouse Button) is performed, call our HandleAttack method.
-        inputActions.Player.Attack.performed += HandleAttack;
+        // --- THIS IS THE FIX ---
+        // We no longer listen for input here. We ask the InputManager.
+        if (InputManager.Instance.justPressedAttack)
+        {
+            HandleAttack(); // Call your existing attack logic.
+        }
+        // --- END OF FIX ---
     }
-
-    private void OnDisable()
-    {
-        inputActions.Disable();
-        inputActions.Player.Attack.performed -= HandleAttack;
-    }
-
     void FixedUpdate()
     {
         // If we are in the down slam state...
@@ -103,9 +116,9 @@ public class ZreyAttacks : MonoBehaviour
         }
     }
 
-    private void HandleAttack(InputAction.CallbackContext context)
+    private void HandleAttack()
     {
-        if (isAttacking || isDownSlamming)
+        if (isAttacking || isDownSlamming || IsInCinematicState)
         {
             return;
         }
@@ -224,7 +237,35 @@ public class ZreyAttacks : MonoBehaviour
             EndAttack();
         }
     }
+    public void DealCounterDamage()
+    {
+        // --- THIS IS THE FINAL, GUARANTEED FIX ---
+        Debug.LogWarning("--- DEALING COUNTER DAMAGE NOW ---");
 
+        // 1. Find all enemies in the attack box.
+        Collider2D[] enemiesHit = Physics2D.OverlapBoxAll(attackPoint.position, attackAreaSize, 0f, enemyLayer);
+
+        foreach (Collider2D enemy in enemiesHit)
+        {
+            // 2. Get the enemy's health component.
+            KnightHealth enemyHealth = enemy.GetComponent<KnightHealth>();
+            if (enemyHealth != null)
+            {
+                // 3. Call the enemy's TakeDamage method DIRECTLY.
+                //    We are NOT using ApplyDamageAndKnockback. We are bypassing it
+                //    to avoid any knockback or hit reactions.
+                enemyHealth.TakeDamageCounter(counterDamage);
+
+                // Optional: Add a special camera shake or blood effect here for the counter.
+                // CameraShakerHandler.Shake(counterShakeData);
+                // Instantiate(counterBloodEffect, ...);
+
+                // We only want to hit one enemy, so we break the loop.
+                break;
+            }
+        }
+        // --- END OF FIX ---
+    }
     public bool IsAttacking()
     {
         return isAttacking;
@@ -391,6 +432,70 @@ public class ZreyAttacks : MonoBehaviour
         // We call the same EndAttack() method that our animation events use.
         // This ensures the state is cleaned up correctly (isAttacking = false, collisions reset, etc.).
         EndAttack();
+    }
+    public void StartKnightCounter()
+    {
+        isCountering = true;
+        IsInCinematicState = true;
+        if (playerTrail != null)
+        {
+            playerTrail.StartTrail();
+        }
+        // 1. BRUTALLY INTERRUPT whatever the player was doing.
+        CancelAttack(); // Cancel any normal combo.
+        if (playerMovement != null)
+        {
+            // You might need a StopDash() method on your movement script if the dash is a coroutine.
+            // For now, let's just lock movement.
+            playerMovement.CanMove = false;
+        }
+
+        // 2. PLAY THE BURST. This is the initial "teleport" or "flash" animation.
+        animator.SetTrigger(counterBurstTriggerHash);
+
+    }
+
+    public void TriggerRootAndCounterAnimations()
+    {
+        Debug.LogWarning("!!! ANIMATION EVENT: TriggerRootAndCounterAnimations() CALLED !!!");
+
+        // 1. Trigger the final VISUAL attack on the main animator.
+        animator.SetTrigger(knightCounterTriggerHash);
+
+        // --- THIS IS THE FINAL, GUARANTEED FIX FOR THE COUNTER ---
+        // 2. Check if the playerMovement script exists.
+        if (playerMovement != null)
+        {
+            if (playerMovement.IsFacingRight())
+            {
+                playerMovement.InitiateRootMotion(rootKnightCounterTriggerHash, 2.0f); // Call the renamed method
+            }
+            else
+            {
+                playerMovement.InitiateRootMotion(rootKnightCounterLeftTriggerHash, 2.0f); // Call the renamed method
+            }
+        }
+        else
+        {
+            Debug.LogError("Cannot start counter root motion! ZreyMovements script is not assigned!", this);
+        }
+        // --- END OF FIX ---
+    }
+    // An event on the final 'knightCounter' animation should call a method to give control back.
+    public void FinishKnightCounter()
+    {
+        isCountering = false;
+        IsInCinematicState = false;
+        if (playerMovement != null)
+        {
+            playerMovement.CanMove = true;
+        }
+        // You might also want to call EndAttack() here to clean up any attack state.
+        EndAttack();
+    }
+    public bool IsCountering()
+    {
+        return isCountering;
     }
     private void OnDrawGizmosSelected()
     {

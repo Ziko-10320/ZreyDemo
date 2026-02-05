@@ -5,7 +5,7 @@ public class AttackData : ScriptableObject
 {
     [Header("Attack Properties")]
     public int damage = 10;
-    public string hitType = "back";
+    public string hitType = ".";
 
     [Header("Knockback Properties")]
     public float knockbackDistance = 2f;
