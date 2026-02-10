@@ -32,8 +32,10 @@ public class KnightAttack : MonoBehaviour
     // --- State Control ---
     private bool isAttacking = false;
     private Coroutine attackCoroutine;
-    private float lastComboTime = -10f; 
-    public ShakeData CameraShakeParry;
+    private float lastComboTime = -10f;
+    public ShakeData CameraShakeLight;
+    public ShakeData CameraShakeMid;
+    public ShakeData CameraShakeHeavy;
     private bool isDamageWindowOpen = false;
     private Coroutine comboWatchdogCoroutine;
 
@@ -275,7 +277,15 @@ public class KnightAttack : MonoBehaviour
     }
     public void CameraShake()
     {
-        CameraShakerHandler.Shake(CameraShakeParry);
+        CameraShakerHandler.Shake(CameraShakeLight);
+    }
+    public void CameraShakeMiid()
+    {
+        CameraShakerHandler.Shake(CameraShakeMid);
+    }
+    public void CameraShakeheavy()
+    {
+        CameraShakerHandler.Shake(CameraShakeHeavy);
     }
     public void Lunge()
     {

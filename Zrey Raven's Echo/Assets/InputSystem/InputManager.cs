@@ -14,8 +14,11 @@ public class InputManager : MonoBehaviour
 
     // --- Public State Flags ---
     // These flags are true for ONLY ONE FRAME when the input is pressed.
-    public bool justPressedAttack { get; private set; }
+ 
     public static event Action OnCounterPressed;
+    public bool isAttackButtonPressed { get; private set; }
+    public bool justReleasedAttack { get; private set; }
+    public float attackButtonHeldTime { get; private set; }
 
     private void Awake()
     {
@@ -40,8 +43,13 @@ public class InputManager : MonoBehaviour
 
     private void OnEnable()
     {
-        // Subscribe to events and enable the action map.
-        inputActions.Player.Attack.performed += OnAttackInput;
+        // --- THIS IS THE FIX ---
+        // We now listen to all three events for the Attack action.
+        inputActions.Player.Attack.started += OnAttackPressed;
+       
+        inputActions.Player.Attack.canceled += OnAttackReleased;
+        // --- END OF FIX ---
+
         inputActions.Player.Counter.performed += OnCounterInput;
         inputActions.Player.Enable();
         Debug.Log("<color=cyan>InputManager: OnEnable() - NOW LISTENING FOR INPUTS.</color>");
@@ -49,27 +57,43 @@ public class InputManager : MonoBehaviour
 
     private void OnDisable()
     {
-        // Unsubscribe and disable to prevent memory leaks.
-        inputActions.Player.Attack.performed -= OnAttackInput;
+        // --- THIS IS THE FIX ---
+        inputActions.Player.Attack.started -= OnAttackPressed;
+       
+        inputActions.Player.Attack.canceled -= OnAttackReleased;
+        // --- END OF FIX ---
+
         inputActions.Player.Counter.performed -= OnCounterInput;
         inputActions.Player.Disable();
         Debug.Log("<color=orange>InputManager: OnDisable() - STOPPED LISTENING.</color>");
     }
+    private void Update()
+    {
+        // If the button is down, increment the timer.
+        if (isAttackButtonPressed)
+        {
+            attackButtonHeldTime += Time.deltaTime;
+        }
+    }
 
-    // This method runs AFTER all Update() methods have run.
     private void LateUpdate()
     {
-        justPressedAttack = false;
-
-       
+        // We only need to reset the "just released" flag.
+        justReleasedAttack = false;
     }
 
-    // --- Input Handlers ---
-    private void OnAttackInput(InputAction.CallbackContext context)
+    // --- MODIFIED Input Handlers ---
+    private void OnAttackPressed(InputAction.CallbackContext context)
     {
-        justPressedAttack = true;
+        isAttackButtonPressed = true;
+        attackButtonHeldTime = 0f;
     }
 
+    private void OnAttackReleased(InputAction.CallbackContext context)
+    {
+        isAttackButtonPressed = false;
+        justReleasedAttack = true;
+    }
     private void OnCounterInput(InputAction.CallbackContext context)
     {
         // --- THIS IS THE FIX ---

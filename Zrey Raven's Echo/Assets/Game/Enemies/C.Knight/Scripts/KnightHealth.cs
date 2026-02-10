@@ -136,6 +136,7 @@ private int blocksNeededForNextCounter = 0;
     private readonly int recoverPostureTriggerHash = Animator.StringToHash("recoverPosture");
 
     [SerializeField] private float counterStunDuration = 1.5f;
+    [SerializeField] private float guardCrushStunDuration = 1.0f;
     void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
@@ -232,7 +233,7 @@ private int blocksNeededForNextCounter = 0;
             SpawnBloodVFX();
             // Apply the normal hit knockback
             if (knockbackCoroutine != null) StopCoroutine(knockbackCoroutine);
-            knockbackCoroutine = StartCoroutine(KnockbackRoutine(attacker, knockbackDistance, knockbackDuration));
+            knockbackCoroutine = StartCoroutine(KnockbackRoutine(attacker, knockbackDistance, knockbackDuration, 0, 0));
 
             if (currentHealth <= 0) Die();
             return; // Exit the function.
@@ -249,7 +250,7 @@ private int blocksNeededForNextCounter = 0;
             }
             CameraShakerHandler.Shake(CameraShakeParry);
             if (knockbackCoroutine != null) StopCoroutine(knockbackCoroutine);
-            knockbackCoroutine = StartCoroutine(KnockbackRoutine(attacker, blockRecoilDistance, blockRecoilDuration));
+            knockbackCoroutine = StartCoroutine(KnockbackRoutine(attacker, blockRecoilDistance, blockRecoilDuration, 0, 0));
 
             timeSinceLastBlock = 0f; // Reset the recovery timer.
             currentGuard -= guardDamagePerBlock; // SUBTRACT damage from the guard meter.
@@ -289,7 +290,7 @@ private int blocksNeededForNextCounter = 0;
         {
             StopCoroutine(knockbackCoroutine);
         }
-        knockbackCoroutine = StartCoroutine(KnockbackRoutine(attacker, knockbackDistance, knockbackDuration));
+        knockbackCoroutine = StartCoroutine(KnockbackRoutine(attacker, knockbackDistance, knockbackDuration,0f, 0f));
         if (currentHealth <= 0)
         {
             Die();
@@ -333,7 +334,7 @@ private int blocksNeededForNextCounter = 0;
         Instantiate(randomPrefab, bloodSpawnPoint.position, prefabRotation);
         // --- END OF MASTER FIX ---
     }
-    private IEnumerator KnockbackRoutine(Transform attacker, float distance, float duration)
+    private IEnumerator KnockbackRoutine(Transform attacker, float distance, float duration, float upwardForce, float downwardForce)
     {
         isBeingKnockedBack = true;
 
@@ -359,8 +360,17 @@ private int blocksNeededForNextCounter = 0;
 
         // 3. Create the final, clean knockback direction vector.
         Vector2 knockbackDirection = new Vector2(knockbackDirectionX, 0);
+        float horizontalVelocity = (distance / duration) * knockbackDirectionX;
 
-        // --- END OF FIX ---
+        if (rb != null)
+        {
+            float initialYVelocity = 0f;
+            if (upwardForce > 0) initialYVelocity = upwardForce;
+            if (downwardForce > 0) initialYVelocity = -downwardForce;
+
+            // We set the velocity once at the beginning.
+            rb.linearVelocity = new Vector2(horizontalVelocity, initialYVelocity);
+        }
 
         Debug.Log($"<color=lime>--- KNIGHT KNOCKBACK ---</color>\n" +
                   $"Knight is facing right: {followAI.IsFacingRight()}\n" +
@@ -371,12 +381,19 @@ private int blocksNeededForNextCounter = 0;
         float timer = 0f;
         while (timer < duration)
         {
-            rb.linearVelocity = knockbackVelocity;
+            if (rb != null)
+            {
+                rb.linearVelocity = new Vector2(horizontalVelocity, rb.linearVelocity.y);
+            }
             timer += Time.deltaTime;
             yield return null;
         }
+        if (rb != null)
+        {
+            rb.linearVelocity = new Vector2(0, rb.linearVelocity.y);
+        }
 
-        rb.linearVelocity = Vector2.zero;
+      
         knockbackCoroutine = null;
         isBeingKnockedBack = false;
     }
@@ -626,7 +643,8 @@ private int blocksNeededForNextCounter = 0;
         string hitType = attackData.hitType;
         float distance = attackData.knockbackDistance;
         float duration = attackData.knockbackDuration;
-
+        float upward = attackData.upwardForce; 
+        float downward = attackData.downwardForce;
         Transform attacker = GameObject.FindGameObjectWithTag("Player").transform;
         if (attacker == null) return;
 
@@ -642,7 +660,7 @@ private int blocksNeededForNextCounter = 0;
             SpawnWoundEffect();
             if (flashCoroutine != null) StopCoroutine(flashCoroutine);
             flashCoroutine = StartCoroutine(FlashDamageEffect());
-            knockbackCoroutine = StartCoroutine(KnockbackRoutine(attacker, distance, duration));
+            knockbackCoroutine = StartCoroutine(KnockbackRoutine(attacker, distance, duration, upward, downward));
             if (currentHealth <= 0) Die();
             return;
         }
@@ -662,7 +680,7 @@ private int blocksNeededForNextCounter = 0;
                 playerAttacks.ApplyKnockback(this.transform, playerKnockbackOnBlock, playerKnockbackDurationOnBlock);
             }
             if (knockbackCoroutine != null) StopCoroutine(knockbackCoroutine);
-            knockbackCoroutine = StartCoroutine(KnockbackRoutine(attacker, blockRecoilDistance, blockRecoilDuration));
+            knockbackCoroutine = StartCoroutine(KnockbackRoutine(attacker, blockRecoilDistance, blockRecoilDuration, upward, downward));
             timeSinceLastBlock = 0f;
            
             if (blockSparksPrefab != null && blockSparksPoint != null)
@@ -689,7 +707,7 @@ private int blocksNeededForNextCounter = 0;
         SpawnWoundEffect();
         if (flashCoroutine != null) StopCoroutine(flashCoroutine);
         flashCoroutine = StartCoroutine(FlashDamageEffect());
-        knockbackCoroutine = StartCoroutine(KnockbackRoutine(attacker, distance, duration));
+        knockbackCoroutine = StartCoroutine(KnockbackRoutine(attacker, distance, duration, upward, downward));
         if (currentHealth <= 0) Die();
     }
     private void SetNewCounterThreshold()
@@ -765,7 +783,7 @@ private int blocksNeededForNextCounter = 0;
         float parryKnockbackDuration = 0.2f;
 
         if (knockbackCoroutine != null) StopCoroutine(knockbackCoroutine);
-        knockbackCoroutine = StartCoroutine(KnockbackRoutine(playerTransform, parryKnockbackDistance, parryKnockbackDuration));
+        knockbackCoroutine = StartCoroutine(KnockbackRoutine(playerTransform, parryKnockbackDistance, parryKnockbackDuration,0, 0));
     }
  
     public bool IsStunned()

@@ -28,7 +28,9 @@ public class ZreyAttacks : MonoBehaviour
     [Tooltip("How long the lunge lasts (in seconds).")]
     [SerializeField] private float lungeDuration = 0.15f;
     private Coroutine comboResetCoroutine;
-    public ShakeData CameraShakeParry;
+    public ShakeData CameraShakeLight;
+    public ShakeData CameraShakeMid;
+    public ShakeData CameraShakeHeavy;
 
     [Header("Damage Settings")]
     [Tooltip("The amount of damage each attack deals.")]
@@ -85,6 +87,25 @@ public class ZreyAttacks : MonoBehaviour
     [Tooltip("The amount of pure damage the knight counter deals, with no knockback.")]
     [SerializeField] private int counterDamage = 50;
     public bool IsInCinematicState { get; private set; } = false;
+    [SerializeField] private PlayerHealth playerHealth;
+    private readonly int specialAttackBlockTriggerHash = Animator.StringToHash("specialAttackBlock");
+    [SerializeField] private float guardCrushStunDuration = 1.0f;
+    [Header("Charged Attack Settings")]
+    [Tooltip("The specific AttackData for the UpperAttack.")]
+    [SerializeField] private AttackData upperAttackData; 
+
+
+    private float attackButtonHeldTime = 0f;
+    private bool isChargingAttack = false;
+
+    // --- New Animation Hashes ---
+    private readonly int upperAttackTriggerHash = Animator.StringToHash("UpperAttack");
+    private readonly int rootUpperAttackTriggerHash = Animator.StringToHash("RootUpperAttack");
+    private bool isChargeAttackPrimed = false;
+    [SerializeField] private float chargeAttackHoldTime = 0.4f;
+   
+
+  
     void Awake()
     {
         // Automatically get components if they aren't assigned.
@@ -92,19 +113,52 @@ public class ZreyAttacks : MonoBehaviour
         if (playerMovement == null) playerMovement = GetComponent<ZreyMovements>();
         rb = GetComponent<Rigidbody2D>();
          if (playerTrail == null) playerTrail = GetComponent<ZreyTrail>();
-      
+        if (playerHealth == null) playerHealth = GetComponent<PlayerHealth>();
         Physics2D.IgnoreLayerCollision(playerLayerValue, enemyLayerValue, true);
     }
 
     void Update()
     {
-        // --- THIS IS THE FIX ---
-        // We no longer listen for input here. We ask the InputManager.
-        if (InputManager.Instance.justPressedAttack)
+        // 1. If we are already attacking, do nothing.
+        if (isAttacking)
         {
-            HandleAttack(); // Call your existing attack logic.
+            return;
         }
-        // --- END OF FIX ---
+
+        // 2. Read the raw input state from the InputManager.
+        bool attackHeld = InputManager.Instance.isAttackButtonPressed;
+        float heldTime = InputManager.Instance.attackButtonHeldTime;
+        bool attackReleased = InputManager.Instance.justReleasedAttack;
+
+        // --- THIS IS THE FINAL, GUARANTEED FIX ---
+
+        // 3. CHARGE LOGIC
+        // If the button is being held, we haven't already primed a charge, AND we are on the ground...
+        if (attackHeld && !isChargeAttackPrimed && playerMovement.IsGrounded())
+        {
+            // ...check if the hold time has been met.
+            if (heldTime >= chargeAttackHoldTime)
+            {
+                // If YES, perform the Upper Attack immediately.
+                PerformUpperAttack();
+
+                // CRITICAL FIX #1: Immediately reset the primed flag.
+                // This allows you to release and immediately start a new charge
+                // without any "cooldown". The charge is now a "one-shot" event per press.
+                isChargeAttackPrimed = true;
+            }
+        }
+
+        // 4. TAP LOGIC
+        // If the button was just released AND we didn't already do a charge attack...
+        if (attackReleased && !isChargeAttackPrimed)
+        {
+            // ...then it was a TAP. Perform a normal attack.
+            // The HandleAttack() method already contains its own grounded check.
+            HandleAttack();
+        }
+
+      
     }
     void FixedUpdate()
     {
@@ -118,11 +172,29 @@ public class ZreyAttacks : MonoBehaviour
 
     private void HandleAttack()
     {
+        if (playerHealth != null && playerHealth.IsBlocking())
+        {
+            // 2. If YES, perform the new Block Special Attack.
+            Debug.Log("<color=lime>--- BLOCK SPECIAL ATTACK TRIGGERED ---</color>");
+
+            // Set the master attacking flag to true.
+            isAttacking = true;
+            if (attackWatchdogCoroutine != null) StopCoroutine(attackWatchdogCoroutine);
+            attackWatchdogCoroutine = StartCoroutine(AttackWatchdogRoutine());
+            // Trigger the new animation.
+            animator.SetTrigger(specialAttackBlockTriggerHash);
+            Physics2D.IgnoreLayerCollision(playerLayerValue, enemyLayerValue, false);
+         
+          
+            // 3. CRITICAL: Exit the method immediately.
+            //    We do not want to proceed to the normal ground/air attack logic.
+            return;
+        }
         if (isAttacking || isDownSlamming || IsInCinematicState)
         {
             return;
         }
-
+        
         // 2. If we are not attacking, THEN decide what to do.
         if (!playerMovement.IsGrounded())
         {
@@ -138,11 +210,14 @@ public class ZreyAttacks : MonoBehaviour
             if (comboStep >= 4) comboStep = 0;
         }
     }
+ 
     private void PerformDownSlam()
     {
         Debug.Log("<color=magenta>DOWN SLAM STARTED!</color>");
         isDownSlamming = true;
         isAttacking = true;
+        if (attackWatchdogCoroutine != null) StopCoroutine(attackWatchdogCoroutine);
+        attackWatchdogCoroutine = StartCoroutine(AttackWatchdogRoutine());
         // Tell the movement script to stop normal control.
         playerMovement.CanMove = false;
         animator.ResetTrigger(downSlamImpactTriggerHash);
@@ -213,7 +288,33 @@ public class ZreyAttacks : MonoBehaviour
 
         Debug.Log($"<color=green>ATTACK {step} TRIGGERED! (Variant: {variant})</color>");
     }
+    private void PerformUpperAttack()
+    {
+        if (isAttacking || isDownSlamming || (playerHealth != null && playerHealth.IsBlocking()) || (playerHealth != null && playerHealth.isStunned))
+        {
+            return;
+        }
 
+        Debug.Log("<color=yellow>--- UPPER ATTACK TRIGGERED ---</color>");
+        isAttacking = true;
+        if (attackWatchdogCoroutine != null) StopCoroutine(attackWatchdogCoroutine);
+        attackWatchdogCoroutine = StartCoroutine(AttackWatchdogRoutine());
+        animator.SetTrigger(upperAttackTriggerHash);
+        if (playerMovement != null)
+    {
+        // IMPORTANT: You must find the duration of your RootUpperAttack animation clip
+        // and put that exact value here. For example, if it's 0.75 seconds long:
+        float upperAttackDuration = 0.75f; // <--- CHANGE THIS TO YOUR ANIMATION'S DURATION
+
+        // We call the public method on ZreyMovements that we already built.
+        playerMovement.InitiateRootMotion(rootUpperAttackTriggerHash, upperAttackDuration);
+    }
+    }
+
+    public void DealUpperAttackDamage()
+    {
+        AttackEnemy(upperAttackData);
+    }
     /// <summary>
     /// Resets the combo state. Called by the timer in Update().
     /// </summary>
@@ -292,6 +393,34 @@ public class ZreyAttacks : MonoBehaviour
             yield return null;
         }
     }
+    public void GuardCrush()
+    {
+        Debug.LogWarning("--- PLAYER EXECUTING GUARD CRUSH ---");
+
+        // 1. Find all enemies in the attack box.
+        Collider2D[] enemiesHit = Physics2D.OverlapBoxAll(attackPoint.position, attackAreaSize, 0f, enemyLayer);
+
+        foreach (Collider2D enemy in enemiesHit)
+        {
+            // 2. Get the enemy's health component.
+            KnightHealth enemyHealth = enemy.GetComponent<KnightHealth>();
+            if (enemyHealth != null)
+            {
+                // --- THIS IS THE FINAL, GUARANTEED FIX ---
+                // 3. COMMAND the knight to be stunned.
+                //    We call the universal TriggerStun method on the knight,
+                //    passing our new, specific duration for this move.
+                enemyHealth.TriggerStun(guardCrushStunDuration);
+                // --- END OF FIX ---
+
+                // Optional: Add a special camera shake or VFX for the guard crush.
+                // CameraShakerHandler.Shake(guardCrushShakeData);
+
+                // We only want to crush one enemy's guard, so we break the loop.
+                break;
+            }
+        }
+    }
     public void EndAttack()
     {
         if (attackWatchdogCoroutine != null)
@@ -301,11 +430,10 @@ public class ZreyAttacks : MonoBehaviour
         }
         isAttacking = false;
         Physics2D.IgnoreLayerCollision(playerLayerValue, enemyLayerValue, true);
-        // --- THIS IS THE NEW, CRITICAL PART ---
-        // Reset the attackStep so the Animator can exit the Attack_Router state.
+       
         animator.SetInteger(attackStepHash, 0);
-        // --- END OF NEW PART ---
-
+      
+        isChargeAttackPrimed = false;
         comboResetCoroutine = StartCoroutine(ComboResetRoutine());
         Debug.Log($"Attack {comboStep} finished. Combo reset timer started.");
     }
@@ -319,7 +447,15 @@ public class ZreyAttacks : MonoBehaviour
     }
     public void CameraShake()
     {
-        CameraShakerHandler.Shake(CameraShakeParry);
+        CameraShakerHandler.Shake(CameraShakeLight);
+    }
+    public void CameraShakeMiid()
+    {
+        CameraShakerHandler.Shake(CameraShakeMid);
+    }
+    public void CameraShakeheavy()
+    {
+        CameraShakerHandler.Shake(CameraShakeHeavy);
     }
     public void AttackEnemy(AttackData attackData)
     {

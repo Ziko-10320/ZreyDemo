@@ -376,10 +376,7 @@ public class PlayerHealth : MonoBehaviour
             return;
         }
         if ( isBlocking) return;
-        if (playerAttacks != null)
-        {
-            playerAttacks.CancelAttack(); // We will create this new method.
-        }
+        animator.ResetTrigger(stopBlockTriggerHash);
         isBlocking = true;
         animator.SetTrigger(startBlockTriggerHash);
         playerMovements.CanMove = false;
