@@ -54,6 +54,7 @@ public class PlayerHealth : MonoBehaviour
     public ShakeData CameraShakeParry;
     [SerializeField] private CheckpointManager checkpointManager;
     public bool isStunned = false;
+    public bool isBeingKnockedBack { get; private set; } = false;
     void Awake()
     {
         // --- THIS IS THE GUARANTEE ---
@@ -121,13 +122,13 @@ public class PlayerHealth : MonoBehaviour
 
             if (knockbackCoroutine != null) StopCoroutine(knockbackCoroutine);
 
-            // Create a temporary ImpactData for the parry knockback
             ImpactData parryImpact = ScriptableObject.CreateInstance<ImpactData>();
-            parryImpact.knockbackDistance = impact.knockbackDistance * 0.1f; // Half distance
-            parryImpact.knockbackDuration = impact.knockbackDuration * 0.4f;
-            parryImpact.hitReactionType = "none"; // No hit animation
+            parryImpact.knockbackDistance = impact.knockbackDistance ; // Same as block
+            parryImpact.knockbackDuration = impact.knockbackDuration;       // Same as block
+            parryImpact.hitReactionType = "none"; // A parry doesn't play a "get hit" animation.
 
-            knockbackCoroutine = StartCoroutine(ParryKnockbackRoutine(attacker, parryImpact));
+            if (knockbackCoroutine != null) StopCoroutine(knockbackCoroutine);
+            knockbackCoroutine = StartCoroutine(HitReactionRoutine(attacker, parryImpact));
 
             KnightAttack enemyAttack = attacker.GetComponent<KnightAttack>();
             KnightHealth enemyHealth = attacker.GetComponent<KnightHealth>();
@@ -168,7 +169,7 @@ public class PlayerHealth : MonoBehaviour
 
             // Create a temporary ImpactData for the parry knockback
             ImpactData parryImpact = ScriptableObject.CreateInstance<ImpactData>();
-            parryImpact.knockbackDistance = impact.knockbackDistance * 0.5f; // Half distance
+            parryImpact.knockbackDistance = impact.knockbackDistance; // Half distance
             parryImpact.knockbackDuration = impact.knockbackDuration;
             parryImpact.hitReactionType = "none"; // No hit animation
             SpawnBlood();
@@ -256,6 +257,7 @@ public class PlayerHealth : MonoBehaviour
     }
     private IEnumerator ParryKnockbackRoutine(Transform attacker, ImpactData impact)
     {
+        isBeingKnockedBack = true;
         // Calculate the small knockback velocity.
         float horizontalDirection = Mathf.Sign(transform.position.x - attacker.position.x);
         Vector2 knockbackVelocity = new Vector2(horizontalDirection * (impact.knockbackDistance / impact.knockbackDuration), 0);
@@ -271,9 +273,11 @@ public class PlayerHealth : MonoBehaviour
 
         // After the knockback, reset horizontal velocity but allow the player to keep moving.
         if (rb != null) rb.linearVelocity = new Vector2(0, rb.linearVelocity.y);
+        isBeingKnockedBack = false;
     }
     private IEnumerator HitReactionRoutine(Transform attacker, ImpactData impact)
     {
+        isBeingKnockedBack = true;
         isStunned = true;
         if (playerMovements != null) playerMovements.CanMove = false;
         // 2. PLAY ANIMATION
@@ -344,6 +348,7 @@ public class PlayerHealth : MonoBehaviour
         // 5. RELINQUISH CONTROL
         playerMovements.CanMove = true;
         knockbackCoroutine = null;
+        isBeingKnockedBack = false;
     }
     private void PlayHitReaction(string hitType)
     {

@@ -406,17 +406,17 @@ public class ZreyAttacks : MonoBehaviour
             KnightHealth enemyHealth = enemy.GetComponent<KnightHealth>();
             if (enemyHealth != null)
             {
-                // --- THIS IS THE FINAL, GUARANTEED FIX ---
-                // 3. COMMAND the knight to be stunned.
-                //    We call the universal TriggerStun method on the knight,
-                //    passing our new, specific duration for this move.
+               
                 enemyHealth.TriggerStun(guardCrushStunDuration);
-                // --- END OF FIX ---
+               
+                break;
+            }
+            SpearHealth spearHealth = enemy.GetComponent<SpearHealth>();
+            if (spearHealth != null)
+            {
 
-                // Optional: Add a special camera shake or VFX for the guard crush.
-                // CameraShakerHandler.Shake(guardCrushShakeData);
+                spearHealth.TriggerStun(guardCrushStunDuration);
 
-                // We only want to crush one enemy's guard, so we break the loop.
                 break;
             }
         }
@@ -469,6 +469,13 @@ public class ZreyAttacks : MonoBehaviour
             {
                 // Call the new, all-in-one function on the knight, passing the data container.
                 enemyHealth.ApplyDamageAndKnockback(attackData);
+                break; // Hit one enemy and stop.
+            }
+            SpearHealth spearHealth = enemy.GetComponent<SpearHealth>();
+            if (spearHealth != null)
+            {
+                // Call the new, all-in-one function on the knight, passing the data container.
+                spearHealth.ApplyDamageAndKnockback(attackData);
                 break; // Hit one enemy and stop.
             }
         }
@@ -555,6 +562,12 @@ public class ZreyAttacks : MonoBehaviour
             {
                 // Tell the AI BRAIN that we are starting an attack.
                 enemyAI.OnPlayerAttackTelegraphed(this.transform);
+            }
+            SpearAI enemyAi = enemy.GetComponent<SpearAI>();
+            if (enemyAi != null)
+            {
+                // Tell the AI BRAIN that we are starting an attack.
+                enemyAi.OnPlayerAttackTelegraphed(this.transform);
             }
         }
     }

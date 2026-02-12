@@ -10,10 +10,10 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: cb14096b58bcea94da9448a86e05797e, type: 3}
-  m_Name: BackHit
+  m_Name: LongKnockback
   m_EditorClassIdentifier: Assembly-CSharp::ImpactData
-  hitReactionType: back
-  knockbackDistance: 5.5
-  knockbackDuration: 0.2
+  hitReactionType: down
+  knockbackDistance: 9
+  knockbackDuration: 0.3
   upwardForce: 0
   downwardForce: 0

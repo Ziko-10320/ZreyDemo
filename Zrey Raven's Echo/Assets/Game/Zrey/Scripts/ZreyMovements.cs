@@ -258,6 +258,13 @@ public class ZreyMovements : MonoBehaviour
 
     void FixedUpdate()
     {
+        if (playerHealth != null && playerHealth.isBeingKnockedBack)
+        {
+            // If YES, do NOTHING.
+            // This allows the knockback coroutines in PlayerHealth to have full
+            // control over the Rigidbody's velocity without interference.
+            return;
+        }
         if (isInRootMotionState)
         {
             return;

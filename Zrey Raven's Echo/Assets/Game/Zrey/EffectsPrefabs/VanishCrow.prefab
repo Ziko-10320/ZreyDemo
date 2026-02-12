@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 2155877739665678307}
   - component: {fileID: 2089536091577722180}
   m_Layer: 0
-  m_Name: CrowEffect
+  m_Name: VanishCrow
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -28,11 +28,11 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0.40885586, y: 0.05352604, z: -0.15506583, w: 0.89773405}
   m_LocalPosition: {x: -26.170002, y: -6.0600004, z: -0.0032832623}
-  m_LocalScale: {x: 0.5084309, y: 0.5084312, z: -0.5084311}
+  m_LocalScale: {x: 0.6342675, y: 0.63426787, z: -0.63426775}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 5377807450419765367}
-  - {fileID: 4361916955324368630}
+  - {fileID: 6589136188472631662}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: -228.65, y: -182.663, z: 1599.196}
 --- !u!198 &2155877739665678307
@@ -44,7 +44,7 @@ ParticleSystem:
   m_GameObject: {fileID: 2477724771018387216}
   serializedVersion: 8
   lengthInSec: 1
-  simulationSpeed: 1
+  simulationSpeed: 2
   stopAction: 0
   cullingMode: 0
   ringBufferMode: 0
@@ -171,8 +171,8 @@ ParticleSystem:
     startSpeed:
       serializedVersion: 2
       minMaxState: 3
-      scalar: 15
-      minScalar: 2
+      scalar: -17.8
+      minScalar: 0
       maxCurve:
         serializedVersion: 2
         m_Curve:
@@ -753,7 +753,7 @@ ParticleSystem:
     sphericalDirectionAmount: 0
     randomPositionAmount: 0
     radius:
-      value: 0.0001
+      value: 7.24
       mode: 0
       spread: 0
       speed:
@@ -2745,7 +2745,7 @@ ParticleSystem:
         m_PostInfinity: 2
         m_RotationOrder: 4
   NoiseModule:
-    enabled: 1
+    enabled: 0
     strength:
       serializedVersion: 2
       minMaxState: 0
@@ -4905,7 +4905,7 @@ ParticleSystemRenderer:
   m_MeshWeighting1: 1
   m_MeshWeighting2: 1
   m_MeshWeighting3: 1
---- !u!1 &5001644825169082461
+--- !u!1 &6612487727102948977
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -4913,38 +4913,38 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 4361916955324368630}
-  - component: {fileID: 5471941628105619864}
-  - component: {fileID: 3979948820471678266}
+  - component: {fileID: 6589136188472631662}
+  - component: {fileID: 1953686614494323955}
+  - component: {fileID: 2485283458963229523}
   m_Layer: 0
-  m_Name: AppearSmpoke
+  m_Name: Vanish
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &4361916955324368630
+--- !u!4 &6589136188472631662
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5001644825169082461}
+  m_GameObject: {fileID: 6612487727102948977}
   serializedVersion: 2
   m_LocalRotation: {x: 0.33147424, y: 0.7291322, z: 0.38460207, w: 0.45888165}
-  m_LocalPosition: {x: 1.29, y: -0.54, z: 1.32}
-  m_LocalScale: {x: 2.003809, y: 2.003809, z: -2.0038097}
+  m_LocalPosition: {x: 0.58, y: -2.47, z: -1.4}
+  m_LocalScale: {x: 1.9668347, y: 1.9668347, z: -1.9668355}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 5787670933331419491}
   m_LocalEulerAnglesHint: {x: -15.713, y: -99.864, z: 17.523}
---- !u!2083052967 &5471941628105619864
+--- !u!2083052967 &1953686614494323955
 VisualEffect:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5001644825169082461}
+  m_GameObject: {fileID: 6612487727102948977}
   m_Enabled: 1
   m_Asset: {fileID: 8926484042661614526, guid: 4cc56c5d7171a84478874028f1ce6aa3, type: 3}
   m_InitialEventName: OnPlay
@@ -4959,7 +4959,7 @@ VisualEffect:
       - m_Value: 0
         m_Name: SmokeRate
         m_Overridden: 1
-      - m_Value: 0.35
+      - m_Value: 0.5
         m_Name: SmokeLifeTime
         m_Overridden: 1
       - m_Value: 2.69
@@ -4992,22 +4992,49 @@ VisualEffect:
           serializedVersion: 2
           m_Curve:
           - serializedVersion: 3
-            time: 0
-            value: 0
-            inSlope: 2
-            outSlope: 2
-            tangentMode: 0
+            time: -0.0137786865
+            value: 0.77571106
+            inSlope: 4.3261075
+            outSlope: 4.3261075
+            tangentMode: 34
             weightedMode: 0
             inWeight: 0
-            outWeight: 0
+            outWeight: 0.33333334
           - serializedVersion: 3
-            time: 1
-            value: 1
-            inSlope: 0
-            outSlope: 0
+            time: -0.00036134757
+            value: 0.8337559
+            inSlope: 0.19957782
+            outSlope: 0.19957782
             tangentMode: 0
             weightedMode: 0
-            inWeight: 0
+            inWeight: 0.33333334
+            outWeight: 0.118745595
+          - serializedVersion: 3
+            time: 0.29354757
+            value: 0.3122909
+            inSlope: -1.3254137
+            outSlope: -1.3254137
+            tangentMode: 0
+            weightedMode: 0
+            inWeight: 0.33333334
+            outWeight: 0.33333334
+          - serializedVersion: 3
+            time: 0.43589568
+            value: 0.15438393
+            inSlope: -0.560329
+            outSlope: -0.560329
+            tangentMode: 0
+            weightedMode: 0
+            inWeight: 0.33333334
+            outWeight: 0.33333334
+          - serializedVersion: 3
+            time: 0.9940796
+            value: 0.0158844
+            inSlope: -0.24812526
+            outSlope: -0.24812526
+            tangentMode: 34
+            weightedMode: 0
+            inWeight: 0.33333334
             outWeight: 0
           m_PreInfinity: 2
           m_PostInfinity: 2
@@ -5020,14 +5047,14 @@ VisualEffect:
       m_Array: []
     m_Bool:
       m_Array: []
---- !u!73398921 &3979948820471678266
+--- !u!73398921 &2485283458963229523
 VFXRenderer:
   serializedVersion: 1
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5001644825169082461}
+  m_GameObject: {fileID: 6612487727102948977}
   m_Enabled: 1
   m_CastShadows: 1
   m_ReceiveShadows: 0
