@@ -91,6 +91,7 @@ public class SpearHealth : MonoBehaviour
     [Tooltip("The specific point on the knight's body where the wound should appear.")]
     [SerializeField] private Transform woundSpawnPoint;
     private readonly int fallTriggerHash = Animator.StringToHash("fall");
+    private readonly int UpTriggerHash = Animator.StringToHash("Up");
     private readonly int finalBackTriggerHash = Animator.StringToHash("finalBack");
 
     // --- ADD this new section for the custom knockback system ---
@@ -137,6 +138,46 @@ public class SpearHealth : MonoBehaviour
 
     [SerializeField] private float counterStunDuration = 1.5f;
     [SerializeField] private float guardCrushStunDuration = 1.0f;
+
+    [Header("Finisher Settings")]
+    [Tooltip("Is the enemy currently in a state where they can be finished?")]
+    public bool isFinishable { get; private set; } = false;
+
+    [Tooltip("The animation trigger for when the enemy is being finished.")]
+    private readonly int takeFinisherTriggerHash = Animator.StringToHash("TakeFinisher");
+    [Header("Decapitation Finisher Settings")]
+    [Tooltip("The separate Head prefab to be spawned when decapitated.")]
+    [SerializeField] private GameObject headPrefab;
+
+    [Tooltip("The point from which the new head prefab will be spawned.")]
+    [SerializeField] private Transform headSpawnPoint;
+
+    [Header("Head Ejection Force")]
+    [Tooltip("The upward force applied to the severed head.")]
+    [SerializeField] private float headUpwardForce = 5f;
+
+    [Tooltip("The horizontal force applied to the severed head.")]
+    [SerializeField] private float headSidewaysForce = 3f;
+
+    [Tooltip("The rotational force (torque) applied to the severed head.")]
+    [SerializeField] private float headTorque = 10f;
+
+    [Header("Juggling & Ground Check")]
+    [Tooltip("An empty GameObject at the enemy's feet to check for the ground.")]
+    [SerializeField] private Transform groundCheck;
+    [Tooltip("The radius of the ground check circle.")]
+    [SerializeField] private float groundCheckRadius = 0.2f;
+    [Tooltip("The layer(s) that should be considered ground.")]
+    [SerializeField] private LayerMask groundLayer;
+
+    // --- Private state for juggling ---
+    private bool isGrounded = true;
+    private bool wasGrounded = true;
+    private bool isInJuggleState = false;
+
+    // --- New Animation Hashes ---
+    private readonly int landHitTriggerHash = Animator.StringToHash("LandHit");
+   
     void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
@@ -180,10 +221,38 @@ public class SpearHealth : MonoBehaviour
             Debug.LogError("FATAL ERROR: KnightAI script is missing! The knight will have no brain.", this);
         }
         SetNewCounterThreshold();
+        if (groundCheck == null)
+        {
+            Debug.LogError("FATAL ERROR: Ground Check transform is not assigned on SpearHealth!", this);
+        }
     }
 
     void Update()
     {
+        wasGrounded = isGrounded;
+        isGrounded = Physics2D.OverlapCircle(groundCheck.position, groundCheckRadius, groundLayer);
+
+        // 2. Check if we are in a juggle state.
+        if (isInJuggleState)
+        {
+            // A. If we are falling (Y velocity is negative)...
+            if (rb.linearVelocity.y < -0.1f)
+            {
+                // ...play the falling hit animation.
+                // We can call PlayHitReaction because it already handles resetting other triggers.
+                PlayHitReaction("fall");
+            }
+
+            // B. If we have just landed (we were NOT grounded, but now we ARE)...
+            if (!wasGrounded && isGrounded)
+            {
+                Debug.LogWarning("--- Enemy has LANDED from juggle ---");
+                // ...play the landing animation.
+                animator.SetTrigger(landHitTriggerHash);
+                // ...and exit the juggle state.
+                isInJuggleState = false;
+            }
+        }
         // --- THIS IS THE GUARD RECOVERY LOGIC ---
         // If our guard is not broken and we are not currently blocking...
         if (!isGuardBroken && !isBlocking)
@@ -400,10 +469,47 @@ public class SpearHealth : MonoBehaviour
 
     private void Die()
     {
-        Debug.Log(transform.name + " has been defeated!");
-        // Here you would play a death animation, spawn particles, etc.
-        // For now, we'll just destroy the GameObject.
-        Destroy(gameObject, 0.1f);
+        if (isFinishable) return;
+
+        Debug.LogWarning($"--- {transform.name} is now FINISHABLE! ---");
+
+        // 2. Set the state flag.
+        isFinishable = true;
+
+
+        if (spearAI != null) spearAI.enabled = false;
+        if (spearAttack != null) spearAttack.enabled = false;
+        if (followAI != null) followAI.enabled = false;
+
+        // --- THIS IS THE FINAL, GUARANTEED FIX ---
+        // Instead of disabling the simulation, we make the Rigidbody kinematic.
+        if (rb != null)
+        {
+            // 1. Make it kinematic. This stops it from reacting to gravity or forces.
+            rb.bodyType = RigidbodyType2D.Kinematic;
+
+            // 2. Kill all existing velocity.
+            rb.linearVelocity = Vector2.zero;
+
+            // By doing this, the colliders remain active and can be detected
+            // by the player's OverlapCircleAll check.
+        }
+
+
+    }
+    public void ExecuteFinisher()
+    {
+        // Failsafe: if we're not in a finishable state, this can't be called.
+        if (!isFinishable) return;
+
+        Debug.LogError($"--- {transform.name} IS BEING FINISHED! ---");
+
+        // Play the "TakeFinisher" animation.
+        animator.SetTrigger(takeFinisherTriggerHash);
+
+        // After a delay (the length of the animation), destroy the object.
+        // IMPORTANT: Change 3.0f to the length of your TakeFinisher animation.
+        Destroy(gameObject, 7.0f);
     }
     public void TakePostureDamageOnParry()
     {
@@ -560,7 +666,7 @@ public class SpearHealth : MonoBehaviour
         animator.ResetTrigger(blockTriggerHash); // Also reset the block trigger, just in case.
         animator.ResetTrigger(fallTriggerHash);
         animator.ResetTrigger(finalBackTriggerHash);
-
+        animator.ResetTrigger(UpTriggerHash);
         Debug.Log($"<color=cyan>Knight received AGGRESSIVE hit reaction command: {hitType}</color>");
 
         // 3. Now, set the new trigger.
@@ -580,6 +686,11 @@ public class SpearHealth : MonoBehaviour
                 break;
             case "finalback":
                 animator.SetTrigger(finalBackTriggerHash);
+                break;
+
+            case "hitup":
+                animator.SetTrigger(UpTriggerHash);
+                isInJuggleState = true;
                 break;
             default:
                 animator.SetTrigger(getHitBackTriggerHash);
@@ -626,6 +737,11 @@ public class SpearHealth : MonoBehaviour
     }
     public void ApplyDamageAndKnockback(AttackData attackData)
     {
+        if (isFinishable)
+        {
+            Debug.Log("Damage ignored: Target is already in a finishable state.");
+            return;
+        }
         if (spearAttack != null && spearAttack.IsAttacking())
         {
             // 2. If YES, do NOTHING. The knight is invincible during his combo.
@@ -812,5 +928,55 @@ public class SpearHealth : MonoBehaviour
     {
         isUnbreakable = false;
         Debug.Log("<color=green>--- Knight is now VULNERABLE (Animation Event) ---</color>");
+    }
+    public void Decapitate()
+    {
+        // --- BRUTAL DEBUG ---
+        Debug.LogError("--- ANIMATION EVENT: DECAPITATE! (Spawn-Only Version) ---");
+
+        // --- 1. SAFETY CHECKS ---
+        // We only check for the prefab and the spawn point now.
+        if (headPrefab == null || headSpawnPoint == null)
+        {
+            Debug.LogError("Decapitation failed: Head Prefab or Head Spawn Point is not assigned in the Inspector!", this);
+            return;
+        }
+
+        // --- 2. SPAWN THE NEW HEAD PREFAB ---
+        GameObject newHead = Instantiate(headPrefab, headSpawnPoint.position, headSpawnPoint.rotation);
+
+        // --- 3. APPLY THE FORCE ---
+        Rigidbody2D headRb = newHead.GetComponent<Rigidbody2D>();
+        if (headRb != null)
+        {
+            // Determine the direction based on the player's position.
+            float direction = (playerTarget.position.x > transform.position.x) ? -1f : 1f;
+            Vector2 force = new Vector2(headSidewaysForce * direction, headUpwardForce);
+
+            // Apply the forces.
+            headRb.AddForce(force, ForceMode2D.Impulse);
+            headRb.AddTorque(headTorque, ForceMode2D.Impulse);
+
+            Debug.Log($"Applied force ({force}) and torque ({headTorque}) to severed head.");
+        }
+        else
+        {
+            Debug.LogWarning("Spawned head prefab does not have a Rigidbody2D component! Cannot apply force.", newHead);
+        }
+        Destroy(newHead,3.5f); // Destroy the original body after spawning the head.
+    }
+    public bool IsGrounded()
+    {
+        // We already calculate this 'isGrounded' boolean in the Update loop.
+        // We just need to expose its value.
+        return isGrounded;
+    }
+    private void OnDrawGizmosSelected()
+    {
+        if (groundCheck != null)
+        {
+            Gizmos.color = Color.green;
+            Gizmos.DrawWireSphere(groundCheck.position, groundCheckRadius);
+        }
     }
 }

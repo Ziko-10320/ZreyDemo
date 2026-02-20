@@ -60,15 +60,19 @@ public class KnightAI : MonoBehaviour
     [SerializeField] public GameObject counterPromptUI;
     private void OnEnable()
     {
-        // When this script is enabled, start listening for the counter press event.
-        InputManager.OnCounterPressed += HandleCounterInput;
+        // --- THIS IS THE FIX ---
+        // We now listen to the event from ZreyAttacks.
+        ZreyAttacks.OnPlayerCounterAttempt += HandleCounterInput;
+        // --- END OF FIX ---
     }
 
     private void OnDisable()
     {
-        // When this script is disabled, stop listening to prevent memory leaks.
-        InputManager.OnCounterPressed -= HandleCounterInput;
+        // --- THIS IS THE FIX ---
+        ZreyAttacks.OnPlayerCounterAttempt -= HandleCounterInput;
+        // --- END OF FIX ---
     }
+
     private void HandleCounterInput()
     {
         // --- THIS IS THE FIX ---

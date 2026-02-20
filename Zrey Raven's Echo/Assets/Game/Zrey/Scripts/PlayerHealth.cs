@@ -25,6 +25,7 @@ public class PlayerHealth : MonoBehaviour
     private readonly int getHitBackTriggerHash = Animator.StringToHash("getHitBack");
     private readonly int getHitDownTriggerHash = Animator.StringToHash("getHitDown");
     private readonly int getHitFinalBackTriggerHash = Animator.StringToHash("finalBack");
+    private readonly int getHitFallTriggerHash = Animator.StringToHash("Hitfall");
     private readonly int deathTriggerHash = Animator.StringToHash("death"); // For death animation
     private ZreyMovements playerMovements;
     [Header("Defense & Parry")]
@@ -277,6 +278,10 @@ public class PlayerHealth : MonoBehaviour
     }
     private IEnumerator HitReactionRoutine(Transform attacker, ImpactData impact)
     {
+        if (playerAttacks != null)
+        {
+            playerAttacks.CancelAttack();
+        }
         isBeingKnockedBack = true;
         isStunned = true;
         if (playerMovements != null) playerMovements.CanMove = false;
@@ -361,6 +366,7 @@ public class PlayerHealth : MonoBehaviour
             case "down": animator.SetTrigger(getHitDownTriggerHash); break;
             case "finalback": animator.SetTrigger(getHitFinalBackTriggerHash); break;
             case "back": animator.SetTrigger(getHitBackTriggerHash); break;
+            case "fall": animator.SetTrigger(getHitFallTriggerHash); break;
         }
     }
 
@@ -379,6 +385,10 @@ public class PlayerHealth : MonoBehaviour
         {
             Debug.Log("Block Input Ignored: In Cinematic State.");
             return;
+        }
+        if (playerAttacks != null)
+        {
+            playerAttacks.CancelAttack();
         }
         if ( isBlocking) return;
         animator.ResetTrigger(stopBlockTriggerHash);
@@ -438,6 +448,22 @@ public class PlayerHealth : MonoBehaviour
         // The 'isBlocking' variable already controls the block state.
         // We just need to expose its value.
         return isBlocking;
+    }
+    public void ForceResetState()
+    {
+        isBlocking = false;
+        isParryWindowActive = false;
+        isStunned = false;
+        isBeingKnockedBack = false;
+
+        // We also need to ensure the animator's block state is reset.
+        if (animator != null)
+        {
+            animator.SetTrigger(stopBlockTriggerHash);
+        }
+
+        // Stop any lingering coroutines in this script
+        StopAllCoroutines();
     }
     private IEnumerator DeathSequence()
     {

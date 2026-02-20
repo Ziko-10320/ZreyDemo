@@ -12,8 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cb14096b58bcea94da9448a86e05797e, type: 3}
   m_Name: LongKnockback
   m_EditorClassIdentifier: Assembly-CSharp::ImpactData
-  hitReactionType: back
-  knockbackDistance: 9
-  knockbackDuration: 0.3
+  hitReactionType: fall
+  knockbackDistance: 10
+  knockbackDuration: 0.5
   upwardForce: 0
   downwardForce: 0

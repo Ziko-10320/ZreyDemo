@@ -1,41 +1,42 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 using System;
+using UnityEngine.SceneManagement;
 public class InputManager : MonoBehaviour
 {
     // --- The Singleton Pattern ---
     public static InputManager Instance { get; private set; }
     // ---
-
+    public static event Action OnInteractPressed;
     // --- Input Actions ---
     private InputSystem_Actions inputActions;
     
     public KnightAI knightAI; // Reference to the KnightAI script to call its methods directly.
+    public ZreyAttacks playerAttacks; 
 
-    // --- Public State Flags ---
-    // These flags are true for ONLY ONE FRAME when the input is pressed.
- 
-    public static event Action OnCounterPressed;
+  
     public bool isAttackButtonPressed { get; private set; }
     public bool justReleasedAttack { get; private set; }
     public float attackButtonHeldTime { get; private set; }
 
     private void Awake()
     {
-        // --- Singleton Implementation ---
-        // If an Instance already exists and it's not this one, destroy this one.
         if (Instance != null && Instance != this)
         {
             Destroy(this.gameObject);
+            return;
         }
         else
         {
-            // Otherwise, set the instance to this one and make it indestructible.
             Instance = this;
             DontDestroyOnLoad(this.gameObject);
         }
+
+        // --- THIS IS THE FIX ---
+        // Instead of having the logic here, we just call our new, reusable method.
+        ScanSceneForReferences();
         // ---
-         knightAI = FindObjectOfType<KnightAI>(); // Find the KnightAI in the scene and store a reference to it.
+        knightAI = FindObjectOfType<KnightAI>(); // Find the KnightAI in the scene and store a reference to it.
         // --- Input Setup ---
         inputActions = new InputSystem_Actions();
         // ---
@@ -50,9 +51,10 @@ public class InputManager : MonoBehaviour
         inputActions.Player.Attack.canceled += OnAttackReleased;
         // --- END OF FIX ---
 
-        inputActions.Player.Counter.performed += OnCounterInput;
+        inputActions.Player.Counter.performed += OnInteractInput;
         inputActions.Player.Enable();
         Debug.Log("<color=cyan>InputManager: OnEnable() - NOW LISTENING FOR INPUTS.</color>");
+        SceneManager.sceneLoaded += OnSceneLoaded;
     }
 
     private void OnDisable()
@@ -63,9 +65,10 @@ public class InputManager : MonoBehaviour
         inputActions.Player.Attack.canceled -= OnAttackReleased;
         // --- END OF FIX ---
 
-        inputActions.Player.Counter.performed -= OnCounterInput;
+        inputActions.Player.Counter.performed -= OnInteractInput;
         inputActions.Player.Disable();
         Debug.Log("<color=orange>InputManager: OnDisable() - STOPPED LISTENING.</color>");
+        SceneManager.sceneLoaded -= OnSceneLoaded;
     }
     private void Update()
     {
@@ -81,6 +84,24 @@ public class InputManager : MonoBehaviour
         // We only need to reset the "just released" flag.
         justReleasedAttack = false;
     }
+    void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+    {
+        ScanSceneForReferences();
+    }
+
+    private void ScanSceneForReferences()
+    {
+        GameObject playerObject = GameObject.FindGameObjectWithTag("Player");
+        if (playerObject != null)
+        {
+            playerAttacks = playerObject.GetComponent<ZreyAttacks>();
+        }
+        if (playerAttacks == null)
+        {
+            Debug.LogError("InputManager could not find ZreyAttacks in the new scene!", this);
+        }
+
+    }
 
     // --- MODIFIED Input Handlers ---
     private void OnAttackPressed(InputAction.CallbackContext context)
@@ -94,15 +115,12 @@ public class InputManager : MonoBehaviour
         isAttackButtonPressed = false;
         justReleasedAttack = true;
     }
-    private void OnCounterInput(InputAction.CallbackContext context)
+    private void OnInteractInput(InputAction.CallbackContext context)
     {
-        // --- THIS IS THE FIX ---
-        // We no longer set a flag. We FIRE the event.
-        // The '?' checks if anyone is listening before firing.
-        OnCounterPressed?.Invoke();
-        if (knightAI.counterPromptUI != null) knightAI.counterPromptUI.SetActive(false);
-        // --- END OF FIX ---
-
-        Debug.LogWarning("!!! InputManager FIRED OnCounterPressed EVENT !!!");
+        // This method's ONLY job is to fire the event.
+        // It has no knowledge of finishers or counters.
+        OnInteractPressed?.Invoke();
+        Debug.LogWarning("--- InputManager: OnInteractPressed EVENT FIRED ---");
     }
+
 }

@@ -242,6 +242,10 @@ public class ZreyMovements : MonoBehaviour
         HandleAirborneAnimation();
         if (!wasGrounded && isGrounded)
         {
+            if (playerAttacks != null)
+            {
+                playerAttacks.OnPlayerLanded(); // We will create this new public method.
+            }
             if (playerAttacks != null && playerAttacks.IsDownSlamming())
             {
                 // If yes, tell it to end the slam and create the impact.
@@ -842,6 +846,26 @@ public class ZreyMovements : MonoBehaviour
     public bool IsGrounded()
     {
         return isGrounded;
+    }
+    public void ForceResetState()
+    {
+        CanMove = true;
+        canFlip = true;
+        isDashing = false;
+        isInRootMotionState = false;
+        wallJumpInputLocked = false;
+        justWallJumped = false;
+
+        // Ensure the Rigidbody is in a normal, physics-controlled state.
+        if (rb != null)
+        {
+            rb.simulated = true;
+            rb.bodyType = RigidbodyType2D.Dynamic;
+            rb.gravityScale = originalGravityScale; // Use the stored original value
+        }
+
+        // Stop any lingering coroutines in this script
+        StopAllCoroutines();
     }
     private void OnDrawGizmosSelected()
     {

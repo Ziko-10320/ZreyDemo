@@ -210,6 +210,7 @@ public class SpearAttack : MonoBehaviour
     // **MODIFIED:** This is now a public method that the KnightAI script will call.
     public void StartCombo()
     {
+        if (health != null && !health.IsGrounded()) return;
         if (health != null && health.IsStunned())
         {
             // 2. If we ARE stunned, do NOTHING.
@@ -427,6 +428,7 @@ public class SpearAttack : MonoBehaviour
 
     public void PerformBackstep()
     {
+        if (health != null && !health.IsGrounded()) return;
         // Play the backstep animation.
         animator.SetTrigger(backstepTriggerHash);
 

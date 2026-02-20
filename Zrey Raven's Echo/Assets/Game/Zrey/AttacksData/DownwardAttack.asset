@@ -13,8 +13,8 @@ MonoBehaviour:
   m_Name: DownwardAttack
   m_EditorClassIdentifier: Assembly-CSharp::AttackData
   damage: 6
-  hitType: down
-  knockbackDistance: 1.5
+  hitType: fall
+  knockbackDistance: 5
   knockbackDuration: 0.2
   upwardForce: 0
-  downwardForce: 35
+  downwardForce: 40

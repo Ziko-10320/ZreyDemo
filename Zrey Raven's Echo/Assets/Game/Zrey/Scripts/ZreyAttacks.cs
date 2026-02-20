@@ -1,8 +1,8 @@
 using FirstGearGames.SmoothCameraShaker;
 using System.Collections;
 using UnityEngine;
-using UnityEngine.InputSystem; // Using the new Input System
-
+using System;
+using UnityEngine.InputSystem;
 [RequireComponent(typeof(Animator))]
 public class ZreyAttacks : MonoBehaviour
 {
@@ -103,9 +103,49 @@ public class ZreyAttacks : MonoBehaviour
     private readonly int rootUpperAttackTriggerHash = Animator.StringToHash("RootUpperAttack");
     private bool isChargeAttackPrimed = false;
     [SerializeField] private float chargeAttackHoldTime = 0.4f;
-   
 
-  
+    [Header("Cinematic Camera Settings")]
+    [Tooltip("The target orthographic size for the camera during a cinematic zoom.")]
+    [SerializeField]  private float zoomInSize = 3.5f; 
+
+    [Tooltip("How long it takes to zoom in and out (in seconds).")]
+    [SerializeField] private float zoomDuration = 0.2f; 
+
+    // --- Private state for camera control ---
+    private Camera mainCamera;
+    private float originalCameraSize;
+    private Coroutine cameraZoomCoroutine;
+    [Header("Finisher Settings")]
+    [Tooltip("The range within which the player can initiate a finisher.")]
+    [SerializeField] private float finisherRange = 2.5f; 
+
+    [Tooltip("The offset from the player to snap the enemy to before the finisher.")]
+    [SerializeField] private Vector3 finisherSnapOffset = new Vector3(1.2f, 0, 0); 
+
+    private readonly int spearFinisherTriggerHash = Animator.StringToHash("SpearFinisher");
+    public static event Action OnPlayerCounterAttempt;
+    [Header("Aerial Combo Settings")]
+    [Tooltip("The maximum number of attacks in the aerial combo chain.")]
+    [SerializeField] private int maxAerialComboSteps = 3;
+
+    [Tooltip("How long the player must hold the attack button in the air to trigger a down slam.")]
+    [SerializeField] private float downSlamHoldTime = 0.3f;
+
+    // --- Private state for the aerial combo ---
+    private int aerialComboStep = 0;
+    private bool isDownSlamPrimed = false;
+    private float originalGravityScale;
+    // --- New Animation Hashes ---
+    private readonly int aerialAttackStepHash = Animator.StringToHash("aerialAttackStep");
+    private void OnEnable()
+    {
+        InputManager.OnInteractPressed += HandleInteractionInput;
+    }
+
+    private void OnDisable()
+    {
+        InputManager.OnInteractPressed -= HandleInteractionInput;
+    }
     void Awake()
     {
         // Automatically get components if they aren't assigned.
@@ -115,50 +155,78 @@ public class ZreyAttacks : MonoBehaviour
          if (playerTrail == null) playerTrail = GetComponent<ZreyTrail>();
         if (playerHealth == null) playerHealth = GetComponent<PlayerHealth>();
         Physics2D.IgnoreLayerCollision(playerLayerValue, enemyLayerValue, true);
+        mainCamera = Camera.main;
+        if (mainCamera != null)
+        {
+            // Store the camera's original size so we can always return to it.
+            originalCameraSize = mainCamera.orthographicSize;
+        }
+        else
+        {
+            Debug.LogError("FATAL ERROR: No main camera found in the scene!", this);
+        }
+        originalGravityScale = rb.gravityScale;
     }
 
     void Update()
     {
-        // 1. If we are already attacking, do nothing.
-        if (isAttacking)
+        // Master shield: If we are busy, do nothing.
+        if (isAttacking || IsInCinematicState)
         {
             return;
         }
 
-        // 2. Read the raw input state from the InputManager.
+        // Read the raw input state from the InputManager.
         bool attackHeld = InputManager.Instance.isAttackButtonPressed;
         float heldTime = InputManager.Instance.attackButtonHeldTime;
         bool attackReleased = InputManager.Instance.justReleasedAttack;
 
-        // --- THIS IS THE FINAL, GUARANTEED FIX ---
-
-        // 3. CHARGE LOGIC
-        // If the button is being held, we haven't already primed a charge, AND we are on the ground...
-        if (attackHeld && !isChargeAttackPrimed && playerMovement.IsGrounded())
+        // --- THE NEW DUAL-STATE LOGIC ---
+        if (playerMovement.IsGrounded())
         {
-            // ...check if the hold time has been met.
-            if (heldTime >= chargeAttackHoldTime)
+            // --- STATE: ON THE GROUND ---
+            // Grounded Charge Logic (Upper Attack)
+            if (attackHeld && !isChargeAttackPrimed)
             {
-                // If YES, perform the Upper Attack immediately.
-                PerformUpperAttack();
+                if (heldTime >= chargeAttackHoldTime)
+                {
+                    PerformUpperAttack();
+                    isChargeAttackPrimed = true;
+                }
+            }
 
-                // CRITICAL FIX #1: Immediately reset the primed flag.
-                // This allows you to release and immediately start a new charge
-                // without any "cooldown". The charge is now a "one-shot" event per press.
-                isChargeAttackPrimed = true;
+            // Grounded Tap Logic (Normal Combo or Block Attack)
+            if (attackReleased && !isChargeAttackPrimed)
+            {
+                HandleAttack(); // This method already handles the block-attack check.
+            }
+        }
+        else
+        {
+            // --- STATE: IN THE AIR ---
+            // Aerial Hold Logic (Down Slam)
+            if (attackHeld && !isDownSlamPrimed)
+            {
+                if (heldTime >= downSlamHoldTime)
+                {
+                    PerformDownSlam();
+                    isDownSlamPrimed = true; // Mark that we've started the slam.
+                }
+            }
+
+            // Aerial Tap Logic (Aerial Combo)
+            if (attackReleased && !isDownSlamPrimed)
+            {
+                PerformAerialAttack();
             }
         }
 
-        // 4. TAP LOGIC
-        // If the button was just released AND we didn't already do a charge attack...
-        if (attackReleased && !isChargeAttackPrimed)
+        // Reset the "primed" flags on release, regardless of state.
+        if (attackReleased)
         {
-            // ...then it was a TAP. Perform a normal attack.
-            // The HandleAttack() method already contains its own grounded check.
-            HandleAttack();
+            isChargeAttackPrimed = false;
+            isDownSlamPrimed = false;
         }
-
-      
     }
     void FixedUpdate()
     {
@@ -169,7 +237,38 @@ public class ZreyAttacks : MonoBehaviour
             rb.linearVelocity = new Vector2(0, -downSlamForce);
         }
     }
+    private void PerformAerialAttack()
+    {
+        // Failsafe: If we are busy, do nothing.
+        if (isAttacking || isDownSlamming || IsInCinematicState)
+        {
+            return;
+        }
 
+        Debug.Log($"<color=cyan>--- AERIAL ATTACK {aerialComboStep + 1} TRIGGERED ---</color>");
+
+        // --- Start the attack state ---
+        isAttacking = true;
+        if (attackWatchdogCoroutine != null) StopCoroutine(attackWatchdogCoroutine);
+        attackWatchdogCoroutine = StartCoroutine(AttackWatchdogRoutine());
+        Physics2D.IgnoreLayerCollision(playerLayerValue, enemyLayerValue, false);
+
+        // Stop any previous combo reset timer.
+        if (comboResetCoroutine != null) StopCoroutine(comboResetCoroutine);
+
+        // Increment the aerial combo step.
+        aerialComboStep++;
+
+        // --- Set the Animator ---
+        // We use a new parameter, "aerialAttackStep", to distinguish from the ground combo.
+        animator.SetInteger(aerialAttackStepHash, aerialComboStep);
+
+        // If we have reached the end of the combo, reset the step counter for the next chain.
+        if (aerialComboStep >= maxAerialComboSteps)
+        {
+            aerialComboStep = 0;
+        }
+    }
     private void HandleAttack()
     {
         if (playerHealth != null && playerHealth.IsBlocking())
@@ -184,8 +283,8 @@ public class ZreyAttacks : MonoBehaviour
             // Trigger the new animation.
             animator.SetTrigger(specialAttackBlockTriggerHash);
             Physics2D.IgnoreLayerCollision(playerLayerValue, enemyLayerValue, false);
-         
-          
+
+            
             // 3. CRITICAL: Exit the method immediately.
             //    We do not want to proceed to the normal ground/air attack logic.
             return;
@@ -195,12 +294,7 @@ public class ZreyAttacks : MonoBehaviour
             return;
         }
         
-        // 2. If we are not attacking, THEN decide what to do.
-        if (!playerMovement.IsGrounded())
-        {
-            // We are in the air and not busy, so perform a down slam.
-            PerformDownSlam();
-        }
+      
         else // We are on the ground
         {
             // Perform a normal ground combo attack.
@@ -279,7 +373,7 @@ public class ZreyAttacks : MonoBehaviour
         attackWatchdogCoroutine = StartCoroutine(AttackWatchdogRoutine());
         // --- THIS IS THE NEW RANDOM LOGIC ---
         // 1. Generate a random number: 0 or 1.
-        int variant = Random.Range(0, 2); // Min is inclusive, Max is exclusive. So this gives 0 or 1.
+        int variant = UnityEngine.Random.Range(0, 2); // Min is inclusive, Max is exclusive. So this gives 0 or 1.
 
         // 2. Set the Animator parameters.
         animator.SetInteger(attackStepHash, step);
@@ -322,8 +416,21 @@ public class ZreyAttacks : MonoBehaviour
     {
         Debug.Log("<color=orange>Combo Reset.</color>");
         comboStep = 0;
+        aerialComboStep = 0;
     }
+    public void OnPlayerLanded()
+    {
+        // If we were in the middle of an aerial combo, this landing cancels it.
+        if (aerialComboStep > 0)
+        {
+            Debug.LogWarning("--- Player Landed: Resetting Aerial Combo ---");
+            aerialComboStep = 0;
+            animator.SetInteger(aerialAttackStepHash, 0);
 
+            // We can also call EndAttack() here to ensure a full state reset.
+            EndAttack();
+        }
+    }
     private IEnumerator AttackWatchdogRoutine()
     {
         // Wait for the specified timeout duration.
@@ -376,7 +483,39 @@ public class ZreyAttacks : MonoBehaviour
         if (playerMovement == null) return;
         lungeCoroutine = StartCoroutine(LungeCoroutine());
     }
+    public void PerformTransformLunge()
+    {
+        // If a lunge is already happening, stop it first.
+        if (lungeCoroutine != null)
+        {
+            StopCoroutine(lungeCoroutine);
+        }
+        // Start the new, transform-based lunge coroutine.
+        lungeCoroutine = StartCoroutine(TransformLungeCoroutine());
+    }
 
+    // ADD THIS NEW COROUTINE
+    private IEnumerator TransformLungeCoroutine()
+    {
+        Debug.Log("<color=orange>--- Performing TRANSFORM-BASED Lunge ---</color>");
+
+        float timer = 0f;
+        Vector3 direction = playerMovement.IsFacingRight() ? Vector3.right : Vector3.left;
+
+        while (timer < lungeDuration)
+        {
+            // Calculate the movement for this frame.
+            float moveStep = lungeSpeed * Time.deltaTime;
+
+            // Apply the movement directly to the transform.
+            transform.position += direction * moveStep;
+
+            timer += Time.deltaTime;
+            yield return null;
+        }
+
+        lungeCoroutine = null; // Mark the coroutine as finished.
+    }
     private IEnumerator LungeCoroutine()
     {
         float timer = 0f;
@@ -432,7 +571,7 @@ public class ZreyAttacks : MonoBehaviour
         Physics2D.IgnoreLayerCollision(playerLayerValue, enemyLayerValue, true);
        
         animator.SetInteger(attackStepHash, 0);
-      
+        animator.SetInteger(aerialAttackStepHash, 0);
         isChargeAttackPrimed = false;
         comboResetCoroutine = StartCoroutine(ComboResetRoutine());
         Debug.Log($"Attack {comboStep} finished. Combo reset timer started.");
@@ -581,6 +720,17 @@ public class ZreyAttacks : MonoBehaviour
         // We call the same EndAttack() method that our animation events use.
         // This ensures the state is cleaned up correctly (isAttacking = false, collisions reset, etc.).
         EndAttack();
+        isAttacking = false;
+        isChargeAttackPrimed = false;
+        isDownSlamming = false;
+        comboStep = 0; // An interruption always breaks the combo.
+        aerialComboStep = 0;
+        // 3. Reset physics and animator states.
+        Physics2D.IgnoreLayerCollision(playerLayerValue, enemyLayerValue, true);
+        animator.SetInteger(attackStepHash, 0);
+        // You can also add ResetTrigger for any attack animations here if needed.
+        animator.ResetTrigger(upperAttackTriggerHash);
+        animator.ResetTrigger(specialAttackBlockTriggerHash);
     }
     public void StartKnightCounter()
     {
@@ -611,24 +761,6 @@ public class ZreyAttacks : MonoBehaviour
         // 1. Trigger the final VISUAL attack on the main animator.
         animator.SetTrigger(knightCounterTriggerHash);
 
-        // --- THIS IS THE FINAL, GUARANTEED FIX FOR THE COUNTER ---
-        // 2. Check if the playerMovement script exists.
-        if (playerMovement != null)
-        {
-            if (playerMovement.IsFacingRight())
-            {
-                playerMovement.InitiateRootMotion(rootKnightCounterTriggerHash, 2.0f); // Call the renamed method
-            }
-            else
-            {
-                playerMovement.InitiateRootMotion(rootKnightCounterLeftTriggerHash, 2.0f); // Call the renamed method
-            }
-        }
-        else
-        {
-            Debug.LogError("Cannot start counter root motion! ZreyMovements script is not assigned!", this);
-        }
-        // --- END OF FIX ---
     }
     // An event on the final 'knightCounter' animation should call a method to give control back.
     public void FinishKnightCounter()
@@ -646,11 +778,215 @@ public class ZreyAttacks : MonoBehaviour
     {
         return isCountering;
     }
+    public void StartCinematicZoom()
+    {
+        // Failsafe: if there's no camera, do nothing.
+        if (mainCamera == null) return;
+
+        // If a zoom is already happening, stop it first.
+        if (cameraZoomCoroutine != null)
+        {
+            StopCoroutine(cameraZoomCoroutine);
+        }
+
+        // Start the new zoom-in coroutine.
+        cameraZoomCoroutine = StartCoroutine(ZoomCamera(mainCamera.orthographicSize, zoomInSize, zoomDuration));
+    }
+
+    /// <summary>
+    /// Called by an Animation Event to start the smooth zoom-out effect.
+    /// </summary>
+    public void EndCinematicZoom()
+    {
+        if (mainCamera == null) return;
+
+        if (cameraZoomCoroutine != null)
+        {
+            StopCoroutine(cameraZoomCoroutine);
+        }
+
+        // Start the new zoom-out coroutine, returning to the original size.
+        cameraZoomCoroutine = StartCoroutine(ZoomCamera(mainCamera.orthographicSize, originalCameraSize, zoomDuration));
+    }
+
+    /// <summary>
+    /// The coroutine that handles the smooth transition of the camera's size.
+    /// </summary>
+    private IEnumerator ZoomCamera(float startSize, float endSize, float duration)
+    {
+        float timer = 0f;
+
+        while (timer < duration)
+        {
+            // Use Mathf.Lerp to smoothly interpolate between the start and end sizes.
+            mainCamera.orthographicSize = Mathf.Lerp(startSize, endSize, timer / duration);
+
+            timer += Time.deltaTime;
+            yield return null;
+        }
+
+        // After the loop, guarantee the camera is at the exact end size.
+        mainCamera.orthographicSize = endSize;
+        cameraZoomCoroutine = null; // Mark the coroutine as finished.
+    }
+    private void HandleInteractionInput()
+    {
+        // This method is called every time the 'C' button is pressed.
+        // It decides what to do based on priority.
+
+        // PRIORITY #1: FINISHER
+        // First, we try to perform a finisher. We will create a new method
+        // that returns 'true' if it succeeds and 'false' if it fails.
+        bool finisherSuccess =  AttemptFinisher();
+
+        // If the finisher was successful, we do nothing else.
+        if (finisherSuccess)
+        {
+            return;
+        }
+
+        // PRIORITY #2: COUNTER
+        // If the finisher failed, we then attempt a counter by firing our
+        // own event for any nearby enemies to hear.
+        OnPlayerCounterAttempt?.Invoke();
+    }
+
+    // MODIFY AttemptFinisher to return a boolean.
+   public bool AttemptFinisher()
+// --- END OF FIX ---
+{
+    if (isAttacking || IsInCinematicState || (playerHealth != null && playerHealth.isStunned))
+    {
+        return false; // Finisher fails because we are busy.
+    }
+
+    Debug.Log($"--- Attempting Finisher. Checking circle with radius {finisherRange} on layer {LayerMask.LayerToName(enemyLayer.value)} ---");
+    Collider2D[] nearbyEnemies = Physics2D.OverlapCircleAll(transform.position, finisherRange, enemyLayer);
+
+    if (nearbyEnemies.Length == 0)
+    {
+        Debug.LogWarning("Finisher check found ZERO colliders on the specified enemy layer.");
+    }
+
+    foreach (Collider2D enemyCollider in nearbyEnemies)
+    {
+        Debug.Log($"Found potential target: {enemyCollider.name}");
+        SpearHealth enemyHealth = enemyCollider.GetComponent<SpearHealth>();
+
+        if (enemyHealth != null && enemyHealth.isFinishable)
+        {
+            Debug.LogError("--- SUCCESS! Found finishable Spear Enemy. Starting sequence. ---");
+            StartCoroutine(ExecuteFinisherSequence(enemyHealth));
+            return true; // --- THIS IS THE FIX: Report that the finisher was successful.
+        }
+        else if (enemyHealth != null)
+        {
+            Debug.LogWarning($"Found Spear Enemy '{enemyCollider.name}', but it is not finishable. (isFinishable = {enemyHealth.isFinishable})");
+        }
+    }
+
+    // --- THIS IS THE FIX ---
+    // If we get through the whole loop and find no target, the finisher fails.
+    return false;
+    // --- END OF FIX ---
+}
+
+    // MODIFY the coroutine to accept the INTERFACE, not the specific script.
+    private IEnumerator ExecuteFinisherSequence(SpearHealth target) // Or SpearHealth, if you reverted
+    {
+        // --- 1. LOCK EVERYTHING (This is correct) ---
+        IsInCinematicState = true;
+        if (playerMovement != null) playerMovement.CanMove = false;
+        if (rb != null) rb.linearVelocity = Vector2.zero;
+
+        // --- 2. SNAP POSITION ONLY ---
+        // (Face the target logic can go here if you need it)
+
+        SpearFollow enemyFollow = target.transform.GetComponent<SpearFollow>();
+
+        // --- THIS IS THE FINAL, GUARANTEED FIX ---
+        // A. COMMAND the enemy to face the player BEFORE we snap positions.
+        if (enemyFollow != null)
+        {
+            enemyFollow.FacePlayer();
+        }
+
+        // B. Make the PLAYER face the enemy.
+        if ((target.transform.position.x > transform.position.x && !playerMovement.IsFacingRight()) ||
+            (target.transform.position.x < transform.position.x && playerMovement.IsFacingRight()))
+        {
+            // You need a public Flip() method on ZreyMovements for this to work.
+            // playerMovement.Flip();
+        }
+
+        // C. Calculate the snap position.
+        float direction = playerMovement.IsFacingRight() ? 1f : -1f;
+        Vector3 snapPosition = transform.position + new Vector3(finisherSnapOffset.x * direction, finisherSnapOffset.y, finisherSnapOffset.z);
+        target.transform.position = snapPosition;
+
+        // D. COMMAND the enemy to face the player AGAIN after the snap.
+        //    This is a brutal guarantee that the final orientation is correct.
+        if (enemyFollow != null)
+        {
+            enemyFollow.FacePlayer();
+        }
+
+        // --- 3. PLAY ANIMATIONS (This is correct) ---
+        target.ExecuteFinisher();
+        animator.SetTrigger(spearFinisherTriggerHash);
+
+        yield return null;
+    }
+    public void FinishFinisherSequence()
+    {
+        Debug.Log("<color=green>--- Finisher Sequence Finished. Player control restored. ---</color>");
+
+        // Give control back to the player.
+        IsInCinematicState = false;
+        if (playerMovement != null)
+        {
+            playerMovement.CanMove = true;
+        }
+    }
+    public void SetGravityToZero()
+    {
+        if (rb != null)
+        {
+            Debug.Log("<color=cyan>--- Gravity Scale set to 0 ---</color>");
+            rb.gravityScale = 0f;
+            // Also, it's a good idea to kill any downward velocity when this happens.
+            rb.linearVelocity = new Vector2(rb.linearVelocity.x, 0);
+        }
+    }
+
+    /// <summary>
+    /// Called by an Animation Event to restore the player's normal gravity.
+    /// </summary>
+    public void RestoreNormalGravity()
+    {
+        if (rb != null)
+        {
+            Debug.Log("<color=green>--- Gravity Scale restored to normal ---</color>");
+            rb.gravityScale = originalGravityScale;
+        }
+    }
     private void OnDrawGizmosSelected()
     {
-        if (attackPoint == null) return;
+        // --- THIS IS THE FIX ---
+        // 1. Set the color for the gizmo. Yellow is good for ranges.
+        Gizmos.color = Color.yellow;
 
-        Gizmos.color = Color.red;
-        Gizmos.DrawWireCube(attackPoint.position, attackAreaSize);
+        // 2. Draw a wireframe sphere (which looks like a circle in 2D)
+        //    at the player's current position, with a radius equal to the finisherRange.
+        Gizmos.DrawWireSphere(transform.position, finisherRange);
+        // --- END OF FIX ---
+
+        // You can also re-add the gizmo for your attack point here if it was removed.
+        if (attackPoint != null)
+        {
+            Gizmos.color = Color.red;
+            Gizmos.DrawWireCube(attackPoint.position, attackAreaSize);
+        }
     }
+
 }

@@ -12,7 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 04e4d672f8d8c0941955d0768eaeaf77, type: 3}
   m_Name: KnightCounter
   m_EditorClassIdentifier: Assembly-CSharp::AttackData
-  damage: 150
-  hitType: .
-  knockbackDistance: 0
-  knockbackDuration: 0
+  damage: 10
+  hitType: back
+  knockbackDistance: 17
+  knockbackDuration: 0.85
+  upwardForce: 0
+  downwardForce: 0

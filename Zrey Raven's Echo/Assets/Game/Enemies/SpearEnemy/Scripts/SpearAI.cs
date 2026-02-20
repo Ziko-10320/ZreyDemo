@@ -55,17 +55,26 @@ public class SpearAI : MonoBehaviour
     [SerializeField] private Transform counterBloodPoint;
 
     [SerializeField] public GameObject counterPromptUI;
+    [Header("Finisher UI")]
+    [Tooltip("The UI prompt to show when the enemy can be finished.")]
+    [SerializeField] private GameObject finisherPromptUI; 
+    [Tooltip("The range within which the player can perform a finisher.")]
+    [SerializeField] private float finisherRange = 2.5f;
     private void OnEnable()
     {
-        // When this script is enabled, start listening for the counter press event.
-        InputManager.OnCounterPressed += HandleCounterInput;
+        // --- THIS IS THE FIX ---
+        // We now listen to the event from ZreyAttacks.
+        ZreyAttacks.OnPlayerCounterAttempt += HandleCounterInput;
+        // --- END OF FIX ---
     }
 
     private void OnDisable()
     {
-        // When this script is disabled, stop listening to prevent memory leaks.
-        InputManager.OnCounterPressed -= HandleCounterInput;
+        // --- THIS IS THE FIX ---
+        ZreyAttacks.OnPlayerCounterAttempt -= HandleCounterInput;
+        // --- END OF FIX ---
     }
+
     private void HandleCounterInput()
     {
         // --- THIS IS THE FIX ---
@@ -123,6 +132,24 @@ public class SpearAI : MonoBehaviour
 
     void Update()
     {
+        if (health != null && !health.IsGrounded())
+        {
+            // If we are NOT on the ground, do NOTHING.
+            // Exit the Update loop immediately. The brain is paused while airborne.
+            return;
+        }
+        if (health != null && health.isFinishable)
+        {
+            // Check the distance to the player.
+            float distanceToPlayer = Vector2.Distance(transform.position, playerTarget.position);
+
+            // If the player is in range, show the prompt. Otherwise, hide it.
+            if (finisherPromptUI != null)
+            {
+                finisherPromptUI.SetActive(distanceToPlayer <= finisherRange);
+            }
+            return; // If we are finishable, do nothing else.
+        }
         if (health != null && health.IsStunned())
         {
             // 2. If we ARE stunned, do NOTHING.
@@ -293,6 +320,10 @@ public class SpearAI : MonoBehaviour
     }
     private IEnumerator ExecuteCounterSequence()
     {
+        if (counterPromptUI != null)
+        {
+            counterPromptUI.SetActive(false);
+        }
         // 1. CANCEL EVERYTHING.
         if (attack != null) attack.CancelAllAttacks();
         // The brain is already locked, but we need to stop the attack animations.
@@ -362,21 +393,22 @@ public class SpearAI : MonoBehaviour
     }
     public void SpawnCounterBloodEffect()
     {
-        // --- THIS IS THE FIX ---
-        // 1. BRUTAL DEBUG: Announce that the animation event worked.
         Debug.LogWarning("!!! ANIMATION EVENT: SpawnCounterBloodEffect() CALLED !!!");
 
-        // 2. Check if the prefab and spawn point exist.
         if (counterBloodPrefab != null && counterBloodPoint != null)
         {
-            // 3. Spawn the blood effect. We don't need to hold a reference to it.
-            Instantiate(counterBloodPrefab, counterBloodPoint.position, counterBloodPoint.rotation);
+            // --- THIS IS THE FINAL, GUARANTEED FIX ---
+            // We get the PREFAB's own rotation. This respects the rotation you set in the prefab file.
+            Quaternion prefabRotation = counterBloodPrefab.transform.rotation;
+
+            // We Instantiate the prefab at our DEDICATED spawn point, but we use the PREFAB's rotation.
+            Instantiate(counterBloodPrefab, counterBloodPoint.position, prefabRotation);
+            // --- END OF FIX ---
         }
         else
         {
-            Debug.LogError("Cannot spawn counter blood effect! Prefab or Spawn Point is not assigned in the Inspector!", this);
+            Debug.LogError("Cannot spawn counter blood effect! Prefab or Spawn Point is not assigned!", this);
         }
-        // --- END OF FIX ---
     }
     public void OpenCounterWindow()
     {
