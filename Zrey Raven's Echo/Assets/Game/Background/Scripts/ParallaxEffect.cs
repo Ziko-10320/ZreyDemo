@@ -3,7 +3,7 @@ using UnityEngine;
 public class ParallaxEffect : MonoBehaviour
 {
     [Tooltip("How much this layer moves relative to the camera. 0 = doesn't move. 1 = moves with the camera.")]
-    [Range(0f, 1f)]
+    [Range(-1f, 1f)]
     public float parallaxMultiplier;
 
     private Transform cameraTransform;
