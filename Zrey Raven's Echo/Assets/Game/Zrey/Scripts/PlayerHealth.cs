@@ -121,15 +121,15 @@ public class PlayerHealth : MonoBehaviour
             // Let the player move again after a parry
             playerMovements.CanMove = true;
 
-            if (knockbackCoroutine != null) StopCoroutine(knockbackCoroutine);
+            ImpactData parryRecoilImpact = ScriptableObject.CreateInstance<ImpactData>();
+            // 2. We read the NEW parry-specific values from the original 'impact' data.
+            parryRecoilImpact.knockbackDistance = impact.parryKnockbackDistance;
+            parryRecoilImpact.knockbackDuration = impact.parryKnockbackDuration;
+            parryRecoilImpact.hitReactionType = "none"; // A parry never plays a "get hit" animation.
 
-            ImpactData parryImpact = ScriptableObject.CreateInstance<ImpactData>();
-            parryImpact.knockbackDistance = impact.knockbackDistance ; // Same as block
-            parryImpact.knockbackDuration = impact.knockbackDuration;       // Same as block
-            parryImpact.hitReactionType = "none"; // A parry doesn't play a "get hit" animation.
-
+            // 3. We apply this parry-specific recoil to the PLAYER.
             if (knockbackCoroutine != null) StopCoroutine(knockbackCoroutine);
-            knockbackCoroutine = StartCoroutine(HitReactionRoutine(attacker, parryImpact));
+            knockbackCoroutine = StartCoroutine(HitReactionRoutine(attacker, parryRecoilImpact));
 
             KnightAttack enemyAttack = attacker.GetComponent<KnightAttack>();
             KnightHealth enemyHealth = attacker.GetComponent<KnightHealth>();
@@ -137,7 +137,7 @@ public class PlayerHealth : MonoBehaviour
             if (enemyHealth != null)
             {
                 // 2. ALWAYS apply the small knockback to the knight on ANY parry.
-                enemyHealth.ApplyParryKnockback(transform);
+               
                 enemyHealth.TakePostureDamageOnParry();
                 // 3. ASK if the attack was the final one.
                 if (enemyAttack != null && enemyAttack.IsFinalComboAttack())

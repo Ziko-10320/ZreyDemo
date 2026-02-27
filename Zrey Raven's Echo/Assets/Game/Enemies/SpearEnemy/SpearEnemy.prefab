@@ -5657,7 +5657,7 @@ Rigidbody2D:
   m_Mass: 4
   m_LinearDamping: 0
   m_AngularDamping: 0.05
-  m_GravityScale: 7
+  m_GravityScale: 1
   m_Material: {fileID: 0}
   m_IncludeLayers:
     serializedVersion: 2
@@ -5782,7 +5782,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ae5bc79f6af9b5648a7cc73c48074c50, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SpearHealth
-  maxHealth: 50
+  maxHealth: 100
   knockbackDistance: 1.5
   knockbackDuration: 0.2
   blockRange: 9
@@ -5796,7 +5796,7 @@ MonoBehaviour:
   CameraShakeParry: {fileID: 11400000, guid: fdf86c26fd619bd45830cd0305c66c36, type: 2}
   maxGuard: 80
   guardDamagePerBlock: 7
-  guardBrokenStunDuration: 5
+  guardBrokenStunDuration: 8
   guardRecoveryDelay: 4
   guardRecoveryRate: 15
   guardDamageOnParried: 50
@@ -5817,8 +5817,8 @@ MonoBehaviour:
   minBlocksToCounter: 4
   maxBlocksToCounter: 10
   isUnbreakable: 0
-  counterStunDuration: 2.5
-  guardCrushStunDuration: 1
+  counterStunDuration: 5
+  guardCrushStunDuration: 2
   headPrefab: {fileID: 7119093623884947943, guid: 32b1d7d0c5a4009478dfac59ad6c22e5, type: 3}
   headSpawnPoint: {fileID: 6589246515824351223}
   headUpwardForce: 25
@@ -5844,7 +5844,7 @@ MonoBehaviour:
   animator: {fileID: 8331939789815920333}
   follow: {fileID: 2559691655966346366}
   playerTarget: {fileID: 0}
-  specialAttackChance: 0.954
+  specialAttackChance: 0.58
   minSpecialAttackCooldown: 3
   maxSpecialAttackCooldown: 7
   counterCheckPoint: {fileID: 3911494874217598249}

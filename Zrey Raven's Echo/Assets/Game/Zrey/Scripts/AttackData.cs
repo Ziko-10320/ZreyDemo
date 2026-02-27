@@ -16,4 +16,6 @@ public class AttackData : ScriptableObject
 
     [Tooltip("The downward force to apply to the enemy. A value > 0 will slam them down.")]
     public float downwardForce = 0f;
+
+    public float guardDamage = 0f;
 }

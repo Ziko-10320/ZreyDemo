@@ -12482,7 +12482,7 @@ AnimationClip:
   - time: 0.08
     functionName: AttackEnemy
     data: 
-    objectReferenceParameter: {fileID: 0}
+    objectReferenceParameter: {fileID: 11400000, guid: ae50908f61951cf4c98c2716c3d4c8c4, type: 2}
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
@@ -12493,6 +12493,13 @@ AnimationClip:
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
+  - time: 0.18
+    functionName: AttackEnemy
+    data: 
+    objectReferenceParameter: {fileID: 11400000, guid: ae50908f61951cf4c98c2716c3d4c8c4, type: 2}
+    floatParameter: 0
+    intParameter: 0
+    messageOptions: 0
   - time: 0.22
     functionName: CameraShake
     data: 
@@ -12500,10 +12507,10 @@ AnimationClip:
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
-  - time: 0.28
+  - time: 0.26
     functionName: AttackEnemy
     data: 
-    objectReferenceParameter: {fileID: 0}
+    objectReferenceParameter: {fileID: 11400000, guid: d370629b73b55544ab39a448a22e270d, type: 2}
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
@@ -12511,6 +12518,13 @@ AnimationClip:
     functionName: CameraShake
     data: 
     objectReferenceParameter: {fileID: 0}
+    floatParameter: 0
+    intParameter: 0
+    messageOptions: 0
+  - time: 0.36
+    functionName: AttackEnemy
+    data: 
+    objectReferenceParameter: {fileID: 11400000, guid: ae50908f61951cf4c98c2716c3d4c8c4, type: 2}
     floatParameter: 0
     intParameter: 0
     messageOptions: 0

@@ -407,7 +407,25 @@ public class ZreyAttacks : MonoBehaviour
 
     public void DealUpperAttackDamage()
     {
-        AttackEnemy(upperAttackData);
+        // --- THIS IS THE FIX ---
+        // Instead of calling the generic AttackEnemy, we will find the enemy
+        // and call a new, specialized method on its health script.
+
+        Collider2D[] enemiesHit = Physics2D.OverlapBoxAll(attackPoint.position, attackAreaSize, 0f, enemyLayer);
+
+        foreach (Collider2D enemy in enemiesHit)
+        {
+            // We check for SpearHealth specifically for now.
+            SpearHealth spearHealth = enemy.GetComponent<SpearHealth>();
+            if (spearHealth != null)
+            {
+                // Call the new, specialized method.
+                spearHealth.TakeUpperAttack(upperAttackData);
+                break; // Hit one enemy and stop.
+            }
+
+        }
+      
     }
     /// <summary>
     /// Resets the combo state. Called by the timer in Update().
@@ -761,7 +779,30 @@ public class ZreyAttacks : MonoBehaviour
         // 1. Trigger the final VISUAL attack on the main animator.
         animator.SetTrigger(knightCounterTriggerHash);
 
+        // if (rootZreyAnimator != null && playerMovement != null)
+        //  {
+        // 3. ASK the movement script which way the player is facing.
+        // if (playerMovement.IsFacingRight())
+        //{
+        // 4A. If facing RIGHT, trigger the normal RootKnightCounter.
+        //  Debug.Log("<color=cyan>Playing RootKnightCounter (Right)</color>");
+        //rootZreyAnimator.SetTrigger(rootKnightCounterTriggerHash);
     }
+    //  else
+    // {
+    // 4B. If facing LEFT, trigger the mirrored RootKnightCounterLeft.
+    //  Debug.Log("<color=cyan>Playing RootKnightCounterLeft (Left)</color>");
+    // rootZreyAnimator.SetTrigger(rootKnightCounterLeftTriggerHash);
+    // }
+
+    // 5. INITIATE THE ROOT MOTION SYNCHRONIZATION
+    //    We use the same robust system we built for the other root motion attacks.
+    //    IMPORTANT: You must find the duration of your RootKnightCounter animation
+    //    and put that exact value here.
+    // float knightCounterDuration = 2.0f; // <--- CHANGE THIS TO YOUR ANIMATION'S DURATION
+    //  playerMovement.InitiateRootMotion(0, knightCounterDuration); // We pass 0 for the trigger hash because we already triggered it.
+    //}
+    //}
     // An event on the final 'knightCounter' animation should call a method to give control back.
     public void FinishKnightCounter()
     {

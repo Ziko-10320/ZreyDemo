@@ -92,6 +92,8 @@ public class SpearHealth : MonoBehaviour
     [SerializeField] private Transform woundSpawnPoint;
     private readonly int fallTriggerHash = Animator.StringToHash("fall");
     private readonly int UpTriggerHash = Animator.StringToHash("Up");
+    private readonly int RightUpTriggerHash = Animator.StringToHash("RightUp");
+    private readonly int LeftUpTriggerHash = Animator.StringToHash("LeftUp");
     private readonly int finalBackTriggerHash = Animator.StringToHash("finalBack");
 
     // --- ADD this new section for the custom knockback system ---
@@ -667,6 +669,8 @@ public class SpearHealth : MonoBehaviour
         animator.ResetTrigger(fallTriggerHash);
         animator.ResetTrigger(finalBackTriggerHash);
         animator.ResetTrigger(UpTriggerHash);
+        animator.ResetTrigger(RightUpTriggerHash);
+        animator.ResetTrigger(LeftUpTriggerHash);
         Debug.Log($"<color=cyan>Knight received AGGRESSIVE hit reaction command: {hitType}</color>");
 
         // 3. Now, set the new trigger.
@@ -691,6 +695,12 @@ public class SpearHealth : MonoBehaviour
             case "hitup":
                 animator.SetTrigger(UpTriggerHash);
                 isInJuggleState = true;
+                break;
+            case "rightup":
+                animator.SetTrigger(RightUpTriggerHash);
+                break;
+            case "leftup":
+                animator.SetTrigger(LeftUpTriggerHash);
                 break;
             default:
                 animator.SetTrigger(getHitBackTriggerHash);
@@ -901,7 +911,73 @@ public class SpearHealth : MonoBehaviour
         if (knockbackCoroutine != null) StopCoroutine(knockbackCoroutine);
         knockbackCoroutine = StartCoroutine(KnockbackRoutine(playerTransform, parryKnockbackDistance, parryKnockbackDuration, 0, 0));
     }
+    public void TakeUpperAttack(AttackData attackData)
+    {
+        // --- Master Shields (these are the same) ---
+        if (isFinishable || isUnbreakable)
+        {
+            return;
+        }
 
+        Transform attacker = playerTarget; // We know the attacker is the player.
+
+        // --- THIS IS THE FINAL, GUARANTEED FIX ---
+        // THE CORE LOGIC: Was the enemy blocking?
+        if (isBlocking)
+        {
+            // --- CASE 1: ENEMY WAS BLOCKING ---
+            Debug.LogWarning("--- Upper Attack BLOCKED! Applying Guard Damage. ---");
+
+            // 1. Do NOT apply the upward force. The enemy is grounded.
+            // 2. Apply the special guard damage from the AttackData.
+            currentGuard -= attackData.guardDamage;
+            timeSinceLastBlock = 0f; // Reset the guard recovery timer.
+
+            // 3. Play a heavy block recoil animation and sound.
+            //    (You can create a new trigger for a "heavy block" if you want)
+            animator.SetTrigger(block3TriggerHash); // Using block3 as an example for a heavy hit.
+            CameraShakerHandler.Shake(CameraShakeParry); // Use a heavy shake.
+
+            // 4. Apply a small recoil knockback to the enemy.
+            if (knockbackCoroutine != null) StopCoroutine(knockbackCoroutine);
+            knockbackCoroutine = StartCoroutine(KnockbackRoutine(attacker, blockRecoilDistance, blockRecoilDuration, 0, 0));
+
+            // 5. Check if this attack broke their guard.
+            if (currentGuard <= 0)
+            {
+                StartCoroutine(GuardBrokenSequence());
+            }
+        }
+        else
+        {
+            // --- CASE 2: ENEMY WAS NOT BLOCKING ---
+            Debug.Log("<color=yellow>--- Upper Attack LANDED! Launching enemy. ---</color>");
+
+            // This logic is the same as a normal hit, but we are guaranteed
+            // to use the AttackData that contains the upwardForce.
+            PlayHitReaction(attackData.hitType); // This will be "Up"
+            currentHealth -= attackData.damage;
+            SpawnBloodVFX();
+            if (flashCoroutine != null) StopCoroutine(flashCoroutine);
+            flashCoroutine = StartCoroutine(FlashDamageEffect());
+
+            // Apply the knockback, which now includes the upward force.
+            if (knockbackCoroutine != null) StopCoroutine(knockbackCoroutine);
+            knockbackCoroutine = StartCoroutine(KnockbackRoutine(
+                attacker,
+                attackData.knockbackDistance,
+                attackData.knockbackDuration,
+                attackData.upwardForce,
+                attackData.downwardForce
+            ));
+
+            if (currentHealth <= 0)
+            {
+                Die();
+            }
+        }
+        // --- END OF FIX ---
+    }
     public bool IsStunned()
     {
         // The knight is considered "stunned" if their guard is broken OR if they are being knocked back by a hit.

@@ -36,6 +36,11 @@ public class KnightHealth : MonoBehaviour
     [SerializeField] private float playerKnockbackDurationOnBlock = 0.2f;
     [SerializeField] private float blockRecoilDistance = 0.5f;
     [SerializeField] private float blockRecoilDuration = 0.15f;
+    [Header("Enemy Reaction to Being Parried")]
+    [Tooltip("How far the KNIGHT is knocked back when the PLAYER parries its attack.")]
+    [SerializeField] private float knockbackOnParriedDistance = 2f;
+    [Tooltip("How long the KNIGHT's knockback lasts after being parried.")]
+    [SerializeField] private float knockbackOnParriedDuration = 0.2f;
     [HideInInspector] public bool isBlocking = false; // Is the block window currently active?
     private bool canBlock = true; // Can the knight attempt another block?
     private float blockCooldown = 1.5f; // How long the knight must wait between blocks.
@@ -774,18 +779,43 @@ private int blocksNeededForNextCounter = 0;
 
         // Play a stunned/parried animation.
         animator.SetTrigger("getParried"); // Make sure you have this trigger in your Knight's Animator.
+      
 
     }
-    public void ApplyParryKnockback(Transform playerTransform)
+    private IEnumerator ParryKnockbackRoutine(Transform player, float distance, float duration)
     {
-        // We use hardcoded values here for the small, reactive knockback.
-        float parryKnockbackDistance = 2f;
-        float parryKnockbackDuration = 0.2f;
+        // --- THIS IS THE FINAL, GUARANTEED FIX ---
+        Debug.LogWarning($"--- Knight Executing PARRY KNOCKBACK. Distance: {distance}, Duration: {duration} ---");
 
-        if (knockbackCoroutine != null) StopCoroutine(knockbackCoroutine);
-        knockbackCoroutine = StartCoroutine(KnockbackRoutine(playerTransform, parryKnockbackDistance, parryKnockbackDuration,0, 0));
+        // 1. Set the state flag.
+        isBeingKnockedBack = true;
+
+        // 2. Determine direction. The knockback is always AWAY from the player who parried.
+        float direction = (transform.position.x > player.position.x) ? 1f : -1f;
+        Vector2 knockbackVelocity = new Vector2(direction * (distance / duration), 0);
+
+        // 3. Apply the velocity for the specified duration.
+        float timer = 0f;
+        while (timer < duration)
+        {
+            if (rb != null)
+            {
+                rb.linearVelocity = knockbackVelocity;
+            }
+            timer += Time.deltaTime;
+            yield return null;
+        }
+
+        // 4. Clean up the state.
+        if (rb != null)
+        {
+            rb.linearVelocity = Vector2.zero;
+        }
+        isBeingKnockedBack = false;
+        
     }
- 
+    
+
     public bool IsStunned()
     {
         // The knight is considered "stunned" if their guard is broken OR if they are being knocked back by a hit.
