@@ -33,7 +33,7 @@ public class ZreyMovements : MonoBehaviour
     [SerializeField] private Animator animator;
     [SerializeField] private Animator rootZreyAnimator;
     [SerializeField] private LayerMask dashCollisionLayer;
-    private InputSystem_Actions inputActions;
+    public static InputSystem_Actions inputActions;
     private Vector2 moveInput;
 
     // --- State Variables ---
@@ -139,12 +139,24 @@ public class ZreyMovements : MonoBehaviour
     private Coroutine flipLockWatchdogCoroutine;
     public bool justPressedDash { get; private set; }
     private bool isInRootMotionState = false;
-  
+
     void Awake()
     {
+        // --- THIS IS THE KING'S DECREE ---
+        // 1. If the one true input system does not exist yet, create it.
+        //    This happens in Awake(), so it is GUARANTEED to run before any script's OnEnable().
+        if (inputActions == null)
+        {
+            inputActions = new InputSystem_Actions();
+            // 2. ENABLE THE ENTIRE "PLAYER" ACTION MAP IMMEDIATELY.
+            //    This is the master power switch. It is now ON.
+            inputActions.Player.Enable();
+        }
+        // --- END OF THE KING'S DECREE ---
+
+        // The rest of your Awake function is perfect.
         if (rb == null) rb = GetComponent<Rigidbody2D>();
         if (animator == null) animator = GetComponent<Animator>();
-        inputActions = new InputSystem_Actions();
         airDashesRemaining = maxAirDashes;
         originalGravityScale = rb.gravityScale;
         if (playerTrail == null) playerTrail = GetComponent<ZreyTrail>();
@@ -155,16 +167,22 @@ public class ZreyMovements : MonoBehaviour
 
     private void OnEnable()
     {
-        inputActions.Enable();
+        // This script's ONLY job in OnEnable is to subscribe its own functions
+        // to the system that was already turned on in Awake().
         inputActions.Player.Jump.performed += HandleJump;
         inputActions.Player.Dash.performed += HandleDash;
     }
 
+    // Your OnDisable should also be updated to match
     private void OnDisable()
     {
-        inputActions.Disable();
-        inputActions.Player.Jump.performed -= HandleJump;
-        inputActions.Player.Dash.performed -= HandleDash;
+        // Only unsubscribe from the events this script is responsible for.
+        // Do not disable the whole inputActions object here.
+        if (inputActions != null)
+        {
+            inputActions.Player.Jump.performed -= HandleJump;
+            inputActions.Player.Dash.performed -= HandleDash;
+        }
     }
 
     void Update()

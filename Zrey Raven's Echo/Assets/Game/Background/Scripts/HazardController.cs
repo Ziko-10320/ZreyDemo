@@ -46,6 +46,19 @@ public class HazardController : MonoBehaviour
     public float visualRotationSpeed = 360.0f;
     private int currentWaypointIndex = 0;
     private bool movingForward = true;
+    private AudioSource audioSource;
+    [Header("Audio Settings")]
+    [Tooltip("The sound that will play. For Axe/Path, this is the loop. For Proximity, this is the one-shot sound.")]
+    public AudioClip[] hazardSounds;
+    [Tooltip("If checked, the sound will be 3D (volume decreases with distance). If unchecked, it's 2D (same volume everywhere).")]
+    public bool is3DSound = true;
+    [Tooltip("The distance at which the 3D sound is at its loudest.")]
+    public float minSoundDistance = 1.0f;
+    [Tooltip("The distance at which the 3D sound becomes completely silent.")]
+    public float maxSoundDistance = 35.0f;
+    [Range(0f, 1f)]// This creates a slider from 0 to 1.
+[Tooltip("The base volume for this hazard's sound.")]
+    public float volume = 0.75f;
     // --- THIS IS THE MAGIC FUNCTION ---
     // OnValidate is called in the editor whenever a value is changed.
     private void OnValidate()
@@ -68,9 +81,62 @@ public class HazardController : MonoBehaviour
                 break;
         }
     }
-
+    public void UpdateVolume()
+    {
+        // Safety check to make sure the audioSource exists.
+        if (audioSource != null)
+        {
+            // The final volume is the hazard's individual base volume
+            // MULTIPLIED by the master volume from the manager.
+            // For example, if base volume is 0.5 and master is 0.5, final volume is 0.25.
+            audioSource.volume = this.volume * VolumeManager.instance.masterSfxVolume;
+        }
+    }
     void Start()
     {
+        audioSource = gameObject.AddComponent<AudioSource>();
+        audioSource.playOnAwake = false;
+        audioSource = gameObject.AddComponent<AudioSource>();
+        audioSource.playOnAwake = false;
+        UpdateVolume();
+        // --- ADD THIS LINE ---
+        // Set the volume of the AudioSource to match our public variable.
+        audioSource.volume = this.volume;
+        // 2. Check if a sound has been assigned.
+        if (hazardSounds != null && hazardSounds.Length > 0)
+        {
+            // 3. Configure the sound based on the hazard type.
+            if (type == HazardType.SwingingAxe || type == HazardType.PathFollower)
+            {
+                // For looping sounds, we always use the FIRST sound in the list.
+                audioSource.clip = hazardSounds[0];
+                audioSource.loop = true;
+                audioSource.Play();
+            }
+            else // For ProximityTrap
+            {
+                audioSource.loop = false;
+            }
+
+            // 4. Set the sound to be 2D or 3D.
+            audioSource.spatialBlend = is3DSound ? 1.0f : 0.0f;
+
+            // 5. --- THIS IS THE FIX ---
+            // If it's a 3D sound, apply our custom distance settings.
+            if (is3DSound)
+            {
+                // Set the rolloff mode to Linear for a more natural 2D falloff.
+                audioSource.rolloffMode = AudioRolloffMode.Linear;
+
+                // Apply the min and max distance values from our public variables.
+                audioSource.minDistance = minSoundDistance;
+                audioSource.maxDistance = maxSoundDistance;
+
+                // Set Doppler Level to 0 to prevent weird pitch shifting in 2D.
+                audioSource.dopplerLevel = 0;
+            }
+            // --- END OF FIX ---
+        }
         if (type == HazardType.SimpleSpike || type == HazardType.SwingingAxe || type == HazardType.PathFollower)
         {
             isDamageActive = true;
@@ -189,6 +255,25 @@ public class HazardController : MonoBehaviour
     }
     // --- PROXIMITY TRIGGER LOGIC ---
     // This function only runs if this object has a trigger collider.
+    public void PlayTrapSound()
+    {
+        // 1. Check if the sound list is not null and has sounds in it.
+        if (hazardSounds != null && hazardSounds.Length > 0)
+        {
+            // 2. --- THIS IS THE MAGIC ---
+            // Pick a random index from the beginning to the end of the list.
+            int randomIndex = Random.Range(0, hazardSounds.Length);
+
+            // 3. Get the random AudioClip from the list using that index.
+            AudioClip randomClip = hazardSounds[randomIndex];
+
+            // 4. Play that random clip as a one-shot sound.
+            // AudioSource.PlayOneShot is perfect for this, as it doesn't interrupt other sounds.
+            audioSource.PlayOneShot(randomClip);
+
+            Debug.Log($"Playing random trap sound: {randomClip.name}");
+        }
+    }
     private void OnTriggerEnter2D(Collider2D other)
     {
         // --- THIS IS THE FIX ---
@@ -275,7 +360,40 @@ public class HazardControllerEditor : Editor
         hazard.isBrainOnly = EditorGUILayout.Toggle("Is Brain Only", hazard.isBrainOnly);
 
         EditorGUILayout.Space();
+        if (hazard.type != HazardController.HazardType.SimpleSpike)
+        {
+            EditorGUILayout.LabelField("Audio Settings", EditorStyles.boldLabel);
+            SerializedProperty soundsProperty = serializedObject.FindProperty("hazardSounds");
+            EditorGUILayout.PropertyField(soundsProperty, true);
+            hazard.volume = EditorGUILayout.Slider("Volume", hazard.volume, 0f, 1f);
+            // For looping sounds, we can choose 2D/3D.
+            if (hazard.type == HazardController.HazardType.SwingingAxe || hazard.type == HazardController.HazardType.PathFollower)
+            {
+                // Draw the main 3D sound toggle.
+                hazard.is3DSound = EditorGUILayout.Toggle("Is 3D Sound", hazard.is3DSound);
 
+                // --- THIS IS THE FIX ---
+                // If the user has checked the "Is 3D Sound" box...
+                if (hazard.is3DSound)
+                {
+                    // ...then we draw the min and max distance fields.
+                    // We add a little indent to make it look clean and nested.
+                    EditorGUI.indentLevel++;
+                    hazard.minSoundDistance = EditorGUILayout.FloatField("Min Sound Distance", hazard.minSoundDistance);
+                    hazard.maxSoundDistance = EditorGUILayout.FloatField("Max Sound Distance", hazard.maxSoundDistance);
+                    EditorGUI.indentLevel--;
+                }
+            }
+            // For the proximity trap, we force it to be 2D.
+            else if (hazard.type == HazardController.HazardType.ProximityTrap)
+            {
+                // We can show a disabled toggle to make it clear to the user.
+                EditorGUI.BeginDisabledGroup(true);
+                EditorGUILayout.Toggle("Is 3D Sound (Forced 2D)", false);
+                EditorGUI.EndDisabledGroup();
+                hazard.is3DSound = false; // Force the value to be false.
+            }
+        }
         // Use a switch to show the correct fields
         switch (hazard.type)
         {

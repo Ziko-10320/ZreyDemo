@@ -19,7 +19,7 @@ public class ZreyAttacks : MonoBehaviour
     private int comboStep = 0;
     private bool isAttacking = false;
     private float lastAttackTime = 0f;
-    private InputSystem_Actions inputActions;
+    
 
     private readonly int attackStepHash = Animator.StringToHash("attackStep");
     private readonly int attackVariantHash = Animator.StringToHash("attackVariant");
@@ -148,6 +148,7 @@ public class ZreyAttacks : MonoBehaviour
     }
     void Awake()
     {
+      
         // Automatically get components if they aren't assigned.
         if (animator == null) animator = GetComponent<Animator>();
         if (playerMovement == null) playerMovement = GetComponent<ZreyMovements>();

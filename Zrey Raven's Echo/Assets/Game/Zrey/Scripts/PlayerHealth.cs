@@ -1,6 +1,7 @@
 using FirstGearGames.SmoothCameraShaker;
 using System.Collections;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.UI; // Required for Slider
 
 public class PlayerHealth : MonoBehaviour
@@ -30,7 +31,7 @@ public class PlayerHealth : MonoBehaviour
     private ZreyMovements playerMovements;
     [Header("Defense & Parry")]
     [Tooltip("How much damage is blocked (e.g., 0.75 means 75% of damage is ignored).")]
-    [Range(0f, 1f)] public float damageReduction = 0.75f; 
+    [Range(0f, 1f)] public float damageReduction = 0.75f;
     [Tooltip("How long the parry window stays open after starting a block (in seconds).")]
     public float parryWindow = 0.15f;
     [Tooltip("How long the player is stunned and cannot move after taking a normal hit.")]
@@ -41,11 +42,11 @@ public class PlayerHealth : MonoBehaviour
     public GameObject parryVFX;
     [Tooltip("The point where block/parry VFX should spawn.")]
     public Transform defenseVFXSpawnPoint;
-
+    private InputSystem_Actions inputActions;
     // --- ADD NEW PRIVATE STATE VARIABLES ---
     private bool isBlocking = false;
     private bool isParryWindowActive = false;
-    private InputSystem_Actions inputActions; // For the block input
+   
     private Coroutine parryWindowCoroutine;
     // --- ADD NEW ANIMATION HASHES ---
     private readonly int startBlockTriggerHash = Animator.StringToHash("startBlock");
@@ -74,18 +75,45 @@ public class PlayerHealth : MonoBehaviour
     }
     private void OnEnable()
     {
+        // 1. Enable this script's own private input system.
         inputActions.Enable();
-        // When the "Block" action is started (Right-click pressed)
-        inputActions.Player.Block.started += ctx => StartBlocking();
-        // When the "Block" action is canceled (Right-click released)
-        inputActions.Player.Block.canceled += ctx => StopBlocking();
+
+        // 2. Subscribe to the Block action on that private system.
+        inputActions.Player.Block.started += HandleBlockInput;
+        inputActions.Player.Block.canceled += HandleBlockInput;
     }
 
     private void OnDisable()
     {
+        // 1. Unsubscribe from the events.
+        inputActions.Player.Block.started -= HandleBlockInput;
+        inputActions.Player.Block.canceled -= HandleBlockInput;
+
+        // 2. Disable this script's private input system.
         inputActions.Disable();
-        inputActions.Player.Block.started -= ctx => StartBlocking();
-        inputActions.Player.Block.canceled -= ctx => StopBlocking();
+    }
+    private void HandleBlockInput(InputAction.CallbackContext context)
+    {
+        // context.ReadValueAsButton() is true if the button is down, false if it's up.
+        if (context.ReadValueAsButton())
+        {
+            StartBlocking();
+        }
+        else
+        {
+            StopBlocking();
+        }
+    }
+    public void UpdateBlockBinding(string newBindingPath)
+    {
+        // Failsafe: If our private input system doesn't exist, do nothing.
+        if (inputActions == null) return;
+
+        Debug.Log($"<color=yellow>PLAYER HEALTH RECEIVED A NEW BINDING: {newBindingPath}</color>");
+
+        // This is the magic. We are manually overriding the binding on our private input system.
+        // We are changing the "Block" action (index 0) to the new path we received.
+        inputActions.Player.Block.ApplyBindingOverride(0, newBindingPath);
     }
     void Start()
     {
@@ -110,7 +138,7 @@ public class PlayerHealth : MonoBehaviour
 
             // Force the animator out of the block state to play the parry anim
             isBlocking = false;
-           
+
 
             // Randomly choose between parry1 and parry2
             int parryAnim = Random.Range(0, 2);
@@ -137,7 +165,7 @@ public class PlayerHealth : MonoBehaviour
             if (enemyHealth != null)
             {
                 // 2. ALWAYS apply the small knockback to the knight on ANY parry.
-               
+
                 enemyHealth.TakePostureDamageOnParry();
                 // 3. ASK if the attack was the final one.
                 if (enemyAttack != null && enemyAttack.IsFinalComboAttack())
@@ -175,7 +203,7 @@ public class PlayerHealth : MonoBehaviour
             parryImpact.hitReactionType = "none"; // No hit animation
             SpawnBlood();
             knockbackCoroutine = StartCoroutine(HitReactionRoutine(attacker, parryImpact));
-           
+
             if (currentHealth <= 0) Die(attacker);
             return; // Stop all further execution.
         }
@@ -199,7 +227,7 @@ public class PlayerHealth : MonoBehaviour
         // --- IF NOT DEAD, DO ALL THE REACTIONS ---
         if (knockbackCoroutine != null) StopCoroutine(knockbackCoroutine);
         knockbackCoroutine = StartCoroutine(HitReactionRoutine(attacker, impact));
-    
+
     }
     public void TakeUnblockableDamage(int damageAmount, Transform attacker, ImpactData impact)
     {
@@ -390,7 +418,7 @@ public class PlayerHealth : MonoBehaviour
         {
             playerAttacks.CancelAttack();
         }
-        if ( isBlocking) return;
+        if (isBlocking) return;
         animator.ResetTrigger(stopBlockTriggerHash);
         isBlocking = true;
         animator.SetTrigger(startBlockTriggerHash);

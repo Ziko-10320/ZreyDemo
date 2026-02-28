@@ -9,8 +9,8 @@ public class InputManager : MonoBehaviour
     // ---
     public static event Action OnInteractPressed;
     // --- Input Actions ---
-    private InputSystem_Actions inputActions;
-    
+    public static InputSystem_Actions inputActions;
+
     public KnightAI knightAI; // Reference to the KnightAI script to call its methods directly.
     public ZreyAttacks playerAttacks; 
 
@@ -37,8 +37,8 @@ public class InputManager : MonoBehaviour
         ScanSceneForReferences();
         // ---
         knightAI = FindObjectOfType<KnightAI>(); // Find the KnightAI in the scene and store a reference to it.
-        // --- Input Setup ---
-        inputActions = new InputSystem_Actions();
+                                                 // --- Input Setup ---
+        inputActions = ZreyMovements.inputActions;
         // ---
     }
 
@@ -102,7 +102,7 @@ public class InputManager : MonoBehaviour
         }
 
     }
-
+   
     // --- MODIFIED Input Handlers ---
     private void OnAttackPressed(InputAction.CallbackContext context)
     {
