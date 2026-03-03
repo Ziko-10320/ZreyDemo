@@ -1,49 +1,72 @@
 using UnityEngine;
-using UnityEngine.EventSystems; // Required for listening to UI events like clicks
+using UnityEngine.EventSystems; // Required for listening to all UI pointer events
 
-// This script makes a UI element scale down on press and back up on release.
-// It implements IPointerDownHandler and IPointerUpHandler to detect clicks.
-public class ButtonScaler : MonoBehaviour, IPointerDownHandler, IPointerUpHandler
+// This script now handles both hover and press scaling for a UI element.
+public class ButtonScaler : MonoBehaviour, IPointerDownHandler, IPointerUpHandler, IPointerEnterHandler, IPointerExitHandler
 {
     [Header("Scaling Settings")]
-    [Tooltip("The target scale when the button is pressed down (e.g., 0.9).")]
+    [Tooltip("The target scale when the mouse hovers over the button (e.g., 1.1 for 10% bigger).")]
+    [SerializeField] private float hoverScale = 1.1f; // --- NEW ---
+
+    [Tooltip("The target scale when the button is pressed down (e.g., 0.9 for 10% smaller).")]
     [SerializeField] private float pressedScale = 0.9f;
 
     [Tooltip("How fast the button scales down and back up.")]
     [SerializeField] private float scaleSpeed = 15f;
 
     // --- Internal Variables ---
-    private Vector3 initialScale; // Stores the button's original scale
-    private Vector3 targetScale;  // The scale we are currently moving towards
+    private Vector3 initialScale;
+    private Vector3 targetScale;
+    private bool isPointerOver = false; // --- NEW: A flag to track if the mouse is currently over the button.
 
-    // Awake is called when the script instance is being loaded.
     private void Awake()
     {
-        // Store the button's starting scale so we can always return to it.
         initialScale = transform.localScale;
-        // At the start, the target scale is the initial scale.
         targetScale = initialScale;
     }
 
-    // Update is called once per frame.
     private void Update()
     {
-        // Smoothly move the button's current scale towards the target scale every frame.
-        // Vector3.Lerp is perfect for creating smooth transitions.
+        // The Lerp function remains the same, smoothly moving towards the target scale.
         transform.localScale = Vector3.Lerp(transform.localScale, targetScale, Time.unscaledDeltaTime * scaleSpeed);
     }
 
-    // This function is automatically called by Unity when the mouse is pressed down ON this UI element.
+    // --- This function is automatically called when the mouse is PRESSED DOWN ---
     public void OnPointerDown(PointerEventData eventData)
     {
-        // When pressed, set the target scale to the smaller "pressed" scale.
+        // When pressed, always scale down.
         targetScale = initialScale * pressedScale;
     }
 
-    // This function is automatically called by Unity when the mouse is released FROM this UI element.
+    // --- This function is automatically called when the mouse is RELEASED ---
     public void OnPointerUp(PointerEventData eventData)
     {
-        // When released, set the target scale back to the original size.
+        // When released, we need to decide what scale to return to.
+        // If the pointer is still over the button, return to the hover scale.
+        if (isPointerOver)
+        {
+            targetScale = initialScale * hoverScale;
+        }
+        // Otherwise, return to the normal scale.
+        else
+        {
+            targetScale = initialScale;
+        }
+    }
+
+    // --- NEW: This function is automatically called when the mouse ENTERS the button's area ---
+    public void OnPointerEnter(PointerEventData eventData)
+    {
+        isPointerOver = true;
+        // Set the target to the larger hover scale.
+        targetScale = initialScale * hoverScale;
+    }
+
+    // --- NEW: This function is automatically called when the mouse EXITS the button's area ---
+    public void OnPointerExit(PointerEventData eventData)
+    {
+        isPointerOver = false;
+        // Set the target back to the normal initial scale.
         targetScale = initialScale;
     }
 }

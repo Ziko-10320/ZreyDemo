@@ -1,0 +1,545 @@
+fileFormatVersion: 2
+guid: c02bb472d22b0e143b4bc932653f781a
+importerOverride:
+  nativeImporterType: 2089858483
+  scriptedImporterType:
+    serializedVersion: 2
+    Hash: b10b55a1aa6a1aa32521bc0cab59632e
+ScriptedImporter:
+  internalIDToNameTable: []
+  externalObjects: {}
+  serializedVersion: 2
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+  script: {fileID: 11500000, guid: b2a9591990af98743ba3ff7cf1000886, type: 3}
+  textureImporterSettings:
+    alphaSource: 1
+    mipMapMode: 0
+    enableMipMap: 1
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+    convertToNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+    swizzle: 50462976
+    isReadable: 0
+    streamingMipmaps: 0
+    streamingMipmapsPriority: 0
+    vTOnly: 0
+    ignoreMipmapLimit: 0
+    nPOTScale: 1
+    sRGBTexture: 1
+    spriteMode: 2
+    spriteExtrude: 1
+    spriteMeshType: 1
+    alignment: 0
+    spritePivot: {x: 0.5, y: 0.5}
+    spritePixelsToUnits: 100
+    spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+    spriteGenerateFallbackPhysicsShape: 0
+    generateCubemap: 6
+    cubemapConvolution: 0
+    seamlessCubemap: 0
+    alphaIsTransparency: 1
+    spriteTessellationDetail: -1
+    textureType: 8
+    textureShape: 1
+    singleChannelComponent: 0
+    flipbookRows: 0
+    flipbookColumns: 0
+    ignorePngGamma: 0
+    cookieMode: 0
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: 0
+    wrapV: 0
+    wrapW: 0
+    normalMap: 0
+    textureFormat: 0
+    maxTextureSize: 0
+    lightmap: 0
+    compressionQuality: 0
+    linearTexture: 0
+    grayScaleToAlpha: 0
+    rGBM: 0
+    cubemapConvolutionSteps: 0
+    cubemapConvolutionExponent: 0
+    maxTextureSizeSet: 0
+    compressionQualitySet: 0
+    textureFormatSet: 0
+    applyGammaDecoding: 0
+  singleSpriteImportData:
+  - name: 
+    originalName: 
+    pivot: {x: 0, y: 0}
+    alignment: 0
+    border: {x: 0, y: 0, z: 0, w: 0}
+    customData: 
+    rect:
+      serializedVersion: 2
+      x: 0
+      y: 0
+      width: 0
+      height: 0
+    spriteID: b5d6290ffd8f47741be9e779939aba2d
+    spriteBone: []
+    spriteOutline: []
+    vertices: []
+    spritePhysicsOutline: []
+    indices: 
+    edges: []
+    tessellationDetail: 0
+    uvTransform: {x: 0, y: 0}
+    spritePosition: {x: 0, y: 0}
+  multiSpriteImportData: []
+  layeredSpriteImportData:
+  - name: white cover
+    originalName: 
+    pivot: {x: 0.5, y: 0.5}
+    alignment: 0
+    border: {x: 0, y: 0, z: 0, w: 0}
+    customData: 
+    rect:
+      serializedVersion: 2
+      x: 4
+      y: 1092
+      width: 1871
+      height: 998
+    spriteID: 766d3bf3016a16f4786d296e162c625a
+    spriteBone: []
+    spriteOutline: []
+    vertices: []
+    spritePhysicsOutline: []
+    indices: 
+    edges: []
+    tessellationDetail: 0
+    uvTransform: {x: -14, y: 1075}
+    spritePosition: {x: 22, y: 48}
+  - name: Palm Tree
+    originalName: 
+    pivot: {x: 0.5, y: 0.5}
+    alignment: 0
+    border: {x: 0, y: 0, z: 0, w: 0}
+    customData: 
+    rect:
+      serializedVersion: 2
+      x: 1206
+      y: 3132
+      width: 39
+      height: 47
+    spriteID: 4f9c45d95b0fe1e4aaea5cc445673774
+    spriteBone: []
+    spriteOutline: []
+    vertices: []
+    spritePhysicsOutline: []
+    indices: 
+    edges: []
+    tessellationDetail: 0
+    uvTransform: {x: 1203, y: 3125}
+    spritePosition: {x: 1720, y: 807}
+  - name: SUN
+    originalName: 
+    pivot: {x: 0.5, y: 0.5}
+    alignment: 0
+    border: {x: 0, y: 0, z: 0, w: 0}
+    customData: 
+    rect:
+      serializedVersion: 2
+      x: 1144
+      y: 3132
+      width: 54
+      height: 49
+    spriteID: cc690640d239f9d47b2366a38f27f6aa
+    spriteBone: []
+    spriteOutline: []
+    vertices: []
+    spritePhysicsOutline: []
+    indices: 
+    edges: []
+    tessellationDetail: 0
+    uvTransform: {x: 1143, y: 3127}
+    spritePosition: {x: 1552, y: 807}
+  - name: Volume bar
+    originalName: 
+    pivot: {x: 0.5, y: 0.5}
+    alignment: 0
+    border: {x: 0, y: 0, z: 0, w: 0}
+    customData: 
+    rect:
+      serializedVersion: 2
+      x: 1144
+      y: 3104
+      width: 625
+      height: 20
+    spriteID: da33e73e729d1a94c9d41404c92f42a7
+    spriteBone: []
+    spriteOutline: []
+    vertices: []
+    spritePhysicsOutline: []
+    indices: 
+    edges: []
+    tessellationDetail: 0
+    uvTransform: {x: 1104, y: 3084}
+    spritePosition: {x: 1081, y: 261}
+  - name: Tilte
+    originalName: 
+    pivot: {x: 0.5, y: 0.5}
+    alignment: 0
+    border: {x: 0, y: 0, z: 0, w: 0}
+    customData: 
+    rect:
+      serializedVersion: 2
+      x: 1932
+      y: 2965
+      width: 1129
+      height: 612
+    spriteID: 04fd8fa7863d11b4c9db3662ed3aed89
+    spriteBone: []
+    spriteOutline: []
+    vertices: []
+    spritePhysicsOutline: []
+    indices: 
+    edges: []
+    tessellationDetail: 0
+    uvTransform: {x: 1749, y: 2965}
+    spritePosition: {x: 391, y: 355}
+  - name: Empty right up cover
+    originalName: 
+    pivot: {x: 0.5, y: 0.5}
+    alignment: 0
+    border: {x: 0, y: 0, z: 0, w: 0}
+    customData: 
+    rect:
+      serializedVersion: 2
+      x: 1932
+      y: 1669
+      width: 1120
+      height: 640
+    spriteID: 1e8e595a8b71679429421fb756aa8a7e
+    spriteBone: []
+    spriteOutline: []
+    vertices: []
+    spritePhysicsOutline: []
+    indices: 
+    edges: []
+    tessellationDetail: 0
+    uvTransform: {x: 1255, y: 1306}
+    spritePosition: {x: 749, y: 390}
+  - name: Right up cover
+    originalName: 
+    pivot: {x: 0.5, y: 0.5}
+    alignment: 0
+    border: {x: 0, y: 0, z: 0, w: 0}
+    customData: 
+    rect:
+      serializedVersion: 2
+      x: 4
+      y: 3104
+      width: 1132
+      height: 652
+    spriteID: 564f4fa0e9f2428479d8e77e8effe36e
+    spriteBone: []
+    spriteOutline: []
+    vertices: []
+    spritePhysicsOutline: []
+    indices: 
+    edges: []
+    tessellationDetail: 0
+    uvTransform: {x: -673, y: 2741}
+    spritePosition: {x: 749, y: 390}
+  - name: Empty Left down cover
+    originalName: 
+    pivot: {x: 0.5, y: 0.5}
+    alignment: 0
+    border: {x: 0, y: 0, z: 0, w: 0}
+    customData: 
+    rect:
+      serializedVersion: 2
+      x: 1932
+      y: 2317
+      width: 1120
+      height: 640
+    spriteID: 19f0afee79554b846be20aa3a0132d93
+    spriteBone: []
+    spriteOutline: []
+    vertices: []
+    spritePhysicsOutline: []
+    indices: 
+    edges: []
+    tessellationDetail: 0
+    uvTransform: {x: 1902, y: 2289}
+    spritePosition: {x: 34, y: 59}
+  - name: Left down cover
+    originalName: 
+    pivot: {x: 0.5, y: 0.5}
+    alignment: 0
+    border: {x: 0, y: 0, z: 0, w: 0}
+    customData: 
+    rect:
+      serializedVersion: 2
+      x: 1932
+      y: 1010
+      width: 1132
+      height: 651
+    spriteID: 7a88496c10480bb45bfcc40e68a1dd60
+    spriteBone: []
+    spriteOutline: []
+    vertices: []
+    spritePhysicsOutline: []
+    indices: 
+    edges: []
+    tessellationDetail: 0
+    uvTransform: {x: 1914, y: 993}
+    spritePosition: {x: 22, y: 48}
+  - name: Pause Cover
+    originalName: 
+    pivot: {x: 0.5, y: 0.5}
+    alignment: 0
+    border: {x: 0, y: 0, z: 0, w: 0}
+    customData: 
+    rect:
+      serializedVersion: 2
+      x: 4
+      y: 2098
+      width: 1871
+      height: 998
+    spriteID: bc97f5c12c7beda47be1d9916567f4f5
+    spriteBone: []
+    spriteOutline: []
+    vertices: []
+    spritePhysicsOutline: []
+    indices: 
+    edges: []
+    tessellationDetail: 0
+    uvTransform: {x: -14, y: 2081}
+    spritePosition: {x: 22, y: 48}
+  - name: mm cover
+    originalName: 
+    pivot: {x: 0.5, y: 0.5}
+    alignment: 0
+    border: {x: 0, y: 0, z: 0, w: 0}
+    customData: 
+    rect:
+      serializedVersion: 2
+      x: 1932
+      y: 4
+      width: 1871
+      height: 998
+    spriteID: ceeec73326a2aba498bbb0046061e585
+    spriteBone: []
+    spriteOutline: []
+    vertices: []
+    spritePhysicsOutline: []
+    indices: 
+    edges: []
+    tessellationDetail: 0
+    uvTransform: {x: 1914, y: -13}
+    spritePosition: {x: 22, y: 48}
+  - name: mm bg
+    originalName: 
+    pivot: {x: 0.5, y: 0.5}
+    alignment: 0
+    border: {x: 0, y: 0, z: 0, w: 0}
+    customData: 
+    rect:
+      serializedVersion: 2
+      x: 4
+      y: 4
+      width: 1920
+      height: 1080
+    spriteID: 497bab4c39aa1804d90ae915c0b5bea6
+    spriteBone: []
+    spriteOutline: []
+    vertices: []
+    spritePhysicsOutline: []
+    indices: 
+    edges: []
+    tessellationDetail: 0
+    uvTransform: {x: 4, y: 4}
+    spritePosition: {x: 0, y: 0}
+  spriteImportData: []
+  rigSpriteImportData: []
+  sharedRigSpriteImportData: []
+  mosaicSpriteImportData: []
+  sharedRigCharacterData:
+    bones: []
+    parts: []
+    dimension: {x: 0, y: 0}
+    characterGroups: []
+    pivot: {x: 0, y: 0}
+    boneReadOnly: 0
+  characterData:
+    bones: []
+    parts: []
+    dimension: {x: 0, y: 0}
+    characterGroups: []
+    pivot: {x: 0, y: 0}
+    boneReadOnly: 0
+  platformSettings: []
+  mosaicLayers: 1
+  characterMode: 1
+  documentPivot: {x: 0, y: 0}
+  documentAlignment: 7
+  importHiddenLayers: 0
+  layerMappingOption: 2
+  generatePhysicsShape: 0
+  paperDollMode: 0
+  keepDupilcateSpriteName: 1
+  generateTileAssets: 0
+  tilePaletteCellLayout: 0
+  tilePaletteHexagonLayout: 0
+  tilePaletteCellSize: {x: 1, y: 1, z: 0}
+  tilePaletteCellSizing: 0
+  transparencySortMode: 0
+  transparencySortAxis: {x: 0, y: 0, z: 1}
+  tileTemplate: {instanceID: 0}
+  padding: 4
+  spriteSizeExpand: 0
+  skeletonAssetReferenceID: 
+  pipeline: {instanceID: 0}
+  pipelineVersion: 
+  spriteCategoryList:
+    categories: []
+  spritePackingTag: 
+  resliceFromLayer: 0
+  pSDLayerImportSetting: []
+  psdLayers:
+  - name: white cover
+    spriteName: white cover
+    isGroup: 0
+    parentIndex: -1
+    spriteID: 766d3bf3016a16f4786d296e162c625a
+    layerID: 0
+    mosaicPosition: {x: 4, y: 1092}
+    flatten: 0
+    isImported: 1
+    isVisible: 1
+  - name: Palm Tree
+    spriteName: Palm Tree
+    isGroup: 0
+    parentIndex: -1
+    spriteID: 4f9c45d95b0fe1e4aaea5cc445673774
+    layerID: -129905626
+    mosaicPosition: {x: 1206, y: 3132}
+    flatten: 0
+    isImported: 1
+    isVisible: 1
+  - name: SUN
+    spriteName: SUN
+    isGroup: 0
+    parentIndex: -1
+    spriteID: cc690640d239f9d47b2366a38f27f6aa
+    layerID: 884247720
+    mosaicPosition: {x: 1144, y: 3132}
+    flatten: 0
+    isImported: 1
+    isVisible: 1
+  - name: Volume bar
+    spriteName: Volume bar
+    isGroup: 0
+    parentIndex: -1
+    spriteID: da33e73e729d1a94c9d41404c92f42a7
+    layerID: -1915412091
+    mosaicPosition: {x: 1144, y: 3104}
+    flatten: 0
+    isImported: 1
+    isVisible: 1
+  - name: Tilte
+    spriteName: Tilte
+    isGroup: 0
+    parentIndex: -1
+    spriteID: 04fd8fa7863d11b4c9db3662ed3aed89
+    layerID: 1366576528
+    mosaicPosition: {x: 1932, y: 2965}
+    flatten: 0
+    isImported: 1
+    isVisible: 1
+  - name: Empty right up cover
+    spriteName: Empty right up cover
+    isGroup: 0
+    parentIndex: -1
+    spriteID: 1e8e595a8b71679429421fb756aa8a7e
+    layerID: -814947031
+    mosaicPosition: {x: 1932, y: 1669}
+    flatten: 0
+    isImported: 1
+    isVisible: 1
+  - name: Right up cover
+    spriteName: Right up cover
+    isGroup: 0
+    parentIndex: -1
+    spriteID: 564f4fa0e9f2428479d8e77e8effe36e
+    layerID: 581067418
+    mosaicPosition: {x: 4, y: 3104}
+    flatten: 0
+    isImported: 1
+    isVisible: 1
+  - name: Empty Left down cover
+    spriteName: Empty Left down cover
+    isGroup: 0
+    parentIndex: -1
+    spriteID: 19f0afee79554b846be20aa3a0132d93
+    layerID: 54133065
+    mosaicPosition: {x: 1932, y: 2317}
+    flatten: 0
+    isImported: 1
+    isVisible: 1
+  - name: Left down cover
+    spriteName: Left down cover
+    isGroup: 0
+    parentIndex: -1
+    spriteID: 7a88496c10480bb45bfcc40e68a1dd60
+    layerID: -1133254710
+    mosaicPosition: {x: 1932, y: 1010}
+    flatten: 0
+    isImported: 1
+    isVisible: 1
+  - name: Pause Cover
+    spriteName: Pause Cover
+    isGroup: 0
+    parentIndex: -1
+    spriteID: bc97f5c12c7beda47be1d9916567f4f5
+    layerID: -1576003181
+    mosaicPosition: {x: 4, y: 2098}
+    flatten: 0
+    isImported: 1
+    isVisible: 1
+  - name: mm cover
+    spriteName: mm cover
+    isGroup: 0
+    parentIndex: -1
+    spriteID: ceeec73326a2aba498bbb0046061e585
+    layerID: -1508912947
+    mosaicPosition: {x: 1932, y: 4}
+    flatten: 0
+    isImported: 1
+    isVisible: 1
+  - name: mm bg
+    spriteName: mm bg
+    isGroup: 0
+    parentIndex: -1
+    spriteID: 497bab4c39aa1804d90ae915c0b5bea6
+    layerID: -1974058335
+    mosaicPosition: {x: 4, y: 4}
+    flatten: 0
+    isImported: 1
+    isVisible: 1
+  mosaicPSDLayers: []
+  rigPSDLayers: []
+  sharedRigPSDLayers: []
+  importFileNodeState: 1
+  platformSettingsDirtyTick: 0
+  spriteSizeExpandChanged: 0
+  generateGOHierarchy: 0
+  textureAssetName: 
+  prefabAssetName: 
+  spriteLibAssetName: 
+  skeletonAssetName: 
+  secondarySpriteTextures: []
