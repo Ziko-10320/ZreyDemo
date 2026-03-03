@@ -65,7 +65,7 @@ public class PlayerHealth : MonoBehaviour
     [Tooltip("The point where the stab blood should spawn.")]
     [SerializeField] private Transform stabBloodSpawnPoint;
     public bool IsGrabbed { get; private set; } = false;
-
+    public bool IsInvincible { get; private set; } = false;
     void Awake()
     {
         // --- THIS IS THE GUARANTEE ---
@@ -134,10 +134,29 @@ public class PlayerHealth : MonoBehaviour
         }
         if (deathPanel != null) deathPanel.SetActive(false);
     }
+    public void MakeInvincible()
+    {
+        Debug.Log("<color=cyan>--- PLAYER IS NOW INVINCIBLE ---</color>");
+        IsInvincible = true;
+    }
+
+    /// <summary>
+    /// Called by an Animation Event to make the player vulnerable again.
+    /// </summary>
+    public void MakeVulnerable()
+    {
+        Debug.Log("<color=grey>--- Player is now VULNERABLE ---</color>");
+        IsInvincible = false;
+    }
 
     // --- THE ONLY WAY TO TAKE DAMAGE ---
     public void TakeDamage(int damageAmount, Transform attacker, ImpactData impact)
     {
+        if (IsInvincible)
+        {
+            Debug.Log("Damage ignored: Player is invincible.");
+            return;
+        }
         // If already dead, do nothing.
         if (currentHealth <= 0) return;
         if (isParryWindowActive)
@@ -240,6 +259,11 @@ public class PlayerHealth : MonoBehaviour
     }
     public void TakeUnblockableDamage(int damageAmount, Transform attacker, ImpactData impact)
     {
+        if (IsInvincible)
+        {
+            Debug.Log("Damage ignored: Player is invincible.");
+            return;
+        }
         // If already dead, do nothing.
         if (currentHealth <= 0) return;
 
@@ -268,6 +292,12 @@ public class PlayerHealth : MonoBehaviour
     }
     public void TakeHazardDamage(int damageAmount)
     {
+
+        if (IsInvincible)
+        {
+            Debug.Log("Damage ignored: Player is invincible.");
+            return;
+        }
         // If already dead, do nothing.
         if (currentHealth <= 0) return;
 

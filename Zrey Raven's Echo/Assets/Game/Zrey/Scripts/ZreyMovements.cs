@@ -68,19 +68,23 @@ public class ZreyMovements : MonoBehaviour
     private float dashDirection;
 
 
-    [Header("Air Dash (Teleport) Settings")]
-    [Tooltip("The horizontal distance the player teleports forward.")]
-    [SerializeField] private float airDashDistance = 4f;
+    [Header("Air Dash Settings")]
+    [Tooltip("The speed of the forward air dash.")]
+    [SerializeField] private float forwardAirDashSpeed = 15f; 
+    [Tooltip("The duration of the forward air dash.")]
+    [SerializeField] private float forwardAirDashDuration = 0.3f; 
+    [Tooltip("The speed of the upward air dash.")]
+    [SerializeField]  private float upwardAirDashSpeed = 12f; 
+    [Tooltip("The duration of the upward air dash.")]
+    [SerializeField] private float upwardAirDashDuration = 0.25f; 
 
-    [Tooltip("The vertical distance the player teleports upward.")]
-    [SerializeField] private float upwardDashDistance = 3f;
+    // --- THIS IS THE FIX ---
+    [Tooltip("The specific layer the player can phase through during an air dash.")]
+    [SerializeField] private LayerMask phaseThroughLayer;
 
-    [Tooltip("The prefab of the particle effect to spawn on dash.")]
-    [SerializeField] private GameObject vanishEffect;
-    [SerializeField] private GameObject reappearEffect;
+    private readonly int forwardAirDashTriggerHash = Animator.StringToHash("ForwardAirDash");
+    private readonly int upwardAirDashTriggerHash = Animator.StringToHash("UpwardAirDash");
 
-    [Tooltip("The child transform where the effect should spawn from.")]
-    [SerializeField] private Transform effectSpawnPoint;
 
     [Tooltip("The maximum number of air dashes the player has.")]
     [SerializeField] private int maxAirDashes = 2;
@@ -139,6 +143,10 @@ public class ZreyMovements : MonoBehaviour
     private Coroutine flipLockWatchdogCoroutine;
     public bool justPressedDash { get; private set; }
     private bool isInRootMotionState = false;
+    [Tooltip("The particle effect to spawn during a dash animation.")]
+    [SerializeField] private GameObject dashParticlePrefab; 
+    [Tooltip("The point where the dash particles should spawn.")]
+    [SerializeField] private Transform dashParticleSpawnPoint; 
 
     void Awake()
     {
@@ -321,6 +329,11 @@ public class ZreyMovements : MonoBehaviour
         if (overrideMoveTimer > 0)
         {
             // If the override timer is active, let the grapple momentum ride.
+            return;
+        }
+        if (isDashing)
+        {
+            // If yes, do NOTHING here. Let the PhasingAirDashSequence coroutine have full control.
             return;
         }
         Vector2 currentMoveInput = ZreyMovements.inputActions.Player.Move.ReadValue<Vector2>();
@@ -574,73 +587,80 @@ public class ZreyMovements : MonoBehaviour
     }
     private void PerformAirDash()
     {
-        // --- 1. Spend a dash charge ---
+        // Spend a dash charge
         airDashesRemaining--;
-        StartCoroutine(AirDashTeleportSequence());
+        // Call the NEW coroutine
+        StartCoroutine(PhasingAirDashSequence());
         Debug.Log("Air Dashed! Remaining: " + airDashesRemaining);
-
     }
-    private IEnumerator AirDashTeleportSequence()
+    private IEnumerator PhasingAirDashSequence()
     {
-        // --- 1. VANISH PHASE ---
-        Debug.Log("Vanish!");
-        originalGravityScale = rb.gravityScale;
-        rb.gravityScale = 0f;
-        // Spawn the "start" effect.
-        if (vanishEffect != null && effectSpawnPoint != null)
+        // --- 1. SETUP PHASE ---
+        isDashing = true; // Use the existing master dash flag
+        float dashDuration;
+        Vector2 dashVelocity;
+        if (playerTrail != null)
         {
-            Instantiate(vanishEffect, effectSpawnPoint.position, effectSpawnPoint.rotation);
+            playerTrail.StartTrail();
         }
-
-        // Make the player invisible. You can do this by disabling the Sprite Renderer or Mesh Renderer.
-        // Let's assume you have a reference to it. If not, you'll need to add one.
-        // For now, let's just disable the whole GameObject's visual components.
-        // A better way is to have a dedicated "Visuals" child object to disable.
-        // For simplicity, let's just disable the renderer.
-        var playerRenderer = GetComponentInChildren<Renderer>(); // This finds the first renderer (Sprite or Mesh)
-        if (playerRenderer != null) playerRenderer.enabled = false;
-
-        // Temporarily stop physics interactions during the "in-between" state.
-        rb.bodyType = RigidbodyType2D.Kinematic;
-        rb.linearVelocity = Vector2.zero;
-
-
-        // --- 2. WAIT PHASE ---
-        // This is the magic of coroutines. It pauses the function here for the specified duration.
-        yield return new WaitForSeconds(teleportVanishDuration);
-
-
-        // --- 3. REAPPEAR PHASE ---
-        Debug.Log("Reappear!");
-
-        // Determine the teleport destination.
-        Vector2 dashDirectionVector;
+        // Determine direction and set parameters
         float verticalInput = moveInput.y;
         if (verticalInput > 0.5f)
         {
-            dashDirectionVector = Vector2.up * upwardDashDistance;
+            // UPWARD DASH
+            Debug.Log("<color=cyan>--- Performing UPWARD Air Dash ---</color>");
+            animator.SetTrigger(upwardAirDashTriggerHash);
+            dashVelocity = Vector2.up * upwardAirDashSpeed;
+            dashDuration = upwardAirDashDuration;
         }
         else
         {
+            // FORWARD DASH
+            Debug.Log("<color=cyan>--- Performing FORWARD Air Dash ---</color>");
+            animator.SetTrigger(forwardAirDashTriggerHash);
             float direction = isFacingRight ? 1f : -1f;
-            dashDirectionVector = new Vector2(airDashDistance * direction, 0);
+            dashVelocity = new Vector2(forwardAirDashSpeed * direction, 0);
+            dashDuration = forwardAirDashDuration;
         }
 
-        // Teleport to the new position.
-        Vector2 newPosition = rb.position + dashDirectionVector;
-        transform.position = newPosition; // Use transform.position since rb is kinematic.
-        rb.bodyType = RigidbodyType2D.Dynamic; // Turn physics back on!
+        // --- 2. PHASING & MOVEMENT PHASE ---
+        originalGravityScale = rb.gravityScale;
+        rb.gravityScale = 0f; // Ignore gravity during the dash
 
-        // Make the player visible again.
-        if (playerRenderer != null) playerRenderer.enabled = true;
+        // THIS IS THE MAGIC: Turn OFF collisions with the phasing layer.
+        int playerLayer = this.gameObject.layer;
+        int phaseLayer = (int)Mathf.Log(phaseThroughLayer.value, 2);
+        Physics2D.IgnoreLayerCollision(playerLayer, phaseLayer, true);
+        Debug.LogWarning($"PHASING ON: Ignoring collisions between layer {playerLayer} and {phaseLayer}.");
 
-        if (reappearEffect != null && effectSpawnPoint != null)
+        float timer = 0f;
+        while (timer < dashDuration)
         {
-            Instantiate(reappearEffect, effectSpawnPoint.position, effectSpawnPoint.rotation);
+            rb.linearVelocity = dashVelocity; // Constantly apply the dash velocity
+            timer += Time.deltaTime;
+            yield return null;
         }
-        rb.gravityScale = originalGravityScale;
-        animator.SetTrigger(jumpTriggerHash);
-        rb.linearVelocity = new Vector2(0, postDashHopForce);
+
+        // --- 3. CLEANUP PHASE ---
+        rb.gravityScale = originalGravityScale; // Restore gravity
+        rb.linearVelocity = Vector2.zero; // Stop instantly after the dash
+        isDashing = false; // We are no longer dashing
+
+        // THIS IS THE MAGIC: Turn collisions back ON.
+        Physics2D.IgnoreLayerCollision(playerLayer, phaseLayer, false);
+        Debug.LogWarning("PHASING OFF: Collisions restored.");
+    }
+    public void EVENT_SpawnDashParticles()
+    {
+        // Failsafe check is still correct.
+        if (dashParticlePrefab == null || dashParticleSpawnPoint == null)
+        {
+            Debug.LogWarning("Cannot spawn dash particles: Prefab or Spawn Point is not assigned in the Inspector!");
+            return;
+        }
+
+        Instantiate(dashParticlePrefab, dashParticleSpawnPoint.position, dashParticlePrefab.transform.rotation);
+        
     }
     private void PerformJump()
     {
@@ -703,6 +723,11 @@ public class ZreyMovements : MonoBehaviour
     }
     private void HandleWallMechanics()
     {
+        if (isDashing)
+        {
+            // If yes, do NOTHING here. Let the PhasingAirDashSequence coroutine have full control.
+            return;
+        }
         if (playerAttacks != null && playerAttacks.IsInCinematicState)
         {
             Debug.Log("Dash Input Ignored: In Cinematic State.");
