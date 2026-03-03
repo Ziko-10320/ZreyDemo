@@ -149,7 +149,10 @@ public class ZreyAttacks : MonoBehaviour
 
     private readonly int vagabondFinisherTriggerHash = Animator.StringToHash("VagabondFinisher");
     [Tooltip("The offset from the player to snap the KNIGHT to before the Vagabond Finisher.")]
-    [SerializeField] private Vector3 vagabondFinisherSnapOffset = new Vector3(1.5f, 0, 0); 
+    [SerializeField] private Vector3 vagabondFinisherSnapOffset = new Vector3(1.5f, 0, 0);
+
+    private readonly int rootUpperAttackLeftTriggerHash = Animator.StringToHash("RootUpperAttackLeft");
+   
 
     private void OnEnable()
     {
@@ -409,15 +412,27 @@ public class ZreyAttacks : MonoBehaviour
         if (attackWatchdogCoroutine != null) StopCoroutine(attackWatchdogCoroutine);
         attackWatchdogCoroutine = StartCoroutine(AttackWatchdogRoutine());
         animator.SetTrigger(upperAttackTriggerHash);
-        if (playerMovement != null)
-    {
-        // IMPORTANT: You must find the duration of your RootUpperAttack animation clip
-        // and put that exact value here. For example, if it's 0.75 seconds long:
-        float upperAttackDuration = 0.75f; // <--- CHANGE THIS TO YOUR ANIMATION'S DURATION
 
-        // We call the public method on ZreyMovements that we already built.
-        playerMovement.InitiateRootMotion(rootUpperAttackTriggerHash, upperAttackDuration);
-    }
+        if (playerMovement != null)
+        {
+            // IMPORTANT: You must find the duration of your RootUpperAttack animation clip
+            // and put that exact value here.
+            float upperAttackDuration = 0.75f; // <--- CHANGE THIS TO YOUR ANIMATION'S DURATION
+
+            // --- THIS IS THE NEW DIRECTIONAL LOGIC ---
+            // 1. Ask the movement script which way we are facing.
+            if (playerMovement.IsFacingRight())
+            {
+                // 2A. If facing RIGHT, play the normal root motion animation.
+                playerMovement.InitiateRootMotion(rootUpperAttackTriggerHash, upperAttackDuration);
+            }
+            else
+            {
+                // 2B. If facing LEFT, play the mirrored "Left" root motion animation.
+                playerMovement.InitiateRootMotion(rootUpperAttackLeftTriggerHash, upperAttackDuration);
+            }
+            // --- END OF NEW LOGIC ---
+        }
     }
 
     public void DealUpperAttackDamage()
