@@ -1,10 +1,16 @@
 using FirstGearGames.SmoothCameraShaker;
 using System.Collections;
 using UnityEngine;
+using UnityEngine.UI;
 
 [RequireComponent(typeof(Rigidbody2D))]
 public class KnightHealth : MonoBehaviour
 {
+    [Header("Health UI")]
+    [Tooltip("The UI Slider that displays the knight's health.")]
+    [SerializeField] private Slider healthSlider;
+    [Tooltip("The UI Slider that displays the knight's posture/guard.")]
+    [SerializeField] private Slider postureSlider;
     [Header("Health Settings")]
     [SerializeField] private int maxHealth = 100;
     private int currentHealth;
@@ -170,6 +176,8 @@ private int blocksNeededForNextCounter = 0;
     private readonly int finishableStateTriggerHash = Animator.StringToHash("FinishableState");
     void Awake()
     {
+        UpdateHealthUI();
+        UpdatePostureUI();
         rb = GetComponent<Rigidbody2D>();
         animator = GetComponent<Animator>();
         currentHealth = maxHealth;
@@ -182,8 +190,14 @@ private int blocksNeededForNextCounter = 0;
             {
                 playerTarget = playerObject.transform;
             }
+
         }
       
+        if (healthSlider != null)
+        {
+            // Calculate the health percentage (a value from 0.0 to 1.0)
+            healthSlider.value = (float)currentHealth / maxHealth;
+        }
         // --- THIS IS THE FIX. THIS IS THE MISSING PIECE. ---
         // If we have a player target, get their attack script so we can talk to it.
         if (playerTarget != null)
@@ -212,9 +226,35 @@ private int blocksNeededForNextCounter = 0;
         }
         SetNewCounterThreshold();
     }
+    private void UpdateHealthUI()
+    {
+        if (healthSlider != null)
+        {
+            // Calculate the health percentage (a value from 0.0 to 1.0)
+            healthSlider.value = (float)currentHealth / maxHealth;
+        }
+    }
 
+    // --- NEW: A function to update the posture slider ---
+    private void UpdatePostureUI()
+    {
+        if (postureSlider != null)
+        {
+            // Calculate the posture percentage
+            postureSlider.value = currentGuard / maxGuard;
+        }
+    }
     void Update()
     {
+        if (!isGuardBroken && !isBlocking)
+        {
+            timeSinceLastBlock += Time.deltaTime;
+            if (timeSinceLastBlock >= guardRecoveryDelay)
+            {
+                currentGuard = Mathf.MoveTowards(currentGuard, maxGuard, guardRecoveryRate * Time.deltaTime);
+                UpdatePostureUI(); // Call the UI update function here
+            }
+        }
         wasGrounded = isGrounded;
         isGrounded = Physics2D.OverlapCircle(groundCheck.position, groundCheckRadius, groundLayer);
         if (isDying && !wasGrounded && isGrounded)
@@ -393,6 +433,7 @@ private int blocksNeededForNextCounter = 0;
         // THE CORE LOGIC: Was the enemy blocking?
         if (isBlocking)
         {
+            UpdatePostureUI();
             // --- CASE 1: ENEMY WAS BLOCKING ---
             Debug.LogWarning("--- Upper Attack BLOCKED! Applying Guard Damage. ---");
 
@@ -428,7 +469,7 @@ private int blocksNeededForNextCounter = 0;
             SpawnBloodVFX();
             if (flashCoroutine != null) StopCoroutine(flashCoroutine);
             flashCoroutine = StartCoroutine(FlashDamageEffect());
-
+            UpdatePostureUI();
             // Apply the knockback, which now includes the upward force.
             if (knockbackCoroutine != null) StopCoroutine(knockbackCoroutine);
             knockbackCoroutine = StartCoroutine(KnockbackRoutine(
@@ -588,7 +629,7 @@ private int blocksNeededForNextCounter = 0;
     {
         // Failsafe: If the guard is already broken, we can't break it again.
         if (isGuardBroken) return;
-
+        UpdatePostureUI();
         Debug.Log($"<color=orange>KNIGHT'S POSTURE DAMAGED BY PARRY! Taking {guardDamageOnParried} guard damage.</color>");
 
         // Subtract the damage from the guard meter.
@@ -861,6 +902,7 @@ private int blocksNeededForNextCounter = 0;
         // --- 2. APPLY THE LOGIC (This part is exactly the same as before) ---
         if (isGuardBroken)
         {
+            UpdateHealthUI();
             PlayHitReaction(hitType);
             currentHealth -= damage;
             SpawnBloodVFX();
@@ -874,6 +916,7 @@ private int blocksNeededForNextCounter = 0;
 
         if (isBlocking)
         {
+            UpdatePostureUI();
             ZreyAttacks playerAttacks = attacker.GetComponent<ZreyAttacks>();
             if (playerAttacks != null)
             {
@@ -907,7 +950,7 @@ private int blocksNeededForNextCounter = 0;
             if (currentGuard <= 0) StartCoroutine(GuardBrokenSequence());
             return;
         }
-
+        UpdateHealthUI();
         PlayHitReaction(hitType);
         currentHealth -= damage;
         SpawnBloodVFX();
@@ -961,6 +1004,7 @@ private int blocksNeededForNextCounter = 0;
 
         isGuardBroken = false;
         currentGuard = maxGuard;
+        UpdatePostureUI();
         timeSinceLastBlock = 0f;
     }
     public float GetCounterStunDuration()
