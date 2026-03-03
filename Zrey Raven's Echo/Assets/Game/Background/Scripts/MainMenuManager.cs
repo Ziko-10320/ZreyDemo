@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI; // We need this to control UI elements like Image
 using System.Collections; // We need this for Coroutines (to create a delay)
+using System.Collections.Generic;
 
 public class MainMenuManager : MonoBehaviour
 {
@@ -13,7 +14,9 @@ public class MainMenuManager : MonoBehaviour
     [Header("Fade Effect")]
     [Tooltip("Drag the black UI Image you created for the fade effect here.")]
     public Image fadeScreenImage;
-
+    [Header("Scene Effects")]
+    [Tooltip("Drag all the parent GameObjects of the particle effects you want to hide here.")]
+    public List<GameObject> effectsToHide;
     [Tooltip("How long, in seconds, the fade-to-black should take.")]
     public float fadeDuration = 1.0f;
     // --- END OF NEW VARIABLES ---
@@ -28,6 +31,17 @@ public class MainMenuManager : MonoBehaviour
     // This coroutine will handle the entire fade process from start to finish.
     private IEnumerator FadeAndLoadScene()
     {
+        if (effectsToHide != null)
+        {
+            Debug.Log($"Hiding {effectsToHide.Count} scene effects.");
+            foreach (GameObject effect in effectsToHide)
+            {
+                if (effect != null)
+                {
+                    effect.SetActive(false);
+                }
+            }
+        }
         // Make sure the fade screen is ready to be used.
         if (fadeScreenImage == null)
         {
