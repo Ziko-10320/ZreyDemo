@@ -58,6 +58,29 @@ public class KnightAI : MonoBehaviour
     [SerializeField] private Transform counterBloodPoint;
 
     [SerializeField] public GameObject counterPromptUI;
+
+    [Tooltip("The Euler angle rotation for the blood effect when the Knight is facing RIGHT.")]
+    [SerializeField] private Vector3 bloodRotationRight = new Vector3(0, 0, 45); 
+    [Tooltip("The Euler angle rotation for the blood effect when the Knight is facing LEFT.")]
+    [SerializeField] private Vector3 bloodRotationLeft = new Vector3(0, 0, 135);
+
+    [Header("Finisher UI")]
+    [Tooltip("The UI prompt to show when the enemy can be finished.")]
+    [SerializeField] public GameObject finisherPromptUI; 
+    [Tooltip("The range within which the player can perform a finisher.")]
+    [SerializeField] private float finisherRange = 2.5f;
+
+    [Header("Dismemberment Settings")]
+    [Tooltip("The specific GameObject for the hand that will be detached.")]
+    [SerializeField] private GameObject detachableHand; 
+    [Tooltip("The horizontal force applied to the detached hand.")]
+    [SerializeField]  private float handLaunchForceX = 3f; 
+    [Tooltip("The vertical (upward) force applied to the detached hand.")]
+    [SerializeField] private float handLaunchForceY = 7f;
+    [SerializeField] private float handLaunchTorque = 2f;
+    [Header("Special Attack Settings")]
+    [Tooltip("The maximum distance from the player at which the knight can decide to use the special grab.")]
+    [SerializeField] private float specialAttackRange = 4f; 
     private void OnEnable()
     {
         // --- THIS IS THE FIX ---
@@ -130,49 +153,64 @@ public class KnightAI : MonoBehaviour
 
     void Update()
     {
+        if (health != null && health.isFinishable)
+        {
+            // Check the distance to the player.
+            float distanceToPlayer = Vector2.Distance(transform.position, playerTarget.position);
+
+            // If the player is in range, show the prompt. Otherwise, hide it.
+            if (finisherPromptUI != null)
+            {
+                finisherPromptUI.SetActive(distanceToPlayer <= finisherRange);
+            }
+            return; // If we are finishable, the brain does nothing else.
+        }
         if (health != null && health.IsStunned())
         {
-            // 2. If we ARE stunned, do NOTHING.
-            //    Exit the Update loop immediately. No decisions will be made.
-            //    The AI brain is effectively "paused".
             return;
         }
         if (specialAttackCooldownTimer > 0)
         {
             specialAttackCooldownTimer -= Time.deltaTime;
         }
-
-        // --- THIS IS THE SPECIAL ATTACK DECISION LOGIC ---
-        // HIGHEST PRIORITY CHECK: Should we do the special attack?
-        // 1. Is the cooldown ready?
-        // 2. Are we NOT already doing something important (like a combo or counter)?
-        if (specialAttackCooldownTimer <= 0 && !isActionLocked && !attack.IsAttacking())
+        if (isCounterWindowOpen)
         {
-            // 3. Roll the dice to see if we should perform the attack.
-            float roll = Random.Range(0f, 1f);
-            if (roll <= specialAttackChance)
+            Collider2D playerCollider = Physics2D.OverlapBox(counterCheckPoint.position, counterCheckAreaSize, 0f, playerLayer);
+            isPlayerInCounterBox = (playerCollider != null);
+        }
+        else
+        {
+            isPlayerInCounterBox = false;
+        }
+        // --- THIS IS THE NEW, SIMPLIFIED GRAB LOGIC ---
+        // 1. Check if we can even attempt a grab.
+        //    - Is the cooldown ready?
+        //    - Is the knight NOT already doing something (attacking, getting hit)?
+        if (specialAttackCooldownTimer <= 0 &&
+       !attack.IsAttacking() &&
+       Vector2.Distance(transform.position, playerTarget.position) <= specialAttackRange) // <-- THE NEW CONDITION
+        {
+            // 2. Roll the dice (this is the same as before).
+            if (Random.Range(0f, 1f) <= specialAttackChance)
             {
-                isActionLocked = true;
-                Debug.LogWarning("--- AI DECISION: Backstep into Special Attack ---");
-
-                // 2. Command the KnightAttack script to perform the backstep.
+                // 3. SUCCESS! Command the attack script to start the grab.
+                Debug.LogWarning($"--- AI DECISION: Player is in range. Attempting GRAB SPECIAL ATTACK ---");
                 if (attack != null)
                 {
-                    attack.PerformBackstep();
+                    attack.StartGrabAttack();
                 }
 
-                return; // CRITICAL: Exit the Update loop immediately.
+                // 4. Reset the cooldown immediately.
+                ResetSpecialAttackCooldown();
             }
             else
             {
-                // 5. FAILED THE ROLL. Reset the cooldown for another attempt later.
-                // This prevents the AI from spamming the check every frame.
+                // 5. FAILED THE ROLL. Reset cooldown so we don't check again next frame.
                 ResetSpecialAttackCooldown();
             }
         }
-        // --- END OF FIX ---
 
-       
+
     }
     public void TriggerCounterAttack()
     {
@@ -241,63 +279,7 @@ public class KnightAI : MonoBehaviour
             health.PerformBlock(player);
         }
     }
-    private IEnumerator SpecialAttackSequence()
-    {
-        Debug.Log("<color=yellow>!!! SPECIAL ATTACK TRIGGERED !!!</color>");
-
-        // 1. LOCK THE BRAIN & BECOME INVINCIBLE.
-        isActionLocked = true;
-        isPerformingSpecialAttack = true; // A specific flag for this state.
-       
-       
-        // 2. COMMAND the attack script to play the animation.
-        if (attack != null)
-        {
-            attack.StartSpecialAttack(); // We will create this new method.
-        }
-        if (counterPromptUI != null)
-        {
-            counterPromptUI.SetActive(false);
-        }
-        float specialAttackDuration = 2.0f; // The total duration of your special attack.
-        float timer = 0f;
-        while (timer < specialAttackDuration)
-        {
-            // Check if the player is inside the counter box.
-            Collider2D playerCollider = Physics2D.OverlapBox(counterCheckPoint.position, counterCheckAreaSize, 0f, playerLayer);
-            isPlayerInCounterBox = (playerCollider != null);
-            if (counterPromptUI != null)
-            {
-                // ...set its active state to be the SAME as isPlayerInCounterBox.
-                // If isPlayerInCounterBox is true, the UI is turned on.
-                // If isPlayerInCounterBox is false, the UI is turned off.
-                counterPromptUI.SetActive(isPlayerInCounterBox);
-            }
-            timer += Time.deltaTime;
-            yield return null; // Changed back from WaitForEndOfFrame
-        }
-        if (counterPromptUI != null)
-        {
-            counterPromptUI.SetActive(false);
-        }
-
-        // 3. Wait for the attack to finish.
-        // You can get this duration from the attack script or hardcode it.
-        yield return new WaitForSeconds(2.0f); // Adjust to your special attack animation length.
-
-        // 4. UNLOCK THE BRAIN & BECOME VULNERABLE AGAIN.
-      
-        isPerformingSpecialAttack = false;
-        isActionLocked = false;
-      
-        isPlayerInCounterBox = false;
-        if (attack != null) attack.StopSpecialDamage(); // Ensure DOT is off.
-        if (health != null) health.BecomeVulnerable();
-        // 5. RESET THE COOLDOWN for the next special attack.
-        ResetSpecialAttackCooldown();
-
-        Debug.Log("<color=green>Special Attack Sequence Finished.</color>");
-    }
+  
     private IEnumerator ExecuteCounterSequence()
     {
         // 1. CANCEL EVERYTHING.
@@ -366,24 +348,42 @@ public class KnightAI : MonoBehaviour
         // 2. Draw the box with the chosen color.
         Gizmos.DrawWireCube(counterCheckPoint.position, counterCheckAreaSize);
         // --- END OF FIX ---
+
+        Gizmos.color = Color.cyan;
+        Gizmos.DrawWireSphere(transform.position, specialAttackRange);
     }
     public void SpawnCounterBloodEffect()
     {
-        // --- THIS IS THE FIX ---
-        // 1. BRUTAL DEBUG: Announce that the animation event worked.
         Debug.LogWarning("!!! ANIMATION EVENT: SpawnCounterBloodEffect() CALLED !!!");
 
-        // 2. Check if the prefab and spawn point exist.
         if (counterBloodPrefab != null && counterBloodPoint != null)
         {
-            // 3. Spawn the blood effect. We don't need to hold a reference to it.
-            Instantiate(counterBloodPrefab, counterBloodPoint.position, counterBloodPoint.rotation);
+            // --- THIS IS THE NEW DIRECTIONAL LOGIC ---
+
+            // 1. Determine which rotation to use based on the Knight's facing direction.
+            Quaternion desiredRotation;
+            if (follow != null && follow.IsFacingRight())
+            {
+                // If facing RIGHT, use the right-facing rotation.
+                desiredRotation = Quaternion.Euler(bloodRotationRight);
+                Debug.Log("Spawning blood with RIGHT rotation.");
+            }
+            else
+            {
+                // If facing LEFT (or if follow script is missing), use the left-facing rotation.
+                desiredRotation = Quaternion.Euler(bloodRotationLeft);
+                Debug.Log("Spawning blood with LEFT rotation.");
+            }
+
+            // 2. Instantiate the prefab at the spawn point with the chosen rotation.
+            Instantiate(counterBloodPrefab, counterBloodPoint.position, desiredRotation);
+
+            // --- END OF NEW LOGIC ---
         }
         else
         {
-            Debug.LogError("Cannot spawn counter blood effect! Prefab or Spawn Point is not assigned in the Inspector!", this);
+            Debug.LogError("Cannot spawn counter blood effect! Prefab or Spawn Point is not assigned!", this);
         }
-        // --- END OF FIX ---
     }
     public void OpenCounterWindow()
     {
@@ -404,12 +404,88 @@ public class KnightAI : MonoBehaviour
         specialAttackCooldownTimer = Random.Range(minSpecialAttackCooldown, maxSpecialAttackCooldown);
         Debug.Log($"Special Attack cooldown reset. Next attempt in {specialAttackCooldownTimer} seconds.");
     }
-    public void TriggerSpecialAttackFromEvent()
+    public void OnPlayerCounterAttempt(ZreyAttacks player)
     {
-        // Failsafe: if we are not in the middle of a special attack action, do nothing.
-        if (!isActionLocked) return;
+        // 1. The Knight hears the player's broadcast.
+        Debug.LogWarning("--- KnightAI heard player's counter broadcast. Checking conditions... ---");
 
-        // Start the special attack sequence we already have.
-        StartCoroutine(SpecialAttackSequence());
+        // 2. The Knight checks its OWN internal state.
+        if (isCounterWindowOpen && isPlayerInCounterBox)
+        {
+            // 3. SUCCESS! The conditions are met. The Knight takes command.
+            Debug.LogError("--- GRAB COUNTER SUCCESS! Knight is in command! ---");
+            StartCoroutine(ExecuteGrabCounterSequence(player));
+        }
+        else
+        {
+            Debug.Log("Counter attempt failed. Conditions not met." +
+                      $" isCounterWindowOpen: {isCounterWindowOpen}, isPlayerInCounterBox: {isPlayerInCounterBox}");
+        }
     }
+
+
+    // --- ADD THIS NEW COROUTINE ---
+    private IEnumerator ExecuteGrabCounterSequence(ZreyAttacks player)
+    {
+        // --- 1. COMMAND SELF ---
+        // Cancel the grab attack and play the "get countered" animation.
+        if (attack != null)
+        {
+            attack.StopAllMovement();
+            attack.CloseGrabWindow();
+           
+        }
+        animator.SetTrigger(getCounteredTriggerHash); // Use the existing hash
+
+        // --- 2. COMMAND PLAYER ---
+        // Get the stun duration from the player's attack script.
+        float counterDuration = player.grabCounterStunDuration;
+        player.ExecuteVagabondCounter(counterDuration);
+
+        // --- 3. STUN SELF ---
+        if (health != null)
+        {
+            health.TriggerStun(counterDuration);
+        }
+
+        // This coroutine's job is done. It has given the commands.
+        yield return null;
+    }
+    public void EVENT_DetachAndLaunchHand()
+    {
+        // Failsafe: If no hand is assigned, do nothing.
+        if (detachableHand == null)
+        {
+            Debug.LogError("DetachAndLaunchHand failed: Detachable Hand is not assigned in the Inspector!", this);
+            return;
+        }
+
+        Debug.LogError($"--- KNIGHT ANIMATION EVENT: DETACHING AND LAUNCHING HAND: {detachableHand.name} ---");
+
+        // 1. Unparent the hand.
+        detachableHand.transform.SetParent(null);
+
+        // 2. Get the Rigidbody2D.
+        Rigidbody2D handRb = detachableHand.GetComponent<Rigidbody2D>();
+        if (handRb != null)
+        {
+            // 3. Turn on physics.
+            handRb.isKinematic = false;
+            handRb.gravityScale = 4f;
+
+            // 4. Determine launch direction (away from the player).
+            float direction = (transform.position.x > playerTarget.position.x) ? 1f : -1f;
+
+            // 5. Apply forces.
+            Vector2 launchForce = new Vector2(handLaunchForceX * direction, handLaunchForceY);
+            handRb.AddForce(launchForce, ForceMode2D.Impulse);
+            handRb.AddTorque(handLaunchTorque, ForceMode2D.Impulse);
+            Destroy(detachableHand, 4.0f);
+        }
+        else
+        {
+            Debug.LogError("Dismemberment failed: The assigned detachableHand does not have a Rigidbody2D component!", detachableHand);
+        }
+    }
+   
 }

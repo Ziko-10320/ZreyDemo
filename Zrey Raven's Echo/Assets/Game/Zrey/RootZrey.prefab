@@ -1923,6 +1923,9 @@ MonoBehaviour:
   finisherSnapOffset: {x: 6.5, y: 0.8, z: 0}
   maxAerialComboSteps: 3
   downSlamHoldTime: 0.3
+  counterBroadcastRange: 5
+  grabCounterStunDuration: 2.5
+  vagabondFinisherSnapOffset: {x: 4, y: 0, z: 0}
 --- !u!114 &7602604384865269816
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1941,7 +1944,7 @@ MonoBehaviour:
   bloodVFX: {fileID: 3847384204462952536, guid: 943732c2e859694408f07c89b7ab2ad9, type: 3}
   bloodSpawnPoint: {fileID: 5075840690354734784}
   damageReduction: 0.7
-  parryWindow: 0.2
+  parryWindow: 0.4
   hitStunDuration: 0.3
   blockVFX: {fileID: 705328942918691095, guid: 5dce07fd34615404e8c8dd94fcad6ea5, type: 3}
   parryVFX: {fileID: 4380937939522614157, guid: d7f0187e25865eb428c73922f0aeb1ee, type: 3}
@@ -1949,6 +1952,8 @@ MonoBehaviour:
   CameraShakeParry: {fileID: 11400000, guid: b7ddf83d18adad7418305528b8250fbe, type: 2}
   checkpointManager: {fileID: 0}
   isStunned: 0
+  stabBloodVFX: {fileID: 3847687157921618248, guid: 91b235d6f88eb624a8429f4453ebf875, type: 3}
+  stabBloodSpawnPoint: {fileID: 5075840690354734784}
 --- !u!114 &116713965202477242
 MonoBehaviour:
   m_ObjectHideFlags: 0

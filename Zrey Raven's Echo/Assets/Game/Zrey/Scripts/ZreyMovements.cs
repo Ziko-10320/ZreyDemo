@@ -300,7 +300,7 @@ public class ZreyMovements : MonoBehaviour
             // If the override timer is active, let the grapple momentum ride.
             return;
         }
-
+        Vector2 currentMoveInput = ZreyMovements.inputActions.Player.Move.ReadValue<Vector2>();
 
         if (isDashing)
         {
@@ -363,6 +363,11 @@ public class ZreyMovements : MonoBehaviour
    
     private void HandleJump(InputAction.CallbackContext context)
     {
+        if (playerHealth != null && playerHealth.IsGrabbed)
+        {
+            Debug.LogWarning("Jump Input Ignored: Player is GRABBED.");
+            return;
+        }
         if (playerAttacks != null && playerAttacks.IsInCinematicState)
         {
             Debug.Log("Jump Input Ignored: In Cinematic State.");
@@ -389,6 +394,11 @@ public class ZreyMovements : MonoBehaviour
     }
     private void HandleDash(InputAction.CallbackContext context)
     {
+        if (playerHealth != null && playerHealth.IsGrabbed)
+        {
+            Debug.LogWarning("Dash Input Ignored: Player is GRABBED.");
+            return;
+        }
         if (playerAttacks != null && playerAttacks.IsInCinematicState)
         {
             Debug.Log("Dash Input Ignored: In Cinematic State.");
@@ -775,7 +785,18 @@ public class ZreyMovements : MonoBehaviour
             }
         }
     }
-
+    public void ForceFaceDirection(bool shouldFaceRight)
+    {
+        // 1. Check if a flip is actually needed.
+        //    - If we need to face right BUT we are currently facing left...
+        //    - OR if we need to face left BUT we are currently facing right...
+        if (shouldFaceRight != isFacingRight)
+        {
+            // 2. If a flip is needed, call the existing Flip() method.
+            Flip();
+        }
+        // If no flip is needed, this method does nothing, which is efficient.
+    }
     private void Flip()
     {
         // Determine the flip direction based on the current facing direction.
@@ -867,20 +888,26 @@ public class ZreyMovements : MonoBehaviour
     }
     public void ForceResetState()
     {
+        // Unlock all state flags
         CanMove = true;
         canFlip = true;
         isDashing = false;
         isInRootMotionState = false;
         wallJumpInputLocked = false;
         justWallJumped = false;
+        isHanging = false;
+        isWallSliding = false;
+        hasGrappleMomentum = false;
 
-        // Ensure the Rigidbody is in a normal, physics-controlled state.
+        // Reset Physics
         if (rb != null)
         {
             rb.simulated = true;
             rb.bodyType = RigidbodyType2D.Dynamic;
-            rb.gravityScale = originalGravityScale; // Use the stored original value
+            rb.gravityScale = originalGravityScale;
+            rb.linearVelocity = Vector2.zero; // CRITICAL: Start from a clean slate
         }
+
 
         // Stop any lingering coroutines in this script
         StopAllCoroutines();

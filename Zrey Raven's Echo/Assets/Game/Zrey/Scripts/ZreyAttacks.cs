@@ -137,6 +137,20 @@ public class ZreyAttacks : MonoBehaviour
     private float originalGravityScale;
     // --- New Animation Hashes ---
     private readonly int aerialAttackStepHash = Animator.StringToHash("aerialAttackStep");
+
+    [Header("Vagabond Counter (Grab)")]
+    [Tooltip("The range within which the player will broadcast their counter attempt.")]
+    [SerializeField]  private float counterBroadcastRange = 5f; 
+    [Tooltip("The stun duration to apply to the enemy after a successful grab counter.")]
+    [SerializeField] public float grabCounterStunDuration = 2.5f; 
+
+ 
+    private readonly int vagabondCounterTriggerHash = Animator.StringToHash("VagabondCounter");
+
+    private readonly int vagabondFinisherTriggerHash = Animator.StringToHash("VagabondFinisher");
+    [Tooltip("The offset from the player to snap the KNIGHT to before the Vagabond Finisher.")]
+    [SerializeField] private Vector3 vagabondFinisherSnapOffset = new Vector3(1.5f, 0, 0); 
+
     private void OnEnable()
     {
         InputManager.OnInteractPressed += HandleInteractionInput;
@@ -424,7 +438,13 @@ public class ZreyAttacks : MonoBehaviour
                 spearHealth.TakeUpperAttack(upperAttackData);
                 break; // Hit one enemy and stop.
             }
-
+            KnightHealth knightHealth = enemy.GetComponent<KnightHealth>();
+            if (knightHealth != null)
+            {
+                // Call the new, specialized method.
+                knightHealth.TakeUpperAttack(upperAttackData);
+                break; // Hit one enemy and stop.
+            }
         }
       
     }
@@ -500,7 +520,44 @@ public class ZreyAttacks : MonoBehaviour
     public void PerformLunge()
     {
         if (playerMovement == null) return;
-        lungeCoroutine = StartCoroutine(LungeCoroutine());
+        lungeCoroutine = StartCoroutine(LungeCoroutine(1f));
+    }
+    public void PerformLungeBackward()
+    {
+        if (playerMovement == null) return;
+        // Stop any previous lunge to be safe
+        if (lungeCoroutine != null) StopCoroutine(lungeCoroutine);
+        // Start the backward lunge
+        lungeCoroutine = StartCoroutine(LungeCoroutine(-1f)); // Backward direction is -1
+    }
+
+    public void ForceResetState()
+    {
+        Debug.LogError("--- ZREYATTACKS: FORCIBLY RESETTING ALL STATES! ---");
+
+        // --- Unlock all state flags ---
+        isAttacking = false;
+        IsInCinematicState = false;
+        isDownSlamming = false;
+        isCountering = false;
+        isChargeAttackPrimed = false;
+        isDownSlamPrimed = false;
+        comboStep = 0;
+        aerialComboStep = 0;
+
+        // --- Reset Physics/Collisions ---
+        Physics2D.IgnoreLayerCollision(playerLayerValue, enemyLayerValue, true);
+        RestoreNormalGravity(); // Use your existing method to be safe.
+
+        // --- Reset Animators ---
+        if (animator != null)
+        {
+            animator.SetInteger(attackStepHash, 0);
+            animator.SetInteger(aerialAttackStepHash, 0);
+        }
+
+        // --- Kill All Coroutines in this script ---
+        StopAllCoroutines();
     }
     public void PerformTransformLunge()
     {
@@ -535,15 +592,18 @@ public class ZreyAttacks : MonoBehaviour
 
         lungeCoroutine = null; // Mark the coroutine as finished.
     }
-    private IEnumerator LungeCoroutine()
+    private IEnumerator LungeCoroutine(float directionMultiplier)
     {
         float timer = 0f;
-        Vector2 direction = playerMovement.IsFacingRight() ? Vector2.right : Vector2.left;
+        Vector2 baseDirection = playerMovement.IsFacingRight() ? Vector2.right : Vector2.left;
+
+        // Apply the multiplier. If multiplier is 1, it's forward. If -1, it's backward.
+        Vector2 finalDirection = baseDirection * directionMultiplier;
 
         while (timer < lungeDuration)
         {
             // Calculate the movement for this frame.
-            Vector2 moveStep = direction * lungeSpeed * Time.deltaTime;
+            Vector2 moveStep = finalDirection * lungeSpeed * Time.deltaTime;
             // Apply the movement using MovePosition.
             rb.MovePosition(rb.position + moveStep);
 
@@ -886,52 +946,127 @@ public class ZreyAttacks : MonoBehaviour
         {
             return;
         }
-
+        BroadcastCounterAttempt();
         // PRIORITY #2: COUNTER
         // If the finisher failed, we then attempt a counter by firing our
         // own event for any nearby enemies to hear.
         OnPlayerCounterAttempt?.Invoke();
     }
+    private void BroadcastCounterAttempt()
+    {
+        Debug.Log("<color=cyan>--- PLAYER BROADCASTING COUNTER ATTEMPT ---</color>");
 
+        // 1. Find all enemies in a radius.
+        Collider2D[] nearbyEnemies = Physics2D.OverlapCircleAll(transform.position, counterBroadcastRange, enemyLayer);
+
+        foreach (Collider2D enemyCollider in nearbyEnemies)
+        {
+            // 2. Get the Knight's AI script.
+            KnightAI knightAI = enemyCollider.GetComponent<KnightAI>();
+            if (knightAI != null)
+            {
+                // 3. Tell the Knight, "I just pressed the counter button."
+                //    The Knight will then decide if it was successful.
+                knightAI.OnPlayerCounterAttempt(this); // Pass a reference to ourselves.
+            }
+        }
+    }
+    public void ExecuteVagabondCounter(float sequenceDuration)
+    {
+        StartCoroutine(VagabondCounterSequence(sequenceDuration));
+    }
+
+    private IEnumerator VagabondCounterSequence(float duration)
+    {
+        // --- 1. LOCK PLAYER ---
+        IsInCinematicState = true;
+        playerMovement.CanMove = false;
+        rb.linearVelocity = Vector2.zero;
+
+        // --- 2. PLAY ANIMATION ---
+        animator.SetTrigger(vagabondCounterTriggerHash);
+
+        // --- 3. WAIT ---
+        yield return new WaitForSeconds(duration);
+
+        // --- 4. RELEASE PLAYER ---
+        ForceResetState();
+        playerMovement.ForceResetState();
+        playerHealth.ForceResetState();
+    }
     // MODIFY AttemptFinisher to return a boolean.
-   public bool AttemptFinisher()
-// --- END OF FIX ---
-{
-    if (isAttacking || IsInCinematicState || (playerHealth != null && playerHealth.isStunned))
+    public bool AttemptFinisher()
     {
-        return false; // Finisher fails because we are busy.
-    }
-
-    Debug.Log($"--- Attempting Finisher. Checking circle with radius {finisherRange} on layer {LayerMask.LayerToName(enemyLayer.value)} ---");
-    Collider2D[] nearbyEnemies = Physics2D.OverlapCircleAll(transform.position, finisherRange, enemyLayer);
-
-    if (nearbyEnemies.Length == 0)
-    {
-        Debug.LogWarning("Finisher check found ZERO colliders on the specified enemy layer.");
-    }
-
-    foreach (Collider2D enemyCollider in nearbyEnemies)
-    {
-        Debug.Log($"Found potential target: {enemyCollider.name}");
-        SpearHealth enemyHealth = enemyCollider.GetComponent<SpearHealth>();
-
-        if (enemyHealth != null && enemyHealth.isFinishable)
+        if (isAttacking || IsInCinematicState || (playerHealth != null && playerHealth.isStunned))
         {
-            Debug.LogError("--- SUCCESS! Found finishable Spear Enemy. Starting sequence. ---");
-            StartCoroutine(ExecuteFinisherSequence(enemyHealth));
-            return true; // --- THIS IS THE FIX: Report that the finisher was successful.
+            return false;
         }
-        else if (enemyHealth != null)
+
+        Collider2D[] nearbyEnemies = Physics2D.OverlapCircleAll(transform.position, finisherRange, enemyLayer);
+
+        foreach (Collider2D enemyCollider in nearbyEnemies)
         {
-            Debug.LogWarning($"Found Spear Enemy '{enemyCollider.name}', but it is not finishable. (isFinishable = {enemyHealth.isFinishable})");
+            // --- CHECK #1: SPEAR ENEMY (Existing Logic) ---
+            SpearHealth spearHealth = enemyCollider.GetComponent<SpearHealth>();
+            if (spearHealth != null && spearHealth.isFinishable)
+            {
+                Debug.LogError("--- SUCCESS! Found finishable Spear Enemy. ---");
+                StartCoroutine(ExecuteFinisherSequence(spearHealth));
+                return true;
+            }
+          
+
+            // --- CHECK #2: KNIGHT ENEMY (NEW LOGIC) ---
+            KnightHealth knightHealth = enemyCollider.GetComponent<KnightHealth>();
+            if (knightHealth != null && knightHealth.isFinishable)
+            {
+                Debug.LogError("--- SUCCESS! Found finishable Knight Enemy. ---");
+                StartCoroutine(ExecuteVagabondFinisherSequence(knightHealth));
+                return true;
+            }
         }
+
+        return false; // No finishable enemies found
     }
 
-    // --- THIS IS THE FIX ---
-    // If we get through the whole loop and find no target, the finisher fails.
-    return false;
-    // --- END OF FIX ---
-}
+    private IEnumerator ExecuteVagabondFinisherSequence(KnightHealth targetKnight)
+    {
+        // --- 1. LOCK EVERYTHING ---
+        IsInCinematicState = true;
+        if (playerMovement != null) playerMovement.CanMove = false;
+        if (rb != null) rb.linearVelocity = Vector2.zero;
+        if (targetKnight.GetComponent<KnightAI>().finisherPromptUI != null)
+        {
+            targetKnight.GetComponent<KnightAI>().finisherPromptUI.SetActive(false);
+        }
+
+
+        // --- 2. ALIGN THE ENEMY TO THE PLAYER ---
+        KnightFollow knightFollow = targetKnight.GetComponent<KnightFollow>();
+        if (knightFollow != null)
+        {
+            // Force the Knight to face the player before the snap.
+            knightFollow.FacePlayer();
+        }
+
+        // Make the player face the Knight.
+        playerMovement.ForceFaceDirection(targetKnight.transform.position.x > transform.position.x);
+
+        float direction = playerMovement.IsFacingRight() ? 1f : -1f;
+        Vector3 snapPosition = transform.position + new Vector3(
+            vagabondFinisherSnapOffset.x * direction,
+            vagabondFinisherSnapOffset.y,
+            vagabondFinisherSnapOffset.z
+        );
+        targetKnight.transform.position = snapPosition;
+
+        // --- 3. PLAY ANIMATIONS ---
+        targetKnight.ExecuteFinisher(); // Command the Knight to play "GetFinished"
+        animator.SetTrigger(vagabondFinisherTriggerHash); // Player plays "VagabondFinisher"
+
+        // The rest of the sequence (damage, cleanup) will be handled by animation events.
+        yield return null;
+    }
 
     // MODIFY the coroutine to accept the INTERFACE, not the specific script.
     private IEnumerator ExecuteFinisherSequence(SpearHealth target) // Or SpearHealth, if you reverted

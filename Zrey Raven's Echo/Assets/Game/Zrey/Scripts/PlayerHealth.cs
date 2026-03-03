@@ -1,5 +1,6 @@
 using FirstGearGames.SmoothCameraShaker;
 using System.Collections;
+using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI; // Required for Slider
@@ -57,6 +58,14 @@ public class PlayerHealth : MonoBehaviour
     [SerializeField] private CheckpointManager checkpointManager;
     public bool isStunned = false;
     public bool isBeingKnockedBack { get; private set; } = false;
+    private readonly int getGrabbedTriggerHash = Animator.StringToHash("GetGrabbed");
+    [Header("Grab VFX")]
+    [Tooltip("The blood particle effect for the stab part of the grab.")]
+    [SerializeField] private GameObject stabBloodVFX; 
+    [Tooltip("The point where the stab blood should spawn.")]
+    [SerializeField] private Transform stabBloodSpawnPoint;
+    public bool IsGrabbed { get; private set; } = false;
+
     void Awake()
     {
         // --- THIS IS THE GUARANTEE ---
@@ -409,6 +418,11 @@ public class PlayerHealth : MonoBehaviour
 
     private void StartBlocking()
     {
+        if (IsGrabbed)
+        {
+            Debug.LogWarning("Block Input Ignored: Player is GRABBED.");
+            return;
+        }
         if (playerAttacks != null && playerAttacks.IsInCinematicState)
         {
             Debug.Log("Block Input Ignored: In Cinematic State.");
@@ -444,6 +458,66 @@ public class PlayerHealth : MonoBehaviour
         isParryWindowActive = true;
         yield return new WaitForSeconds(parryWindow);
         isParryWindowActive = false;
+    }
+    public void GetGrabbedByEnemy(Vector3 targetPosition, Transform enemyTransform)
+    {
+        Debug.LogError("--- PLAYER HAS BEEN GRABBED! LOSING CONTROL. ---");
+        IsGrabbed = true;
+        // --- 1. CANCEL EVERYTHING THE PLAYER IS DOING ---
+        isStunned = true; // Use the existing stun flag.
+        if (playerAttacks != null) playerAttacks.CancelAttack();
+        if (playerMovements != null) playerMovements.CanMove = false;
+        StopBlocking(); // Force the player to stop blocking.
+        if (rb != null) rb.linearVelocity = Vector2.zero; // Kill momentum.
+        transform.position = targetPosition;
+
+        // Force the player to face the enemy.
+        if (playerMovements != null)
+        {
+            // We tell the movement script to look at the enemy's X position.
+            playerMovements.ForceFaceDirection(enemyTransform.position.x > transform.position.x);
+        }
+        // --- 2. PLAY THE "GET GRABBED" ANIMATION ---
+        animator.SetTrigger(getGrabbedTriggerHash);
+    }
+    public void SpawnStabBlood()
+    {
+        if (stabBloodVFX != null && stabBloodSpawnPoint != null)
+        {
+            Debug.Log("--- Spawning Stab Blood VFX ---");
+            // Instantiate the prefab at the spawn point's position, but using the PREFAB's own original rotation.
+            Instantiate(stabBloodVFX, stabBloodSpawnPoint.position, stabBloodVFX.transform.rotation);
+        }
+    }
+
+    // --- ADD THIS NEW PUBLIC METHOD (called by Animation Event) ---
+    // You will call this from an Animation Event at the END of your player's "GetGrabbed" animation.
+    public void ReleaseFromGrab()
+    {
+        Debug.Log("<color=green>--- Player released from grab. Regaining control. ---</color>");
+        IsGrabbed = false;
+        isStunned = false;
+        isBeingKnockedBack = false;
+        if (playerMovements != null)
+        {
+            playerMovements.ForceResetState();
+        }
+        else
+        {
+            Debug.LogError("ReleaseFromGrab failed: ZreyMovements script not found!");
+        }
+        if (playerAttacks != null)
+        {
+            // It's good practice to reset the attack script too.
+            playerAttacks.ForceResetState(); // We will create this method.
+        }
+        StopAllCoroutines();
+        if (playerMovements != null) playerMovements.CanMove = true;
+        if (rb != null)
+        {
+            rb.linearVelocity = new Vector2(0, rb.linearVelocity.y); // Reset horizontal velocity but keep vertical.
+            Debug.Log("Reset Rigidbody horizontal velocity.");
+        }
     }
     private void Die(Transform killer)
     {

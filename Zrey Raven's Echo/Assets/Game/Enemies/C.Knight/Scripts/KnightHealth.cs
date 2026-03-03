@@ -96,6 +96,9 @@ public class KnightHealth : MonoBehaviour
     [Tooltip("The specific point on the knight's body where the wound should appear.")]
     [SerializeField] private Transform woundSpawnPoint; 
     private readonly int fallTriggerHash = Animator.StringToHash("fall");
+    private readonly int UpTriggerHash = Animator.StringToHash("Up");
+    private readonly int RightUpTriggerHash = Animator.StringToHash("RightUp");
+    private readonly int LeftUpTriggerHash = Animator.StringToHash("LeftUp");
     private readonly int finalBackTriggerHash = Animator.StringToHash("finalBack");
 
     // --- ADD this new section for the custom knockback system ---
@@ -142,6 +145,29 @@ private int blocksNeededForNextCounter = 0;
 
     [SerializeField] private float counterStunDuration = 1.5f;
     [SerializeField] private float guardCrushStunDuration = 1.0f;
+
+    [Header("Juggling & Ground Check")]
+    [Tooltip("An empty GameObject at the enemy's feet to check for the ground.")]
+    [SerializeField] private Transform groundCheck;
+    [Tooltip("The radius of the ground check circle.")]
+    [SerializeField] private float groundCheckRadius = 0.2f;
+    [Tooltip("The layer(s) that should be considered ground.")]
+    [SerializeField] private LayerMask groundLayer;
+
+    // --- Private state for juggling ---
+    private bool isGrounded = true;
+    private bool wasGrounded = true;
+    private bool isInJuggleState = false;
+
+    // --- New Animation Hashes ---
+    private readonly int landHitTriggerHash = Animator.StringToHash("LandHit");
+
+    public bool isFinishable { get; private set; } = false;
+
+    // --- ADD THIS NEW ANIMATION HASH ---
+    private readonly int getFinishedTriggerHash = Animator.StringToHash("GetFinished");
+    private bool isDying = false;
+    private readonly int finishableStateTriggerHash = Animator.StringToHash("FinishableState");
     void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
@@ -189,6 +215,35 @@ private int blocksNeededForNextCounter = 0;
 
     void Update()
     {
+        wasGrounded = isGrounded;
+        isGrounded = Physics2D.OverlapCircle(groundCheck.position, groundCheckRadius, groundLayer);
+        if (isDying && !wasGrounded && isGrounded)
+        {
+            // If yes, this is the moment to transition to the finishable state.
+            Debug.LogWarning("--- Dying enemy has landed. Transitioning to finishable state. ---");
+            TransitionToFinishable();
+        }
+        // 2. Check if we are in a juggle state.
+        if (isInJuggleState)
+        {
+            // A. If we are falling (Y velocity is negative)...
+            if (rb.linearVelocity.y < -0.1f)
+            {
+                // ...play the falling hit animation.
+                // We can call PlayHitReaction because it already handles resetting other triggers.
+                PlayHitReaction("fall");
+            }
+
+            // B. If we have just landed (we were NOT grounded, but now we ARE)...
+            if (!wasGrounded && isGrounded)
+            {
+                Debug.LogWarning("--- Enemy has LANDED from juggle ---");
+                // ...play the landing animation.
+                animator.SetTrigger(landHitTriggerHash);
+                // ...and exit the juggle state.
+                isInJuggleState = false;
+            }
+        }
         // --- THIS IS THE GUARD RECOVERY LOGIC ---
         // If our guard is not broken and we are not currently blocking...
         if (!isGuardBroken && !isBlocking)
@@ -203,6 +258,19 @@ private int blocksNeededForNextCounter = 0;
                 currentGuard = Mathf.MoveTowards(currentGuard, maxGuard, guardRecoveryRate * Time.deltaTime);
             }
         }
+    }
+    public void KillAllMomentum()
+    {
+        // Failsafe: If there is no Rigidbody, do nothing.
+        if (rb == null) return;
+
+        // This is the brake slam. It sets the velocity to zero for this frame.
+        rb.linearVelocity = Vector2.zero;
+
+        // Optional: You can also kill angular (rotational) velocity if needed.
+        rb.angularVelocity = 0f;
+
+        Debug.LogWarning("--- BRAKE SLAM! Knight momentum killed by animation event. ---");
     }
     /// <summary>
     /// This is the public method that the player's attack script will call.
@@ -311,6 +379,73 @@ private int blocksNeededForNextCounter = 0;
             Die();
         }
     }
+    public void TakeUpperAttack(AttackData attackData)
+    {
+        if (isFinishable || isUnbreakable || isDying)
+        {
+            return;
+        }
+
+
+        Transform attacker = playerTarget; // We know the attacker is the player.
+
+        // --- THIS IS THE FINAL, GUARANTEED FIX ---
+        // THE CORE LOGIC: Was the enemy blocking?
+        if (isBlocking)
+        {
+            // --- CASE 1: ENEMY WAS BLOCKING ---
+            Debug.LogWarning("--- Upper Attack BLOCKED! Applying Guard Damage. ---");
+
+            // 1. Do NOT apply the upward force. The enemy is grounded.
+            // 2. Apply the special guard damage from the AttackData.
+            currentGuard -= attackData.guardDamage;
+            timeSinceLastBlock = 0f; // Reset the guard recovery timer.
+
+            // 3. Play a heavy block recoil animation and sound.
+            //    (You can create a new trigger for a "heavy block" if you want)
+            animator.SetTrigger(block3TriggerHash); // Using block3 as an example for a heavy hit.
+            CameraShakerHandler.Shake(CameraShakeParry); // Use a heavy shake.
+
+            // 4. Apply a small recoil knockback to the enemy.
+            if (knockbackCoroutine != null) StopCoroutine(knockbackCoroutine);
+            knockbackCoroutine = StartCoroutine(KnockbackRoutine(attacker, blockRecoilDistance, blockRecoilDuration, 0, 0));
+
+            // 5. Check if this attack broke their guard.
+            if (currentGuard <= 0)
+            {
+                StartCoroutine(GuardBrokenSequence());
+            }
+        }
+        else
+        {
+            // --- CASE 2: ENEMY WAS NOT BLOCKING ---
+            Debug.Log("<color=yellow>--- Upper Attack LANDED! Launching enemy. ---</color>");
+
+            // This logic is the same as a normal hit, but we are guaranteed
+            // to use the AttackData that contains the upwardForce.
+            PlayHitReaction(attackData.hitType); // This will be "Up"
+            currentHealth -= attackData.damage;
+            SpawnBloodVFX();
+            if (flashCoroutine != null) StopCoroutine(flashCoroutine);
+            flashCoroutine = StartCoroutine(FlashDamageEffect());
+
+            // Apply the knockback, which now includes the upward force.
+            if (knockbackCoroutine != null) StopCoroutine(knockbackCoroutine);
+            knockbackCoroutine = StartCoroutine(KnockbackRoutine(
+                attacker,
+                attackData.knockbackDistance,
+                attackData.knockbackDuration,
+                attackData.upwardForce,
+                attackData.downwardForce
+            ));
+
+            if (currentHealth <= 0)
+            {
+                Die();
+            }
+        }
+        // --- END OF FIX ---
+    }
     private void SpawnBloodVFX() // MODIFIED: No longer needs the 'attacker' parameter.
     {
         // --- Safety Check #1: Is the array empty? ---
@@ -405,10 +540,49 @@ private int blocksNeededForNextCounter = 0;
 
     private void Die()
     {
-        Debug.Log(transform.name + " has been defeated!");
-        // Here you would play a death animation, spawn particles, etc.
-        // For now, we'll just destroy the GameObject.
-        Destroy(gameObject, 0.1f);
+        if (isDying || isFinishable) return;
+
+        Debug.LogWarning($"--- {transform.name} has been defeated! ---");
+
+        // --- THIS IS THE NEW, CONTEXT-AWARE LOGIC ---
+        if (isGrounded)
+        {
+            // CASE 1: We are on the ground. Transition to finishable immediately.
+            Debug.Log("Enemy died on the ground. Becoming finishable now.");
+            TransitionToFinishable();
+        }
+        else
+        {
+            // CASE 2: We are in the air. Just mark ourselves as "dying".
+            // The Update() method will handle the rest upon landing.
+            Debug.Log("Enemy died in the air. Will become finishable upon landing.");
+            isDying = true;
+            // We DO NOT make the Rigidbody kinematic here. We let it fall.
+        }
+    }
+    private void TransitionToFinishable()
+    {
+        // Set the state flags.
+        isFinishable = true;
+        isDying = false; // The dying process is complete.
+        if (animator != null)
+        {
+            animator.SetTrigger(finishableStateTriggerHash);
+        }
+        // Disable all AI and movement components.
+        if (knightAI != null) knightAI.enabled = false;
+        if (knightAttack != null) knightAttack.enabled = false;
+        if (followAI != null) followAI.enabled = false;
+
+        // Make the Rigidbody kinematic to freeze it in place.
+        if (rb != null)
+        {
+            rb.bodyType = RigidbodyType2D.Kinematic;
+            rb.linearVelocity = Vector2.zero;
+        }
+
+        // You could also play a "heavy land" or "slump" animation here.
+        // animator.SetTrigger("heavyLandDeath");
     }
     public void TakePostureDamageOnParry()
     {
@@ -493,6 +667,7 @@ private int blocksNeededForNextCounter = 0;
 
     public void PerformBlock(Transform player)
     {
+        if (isDying || isFinishable) return;
         // This is the same logic that used to be in OnPlayerAttackTelegraphed.
         // We still check for stun and range as a final safety measure.
         if (isGuardBroken || isBeingKnockedBack || Vector2.Distance(transform.position, player.position) > blockRange)
@@ -567,7 +742,16 @@ private int blocksNeededForNextCounter = 0;
         animator.ResetTrigger(finalBackTriggerHash);
 
         Debug.Log($"<color=cyan>Knight received AGGRESSIVE hit reaction command: {hitType}</color>");
+        bool isMidAirJuggleReaction = (hitType.ToLower() == "rightup" || hitType.ToLower() == "leftup");
 
+        // If it's a MID-AIR juggle reaction BUT we are currently on the ground...
+        if (isMidAirJuggleReaction && isGrounded)
+        {
+            // ...OVERRIDE the hit type and force a standard, grounded reaction.
+            // We DO NOT check for "hitup" here. "hitup" is the launcher and is allowed.
+            Debug.LogWarning($"Hit reaction '{hitType}' overridden to 'back' because enemy is grounded.");
+            hitType = "back";
+        }
         // 3. Now, set the new trigger.
         switch (hitType.ToLower())
         {
@@ -585,6 +769,19 @@ private int blocksNeededForNextCounter = 0;
                 break;
             case "finalback":
                 animator.SetTrigger(finalBackTriggerHash);
+                break;
+
+            case "hitup":
+                animator.SetTrigger(UpTriggerHash);
+                isInJuggleState = true;
+                break;
+            case "rightup":
+                animator.SetTrigger(RightUpTriggerHash);
+                isInJuggleState = true;
+                break;
+            case "leftup":
+                animator.SetTrigger(LeftUpTriggerHash);
+                isInJuggleState = true;
                 break;
             default:
                 animator.SetTrigger(getHitBackTriggerHash);
@@ -631,6 +828,11 @@ private int blocksNeededForNextCounter = 0;
     }
     public void ApplyDamageAndKnockback(AttackData attackData)
     {
+        if (isDying || isFinishable)
+        {
+            Debug.Log("Damage ignored: Knight is already defeated.");
+            return;
+        }
         if (knightAttack != null && knightAttack.IsAttacking())
         {
             // 2. If YES, do NOTHING. The knight is invincible during his combo.
@@ -814,8 +1016,28 @@ private int blocksNeededForNextCounter = 0;
         isBeingKnockedBack = false;
         
     }
-    
 
+    public void MakeFinishable()
+    {
+        if (isFinishable) return; // Already finishable, do nothing.
+
+        Debug.LogError("--- KNIGHT IS NOW FINISHABLE! ---");
+        isFinishable = true;
+        // You might want to play a "dazed" or "posture broken" animation here.
+        // animator.SetTrigger("postureBroken");
+    }
+
+    // --- ADD THIS NEW PUBLIC METHOD ---
+    /// <summary>
+    /// Called by the player's attack script during the finisher sequence.
+    /// </summary>
+    public void ExecuteFinisher()
+    {
+        Debug.LogError("--- KNIGHT: ExecuteFinisher command received! ---");
+        isFinishable = false; // No longer finishable
+        animator.SetTrigger(getFinishedTriggerHash);
+        Destroy(gameObject, 3.7f);
+    }
     public bool IsStunned()
     {
         // The knight is considered "stunned" if their guard is broken OR if they are being knocked back by a hit.
@@ -842,5 +1064,19 @@ private int blocksNeededForNextCounter = 0;
     {
         isUnbreakable = false;
         Debug.Log("<color=green>--- Knight is now VULNERABLE (Animation Event) ---</color>");
+    }
+    public bool IsGrounded()
+    {
+        // We already calculate this 'isGrounded' boolean in the Update loop.
+        // We just need to expose its value.
+        return isGrounded;
+    }
+    private void OnDrawGizmosSelected()
+    {
+        if (groundCheck != null)
+        {
+            Gizmos.color = Color.green;
+            Gizmos.DrawWireSphere(groundCheck.position, groundCheckRadius);
+        }
     }
 }

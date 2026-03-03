@@ -79,6 +79,19 @@ public class KnightAttack : MonoBehaviour
    
     private readonly int backstepTriggerHash = Animator.StringToHash("backstep");
     private KnightAI knightAI;
+
+    [Header("Grab Attack Settings")]
+    [Tooltip("The damage dealt by the successful grab stab.")]
+    [SerializeField] private int grabDamage = 25;
+    [Tooltip("The offset on the X-axis to position the player relative to the knight during the grab.")]
+    [SerializeField] private float grabPositionOffsetX = 0.8f; 
+
+
+    // --- ADD THESE NEW ANIMATION HASHES ---
+    private readonly int grabSpecialTriggerHash = Animator.StringToHash("GrabSpecial");
+    private readonly int grabStabTriggerHash = Animator.StringToHash("GrabStab");
+
+    private bool isGrabWindowOpen = false;
     void Awake() 
     {
         animator = GetComponent<Animator>();
@@ -109,6 +122,76 @@ public class KnightAttack : MonoBehaviour
                     isDamageWindowOpen = false;
                     break; // Exit the loop.
                 }
+            }
+        }
+        if (isGrabWindowOpen)
+        {
+            Collider2D[] hitPlayers = Physics2D.OverlapBoxAll(attackPoint.position, attackAreaSize, 0f, playerLayer);
+
+            foreach (Collider2D player in hitPlayers)
+            {
+                PlayerHealth playerHealth = player.GetComponent<PlayerHealth>();
+                if (playerHealth != null)
+                {
+                    Debug.LogError("--- PLAYER CAUGHT IN GRAB! ---");
+                    StopAllMovement();
+                    // --- THIS IS THE ALIGNMENT FIX ---
+                    // 1. Determine which way the knight is facing.
+                    float facingDirection = followAI.IsFacingRight() ? 1f : -1f;
+                    float absolutePlayerX = transform.position.x + (grabPositionOffsetX * facingDirection);
+
+                    // 3. Create the final target position vector.
+                    //    We use the calculated X, but we use the KNIGHT's Y and Z for perfect vertical alignment.
+                    Vector3 absoluteTargetPosition = new Vector3(absolutePlayerX, transform.position.y, transform.position.z);
+
+                    // 4. Send this absolute, non-negotiable position to the player.
+                    playerHealth.GetGrabbedByEnemy(absoluteTargetPosition, this.transform);
+
+                    // We NO LONGER deal damage here.
+
+                    animator.SetTrigger(grabStabTriggerHash);
+                    isGrabWindowOpen = false;
+                    return;
+                }
+            }
+        }
+    }
+    public void StopAllMovement()
+    {
+        // 1. If a lunge coroutine is running, kill it.
+        if (lungeCoroutine != null)
+        {
+            StopCoroutine(lungeCoroutine);
+            lungeCoroutine = null;
+        }
+
+        // 2. Instantly zero out the Rigidbody's velocity.
+        if (rb != null)
+        {
+            rb.linearVelocity = Vector2.zero;
+        }
+        Debug.LogError("--- KNIGHT MOVEMENT KILLED ---");
+    }
+
+    public void DealGrabDamage()
+    {
+        Debug.LogWarning("--- ANIMATION EVENT: DealGrabDamage() ---");
+        // We need to find the player again to deal damage to them.
+        Collider2D[] hitPlayers = Physics2D.OverlapBoxAll(attackPoint.position, attackAreaSize, 0f, playerLayer);
+
+        foreach (Collider2D player in hitPlayers)
+        {
+            PlayerHealth playerHealth = player.GetComponent<PlayerHealth>();
+            if (playerHealth != null)
+            {
+                // We call the new dedicated method on the player to spawn the blood.
+                
+
+                // We can use TakeUnblockableDamage with a null impact since we handle the reaction manually.
+                playerHealth.TakeUnblockableDamage(grabDamage, transform, null);
+
+                // Break after damaging one player.
+                break;
             }
         }
     }
@@ -200,6 +283,7 @@ public class KnightAttack : MonoBehaviour
     // **MODIFIED:** This is now a public method that the KnightAI script will call.
     public void StartCombo()
     {
+        if (health != null && !health.IsGrounded()) return;
         if (health != null && health.IsStunned())
         {
             // 2. If we ARE stunned, do NOTHING.
@@ -292,21 +376,35 @@ public class KnightAttack : MonoBehaviour
         // --- THIS IS THE FIX ---
         // If a lunge is already happening, stop it first.
         if (lungeCoroutine != null) StopCoroutine(lungeCoroutine);
-        lungeCoroutine = StartCoroutine(LungeCoroutine());
+        lungeCoroutine = StartCoroutine(LungeCoroutine(1f));
+    }
+    public void PerformLungeBackward()
+    {
+        if (followAI == null) return;
+        // Stop any previous lunge to be safe
+        if (lungeCoroutine != null) StopCoroutine(lungeCoroutine);
+        // Start the backward lunge
+        lungeCoroutine = StartCoroutine(LungeCoroutine(-1f)); // Backward direction is -1
     }
     // --- ADD THIS NEW COROUTINE ---
-    private IEnumerator LungeCoroutine()
+    private IEnumerator LungeCoroutine(float directionMultiplier)
     {
-        
-        if (followAI == null) yield break;
-        float direction = followAI.IsFacingRight() ? 1f : -1f;
-        rb.linearVelocity = new Vector2(direction * lungeForce, 0f); // Use velocity for smooth movement
+        float timer = 0f;
+        Vector2 baseDirection = followAI.IsFacingRight() ? Vector2.right : Vector2.left;
 
-        // Wait for the duration of the lunge.
-        yield return new WaitForSeconds(lungeDuration);
+        // Apply the multiplier. If multiplier is 1, it's forward. If -1, it's backward.
+        Vector2 finalDirection = baseDirection * directionMultiplier;
 
-        // Stop the lunge.
-        rb.linearVelocity = new Vector2(0, rb.linearVelocity.y);
+        while (timer < lungeDuration)
+        {
+            // Calculate the movement for this frame.
+            Vector2 moveStep = finalDirection * lungeForce * Time.deltaTime;
+            // Apply the movement using MovePosition.
+            rb.MovePosition(rb.position + moveStep);
+
+            timer += Time.deltaTime;
+            yield return null;
+        }
     }
     public void GetParried(Transform playerTransform)
     {
@@ -415,8 +513,35 @@ public class KnightAttack : MonoBehaviour
     public float GetComboDuration() { return comboDuration; }
     public float GetCounterAttackDuration() { return counterAttackDuration; }
 
+    public void StartGrabAttack()
+    {
+        if (isAttacking) return;
+
+        isAttacking = true;
+        animator.SetTrigger(grabSpecialTriggerHash);
+
+        // We NO LONGER start a coroutine here. We just play the animation.
+        // The animation itself will tell us when to open the grab window.
+    }
+    public void OpenGrabWindow()
+    {
+        Debug.Log("<color=lime>--- GRAB WINDOW: OPEN ---</color>");
+        isGrabWindowOpen = true;
+    }
+
+    /// <summary>
+    /// PUBLIC METHOD: Called by an Animation Event to STOP checking for the player.
+    /// </summary>
+    public void CloseGrabWindow()
+    {
+        Debug.Log("<color=grey>--- GRAB WINDOW: CLOSED ---</color>");
+        isGrabWindowOpen = false;
+    }
+
+  
     public void PerformBackstep()
     {
+        if (health != null && !health.IsGrounded()) return;
         // Play the backstep animation.
         animator.SetTrigger(backstepTriggerHash);
 

@@ -5782,7 +5782,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ae5bc79f6af9b5648a7cc73c48074c50, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SpearHealth
-  maxHealth: 100
+  maxHealth: 200
   knockbackDistance: 1.5
   knockbackDuration: 0.2
   blockRange: 9
@@ -5794,12 +5794,12 @@ MonoBehaviour:
   blockRecoilDuration: 0.15
   isBlocking: 0
   CameraShakeParry: {fileID: 11400000, guid: fdf86c26fd619bd45830cd0305c66c36, type: 2}
-  maxGuard: 80
+  maxGuard: 150
   guardDamagePerBlock: 7
   guardBrokenStunDuration: 8
   guardRecoveryDelay: 4
   guardRecoveryRate: 15
-  guardDamageOnParried: 50
+  guardDamageOnParried: 30
   timeSinceLastBlock: 0
   bloodVFXPrefabs:
   - {fileID: 439832784341202620, guid: fc6becc6d8b76b342941ca24b391fd49, type: 3}
@@ -5844,11 +5844,11 @@ MonoBehaviour:
   animator: {fileID: 8331939789815920333}
   follow: {fileID: 2559691655966346366}
   playerTarget: {fileID: 0}
-  specialAttackChance: 0.58
+  specialAttackChance: 1
   minSpecialAttackCooldown: 3
   maxSpecialAttackCooldown: 7
   counterCheckPoint: {fileID: 3911494874217598249}
-  counterCheckAreaSize: {x: 9.2, y: 8.79}
+  counterCheckAreaSize: {x: 11.79, y: 8.79}
   playerLayer:
     serializedVersion: 2
     m_Bits: 512
@@ -22084,8 +22084,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 6912943174536288115}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -8.9, y: 1.97, z: -0.77}
+  m_LocalRotation: {x: 0.000000013504177, y: -0.00000024258225, z: 0.000000084750354, w: -1}
+  m_LocalPosition: {x: -6.4, y: 2, z: -0.5}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []

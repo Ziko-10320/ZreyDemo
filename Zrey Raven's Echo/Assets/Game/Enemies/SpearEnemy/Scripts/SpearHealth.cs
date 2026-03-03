@@ -179,7 +179,8 @@ public class SpearHealth : MonoBehaviour
 
     // --- New Animation Hashes ---
     private readonly int landHitTriggerHash = Animator.StringToHash("LandHit");
-   
+    private bool isDying = false;
+    private readonly int finishableStateTriggerHash = Animator.StringToHash("FinishableState");
     void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
@@ -233,7 +234,12 @@ public class SpearHealth : MonoBehaviour
     {
         wasGrounded = isGrounded;
         isGrounded = Physics2D.OverlapCircle(groundCheck.position, groundCheckRadius, groundLayer);
-
+          if (isDying && !wasGrounded && isGrounded)
+    {
+        // If yes, this is the moment to transition to the finishable state.
+        Debug.LogWarning("--- Dying enemy has landed. Transitioning to finishable state. ---");
+        TransitionToFinishable();
+    }
         // 2. Check if we are in a juggle state.
         if (isInJuggleState)
         {
@@ -269,6 +275,19 @@ public class SpearHealth : MonoBehaviour
                 currentGuard = Mathf.MoveTowards(currentGuard, maxGuard, guardRecoveryRate * Time.deltaTime);
             }
         }
+    }
+    public void KillAllMomentum()
+    {
+        // Failsafe: If there is no Rigidbody, do nothing.
+        if (rb == null) return;
+
+        // This is the brake slam. It sets the velocity to zero for this frame.
+        rb.linearVelocity = Vector2.zero;
+
+        // Optional: You can also kill angular (rotational) velocity if needed.
+        rb.angularVelocity = 0f;
+
+        Debug.LogWarning("--- BRAKE SLAM! Knight momentum killed by animation event. ---");
     }
     /// <summary>
     /// This is the public method that the player's attack script will call.
@@ -471,14 +490,36 @@ public class SpearHealth : MonoBehaviour
 
     private void Die()
     {
-        if (isFinishable) return;
+        if (isDying || isFinishable) return;
 
-        Debug.LogWarning($"--- {transform.name} is now FINISHABLE! ---");
+        Debug.LogWarning($"--- {transform.name} has been defeated! ---");
 
-        // 2. Set the state flag.
+        // --- THIS IS THE NEW, CONTEXT-AWARE LOGIC ---
+        if (isGrounded)
+        {
+            // CASE 1: We are on the ground. Transition to finishable immediately.
+            Debug.Log("Enemy died on the ground. Becoming finishable now.");
+            TransitionToFinishable();
+        }
+        else
+        {
+            // CASE 2: We are in the air. Just mark ourselves as "dying".
+            // The Update() method will handle the rest upon landing.
+            Debug.Log("Enemy died in the air. Will become finishable upon landing.");
+            isDying = true;
+            // We DO NOT make the Rigidbody kinematic here. We let it fall.
+        }
+
+    }
+    private void TransitionToFinishable()
+    {
+        // Set the state flags.
         isFinishable = true;
-
-
+        isDying = false; // The dying process is complete.
+        if (animator != null)
+        {
+            animator.SetTrigger(finishableStateTriggerHash);
+        }
         if (spearAI != null) spearAI.enabled = false;
         if (spearAttack != null) spearAttack.enabled = false;
         if (followAI != null) followAI.enabled = false;
@@ -496,8 +537,6 @@ public class SpearHealth : MonoBehaviour
             // By doing this, the colliders remain active and can be detected
             // by the player's OverlapCircleAll check.
         }
-
-
     }
     public void ExecuteFinisher()
     {
@@ -506,6 +545,7 @@ public class SpearHealth : MonoBehaviour
 
         Debug.LogError($"--- {transform.name} IS BEING FINISHED! ---");
 
+     
         // Play the "TakeFinisher" animation.
         animator.SetTrigger(takeFinisherTriggerHash);
 
@@ -596,6 +636,7 @@ public class SpearHealth : MonoBehaviour
 
     public void PerformBlock(Transform player)
     {
+        if (isDying || isFinishable) return;
         // This is the same logic that used to be in OnPlayerAttackTelegraphed.
         // We still check for stun and range as a final safety measure.
         if (isGuardBroken || isBeingKnockedBack || Vector2.Distance(transform.position, player.position) > blockRange)
@@ -672,7 +713,16 @@ public class SpearHealth : MonoBehaviour
         animator.ResetTrigger(RightUpTriggerHash);
         animator.ResetTrigger(LeftUpTriggerHash);
         Debug.Log($"<color=cyan>Knight received AGGRESSIVE hit reaction command: {hitType}</color>");
+        bool isMidAirJuggleReaction = (hitType.ToLower() == "rightup" || hitType.ToLower() == "leftup");
 
+        // If it's a MID-AIR juggle reaction BUT we are currently on the ground...
+        if (isMidAirJuggleReaction && isGrounded)
+        {
+            // ...OVERRIDE the hit type and force a standard, grounded reaction.
+            // We DO NOT check for "hitup" here. "hitup" is the launcher and is allowed.
+            Debug.LogWarning($"Hit reaction '{hitType}' overridden to 'back' because enemy is grounded.");
+            hitType = "back";
+        }
         // 3. Now, set the new trigger.
         switch (hitType.ToLower())
         {
@@ -698,9 +748,11 @@ public class SpearHealth : MonoBehaviour
                 break;
             case "rightup":
                 animator.SetTrigger(RightUpTriggerHash);
+                isInJuggleState = true;
                 break;
             case "leftup":
                 animator.SetTrigger(LeftUpTriggerHash);
+                isInJuggleState = true;
                 break;
             default:
                 animator.SetTrigger(getHitBackTriggerHash);
@@ -747,9 +799,9 @@ public class SpearHealth : MonoBehaviour
     }
     public void ApplyDamageAndKnockback(AttackData attackData)
     {
-        if (isFinishable)
+        if (isDying || isFinishable)
         {
-            Debug.Log("Damage ignored: Target is already in a finishable state.");
+            Debug.Log("Damage ignored: Knight is already defeated.");
             return;
         }
         if (spearAttack != null && spearAttack.IsAttacking())
@@ -913,8 +965,9 @@ public class SpearHealth : MonoBehaviour
     }
     public void TakeUpperAttack(AttackData attackData)
     {
+       
         // --- Master Shields (these are the same) ---
-        if (isFinishable || isUnbreakable)
+        if (isFinishable || isUnbreakable || isDying )
         {
             return;
         }
