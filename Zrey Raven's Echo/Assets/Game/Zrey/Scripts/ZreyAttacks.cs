@@ -409,15 +409,21 @@ public class ZreyAttacks : MonoBehaviour
 
         Debug.Log("<color=yellow>--- UPPER ATTACK TRIGGERED ---</color>");
         isAttacking = true;
+       
         if (attackWatchdogCoroutine != null) StopCoroutine(attackWatchdogCoroutine);
         attackWatchdogCoroutine = StartCoroutine(AttackWatchdogRoutine());
         animator.SetTrigger(upperAttackTriggerHash);
+        Physics2D.IgnoreLayerCollision(playerLayerValue, enemyLayerValue, false);
+
+    }
+    public void TriggerRootUpper()
+    {
 
         if (playerMovement != null)
         {
             // IMPORTANT: You must find the duration of your RootUpperAttack animation clip
             // and put that exact value here.
-            float upperAttackDuration = 0.75f; // <--- CHANGE THIS TO YOUR ANIMATION'S DURATION
+            float upperAttackDuration = 0.7f; // <--- CHANGE THIS TO YOUR ANIMATION'S DURATION
 
             // --- THIS IS THE NEW DIRECTIONAL LOGIC ---
             // 1. Ask the movement script which way we are facing.
@@ -434,7 +440,6 @@ public class ZreyAttacks : MonoBehaviour
             // --- END OF NEW LOGIC ---
         }
     }
-
     public void DealUpperAttackDamage()
     {
         // --- THIS IS THE FIX ---

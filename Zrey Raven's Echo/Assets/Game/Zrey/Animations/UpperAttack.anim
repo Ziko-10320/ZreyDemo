@@ -4543,7 +4543,7 @@ AnimationClip:
         inWeight: 0.33333334
         outWeight: 0.33333334
       - serializedVersion: 3
-        time: 0.036363635
+        time: 0.018181818
         value: 0.35
         inSlope: 0
         outSlope: 0
@@ -4573,8 +4573,8 @@ AnimationClip:
         inWeight: 0.33333334
         outWeight: 0.33333334
       - serializedVersion: 3
-        time: 0.036363635
-        value: 10
+        time: 0.018181818
+        value: 90
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -18843,7 +18843,7 @@ AnimationClip:
         inWeight: 0.33333334
         outWeight: 0.33333334
       - serializedVersion: 3
-        time: 0.036363635
+        time: 0.018181818
         value: 0.35
         inSlope: 0
         outSlope: 0
@@ -18873,8 +18873,8 @@ AnimationClip:
         inWeight: 0.33333334
         outWeight: 0.33333334
       - serializedVersion: 3
-        time: 0.036363635
-        value: 10
+        time: 0.018181818
+        value: 90
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -21434,7 +21434,14 @@ AnimationClip:
   m_HasGenericRootTransform: 0
   m_HasMotionFloatCurves: 0
   m_Events:
-  - time: 0.036363635
+  - time: 0
+    functionName: EndCinematicZoom
+    data: 
+    objectReferenceParameter: {fileID: 0}
+    floatParameter: 0
+    intParameter: 0
+    messageOptions: 0
+  - time: 0.018181818
     functionName: PerformLunge
     data: 
     objectReferenceParameter: {fileID: 0}
@@ -21443,6 +21450,13 @@ AnimationClip:
     messageOptions: 0
   - time: 0.18181819
     functionName: TelegraphAttack
+    data: 
+    objectReferenceParameter: {fileID: 0}
+    floatParameter: 0
+    intParameter: 0
+    messageOptions: 0
+  - time: 0.29090908
+    functionName: TriggerRootUpper
     data: 
     objectReferenceParameter: {fileID: 0}
     floatParameter: 0

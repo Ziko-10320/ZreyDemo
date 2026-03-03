@@ -485,11 +485,11 @@ public class ZreyMovements : MonoBehaviour
                 animator.SetTrigger(dashTriggerHash);
                 if (isFacingRight)
                 {
-                    InitiateRootMotion(rootDashTriggerHash, 0.47f); // Call the renamed method
+                    InitiateRootMotion(rootDashTriggerHash, 0.3f); // Call the renamed method
                 }
                 else
                 {
-                    InitiateRootMotion(rootDashLeftTriggerHash, 0.47f); // Call the renamed method
+                    InitiateRootMotion(rootDashLeftTriggerHash, 0.3f); // Call the renamed method
                 }
             }
         }
