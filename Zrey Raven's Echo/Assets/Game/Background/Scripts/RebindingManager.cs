@@ -2,12 +2,22 @@ using UnityEngine;
 using UnityEngine.InputSystem; // We absolutely need this.
 using TMPro; // We need this to change the text on our buttons.
 using System.Collections;
+using System.Collections.Generic;
+[System.Serializable]// This makes it show up in the Inspector
+public class KeybindUI
+{
+    public string actionName;
+    public TextMeshProUGUI buttonText;
+    public InputActionReference actionReference; // We will use this to be safe
+}
 public class RebindingManager : MonoBehaviour
 {
     [Header("UI Elements")]
     [Tooltip("The small panel that says 'Press any key...'")]
     public GameObject listeningPanel;
-
+    [Header("Keybind UI List")]
+    [Tooltip("Drag all your keybinding buttons and their corresponding actions here.")]
+    public List<KeybindUI> keybindUIList;
     // --- Private state variables ---
     private InputActionRebindingExtensions.RebindingOperation rebindingOperation;
     private InputAction actionToRebind;
@@ -90,6 +100,45 @@ public class RebindingManager : MonoBehaviour
         // then the binding is valid. We can now finish the process.
         Debug.Log("No duplicate found. Finishing rebind.");
         FinishRebinding();
+    }
+    public void ResetAllBindingsToDefault()
+    {
+        Debug.Log("<color=orange>--- RESETTING ALL BINDINGS TO DEFAULT ---</color>");
+
+        // 1. RESET THE LOGIC
+        // Loop through every action in the Player map and remove its overrides.
+        // This has the .Get() fix so it will work.
+        foreach (InputAction action in ZreyMovements.inputActions.Player.Get())
+        {
+            action.RemoveAllBindingOverrides();
+        }
+
+        // --- THIS IS THE FIX FOR THE BLOCK ACTION ---
+        // We also need to tell the PlayerHealth script to reset its private override.
+        PlayerHealth playerHealth = FindObjectOfType<PlayerHealth>();
+        if (playerHealth != null)
+        {
+            // We find the default binding for the Block action and send it.
+            string defaultBlockBinding = ZreyMovements.inputActions.Player.Block.bindings[0].path;
+            playerHealth.UpdateBlockBinding(defaultBlockBinding);
+        }
+        // --- END OF BLOCK FIX ---
+
+
+        // 2. UPDATE THE UI TEXT
+        // Now, loop through the list of UI elements we created.
+        foreach (KeybindUI ui in keybindUIList)
+        {
+            // Get the current, correct binding path for the action.
+            string currentBinding = ui.actionReference.action.bindings[0].effectivePath;
+
+            // Update the button's text.
+            ui.buttonText.text = InputControlPath.ToHumanReadableString(
+                currentBinding,
+                InputControlPath.HumanReadableStringOptions.OmitDevice);
+        }
+
+        Debug.Log("All bindings and UI have been reset to default.");
     }
     private void ShowDuplicateKeyError()
     {

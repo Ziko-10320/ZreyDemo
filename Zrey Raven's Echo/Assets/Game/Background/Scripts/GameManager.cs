@@ -1,35 +1,56 @@
 using UnityEngine;
-using UnityEngine.SceneManagement; // Needed for Restart and Main Menu
+using UnityEngine.SceneManagement;
 using UnityEngine.InputSystem;
+using UnityEngine.UI; // --- NEW: We need this to control the Image component ---
+using System.Collections;
+
 public class GameManager : MonoBehaviour
 {
     [Header("Pause Panel UI")]
-    [Tooltip("Drag the parent Panel object for your pause menu here.")]
     public GameObject pausePanel;
 
-    // A simple flag to check if the game is currently paused.
+    [Header("Animation Settings")]
+    public float animationDuration = 0.3f;
+    public float startScale = 0.8f;
+
+    // --- NEW: Variables for the scene transition fade ---
+    [Header("Scene Fade Effect")]
+    [Tooltip("Drag the black UI Image for the scene transition fade here.")]
+    public Image sceneFadeImage;
+    [Tooltip("How long the fade-to-black should take before changing scenes.")]
+    public float sceneFadeDuration = 0.5f;
+    // --- END OF NEW VARIABLES ---
+
+    private CanvasGroup panelCanvasGroup;
+    private RectTransform panelRectTransform;
+
     public static bool isPaused = false;
 
     void Start()
     {
-        // Make sure the pause panel is hidden when the game starts.
         if (pausePanel != null)
         {
+            panelCanvasGroup = pausePanel.GetComponent<CanvasGroup>();
+            panelRectTransform = pausePanel.GetComponent<RectTransform>();
+            panelCanvasGroup.alpha = 0f;
             pausePanel.SetActive(false);
         }
-        // Ensure time is running normally at the start.
+
+        // --- NEW: Ensure the scene fade image is transparent at the start ---
+        if (sceneFadeImage != null)
+        {
+            sceneFadeImage.color = new Color(sceneFadeImage.color.r, sceneFadeImage.color.g, sceneFadeImage.color.b, 0f);
+        }
+        // --- END OF NEW CODE ---
+
         Time.timeScale = 1f;
         isPaused = false;
     }
 
     void Update()
     {
-        // Keyboard.current gives us access to the current state of the keyboard.
-        // .escapeKey checks the state of the Escape key.
-        // .wasPressedThisFrame is the new equivalent of GetKeyDown().
         if (Keyboard.current.escapeKey.wasPressedThisFrame)
         {
-            // The rest of the logic is exactly the same.
             if (isPaused)
             {
                 ResumeGame();
@@ -41,68 +62,117 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    // This function will be called to pause the game.
+    // --- Your PauseGame() and ResumeGame() functions remain the same ---
     public void PauseGame()
     {
-        if (pausePanel != null)
-        {
-            pausePanel.SetActive(true); // Show the pause panel.
-        }
-
-        // --- THIS IS THE MAGIC LINE ---
-        // Time.timeScale = 0f freezes EVERYTHING that relies on Unity's Time system:
-        // Physics (Rigidbodies), Animations, and anything in Update() that uses Time.deltaTime.
+        if (pausePanel == null) return;
+        StartCoroutine(AnimatePanel(true));
         Time.timeScale = 0f;
         ZreyMovements.inputActions.Player.Disable();
-        // Enable the "UI" map.
-        ZreyMovements.inputActions.UI.Enable();        // We also pause all AudioSources in the game.
+        ZreyMovements.inputActions.UI.Enable();
         AudioListener.pause = true;
-       
         isPaused = true;
-        Debug.Log("Game Paused.");
     }
 
-    // This function will be called by our "Resume" button.
     public void ResumeGame()
     {
-        if (pausePanel != null)
-        {
-            pausePanel.SetActive(false); // Hide the pause panel.
-        }
-
-        // Restore the normal flow of time.
+        if (pausePanel == null) return;
+        StartCoroutine(AnimatePanel(false));
         Time.timeScale = 1f;
         ZreyMovements.inputActions.UI.Disable();
         ZreyMovements.inputActions.Player.Enable();
-       
-        // Unpause all audio.
         AudioListener.pause = false;
-       
         isPaused = false;
-        Debug.Log("Game Resumed.");
     }
 
-    // This function will be called by our "Restart" button.
+    // --- Your AnimatePanel() coroutine remains the same ---
+    private IEnumerator AnimatePanel(bool show)
+    {
+        // ... (This coroutine is unchanged) ...
+        float timer = 0f;
+        float startAlpha = show ? 0f : 1f;
+        float endAlpha = show ? 1f : 0f;
+        Vector3 startScaleVector = Vector3.one * startScale;
+        Vector3 endScaleVector = Vector3.one;
+        if (!show) { Vector3 temp = startScaleVector; startScaleVector = endScaleVector; endScaleVector = temp; }
+        if (show) { pausePanel.SetActive(true); }
+        while (timer < animationDuration)
+        {
+            timer += Time.unscaledDeltaTime;
+            float progress = Mathf.Clamp01(timer / animationDuration);
+            panelCanvasGroup.alpha = Mathf.Lerp(startAlpha, endAlpha, progress);
+            panelRectTransform.localScale = Vector3.Lerp(startScaleVector, endScaleVector, progress);
+            yield return null;
+        }
+        if (!show) { pausePanel.SetActive(false); }
+    }
+
+    // --- MODIFIED: RestartLevel now calls the fade coroutine ---
     public void RestartLevel()
     {
-        // Before we restart, we MUST unpause the game. Otherwise, the new scene
-        // will load but still be frozen because Time.timeScale is 0.
-        ResumeGame();
+        // We still have to un-pause time.
+        Time.timeScale = 1f;
+        AudioListener.pause = false;
 
-        // Get the name of the currently active scene and reload it.
-        string currentSceneName = SceneManager.GetActiveScene().name;
-        SceneManager.LoadScene(currentSceneName);
-        Debug.Log($"Restarting level: {currentSceneName}");
+        // Before we leave, we call the kill switch.
+        ZreyMovements.NukeInputSystem();
+
+        // --- THIS IS THE FIX ---
+        // Start the coroutine and let IT handle the scene loading.
+        StartCoroutine(FadeAndLoadScene(SceneManager.GetActiveScene().name));
+
+        // --- DELETE THIS LINE ---
+        // string currentSceneName = SceneManager.GetActiveScene().name; // (optional to delete, but redundant)
+        // SceneManager.LoadScene(currentSceneName); // <-- THIS IS THE PROBLEM LINE. DELETE IT.
     }
 
-    // This function will be called by our "Main Menu" button.
     public void LoadMainMenu()
     {
-        // Same as restart, we must unpause first.
-        ResumeGame();
+        // We still have to un-pause time.
+        Time.timeScale = 1f;
+        AudioListener.pause = false;
 
-        // Load the Main Menu scene (make sure its name is correct).
-        SceneManager.LoadScene("MainMenu"); // Change "MainMenu" if your scene has a different name.
-        Debug.Log("Loading Main Menu...");
+        // Before we leave, we call the kill switch.
+        ZreyMovements.NukeInputSystem();
+
+        // --- THIS IS THE FIX ---
+        // Start the coroutine and let IT handle the scene loading.
+        StartCoroutine(FadeAndLoadScene("MainMenu"));
+
+        // --- DELETE THIS LINE ---
+        // SceneManager.LoadScene("MainMenu"); // <-- THIS IS THE PROBLEM LINE. DELETE IT.
+    }
+
+    // --- NEW: The Coroutine that handles fading and loading a scene ---
+    private IEnumerator FadeAndLoadScene(string sceneName)
+    {
+        // First, make sure the game is unpaused so the fade works correctly.
+        Time.timeScale = 1f;
+        AudioListener.pause = false;
+        isPaused = false;
+
+        if (sceneFadeImage == null)
+        {
+            Debug.LogError("Scene Fade Image is not assigned! Loading scene immediately.");
+            SceneManager.LoadScene(sceneName);
+            yield break;
+        }
+
+        // --- Fade Logic ---
+        float timer = 0f;
+        Color originalColor = sceneFadeImage.color;
+
+        while (timer < sceneFadeDuration)
+        {
+            // We use Time.deltaTime here because we already resumed the game.
+            timer += Time.deltaTime;
+            float alpha = Mathf.Clamp01(timer / sceneFadeDuration);
+            sceneFadeImage.color = new Color(originalColor.r, originalColor.g, originalColor.b, alpha);
+            yield return null;
+        }
+
+        // After the fade is complete, load the requested scene.
+        Debug.Log($"Faded out. Loading scene: {sceneName}");
+        SceneManager.LoadScene(sceneName);
     }
 }

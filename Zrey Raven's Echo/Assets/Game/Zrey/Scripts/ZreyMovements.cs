@@ -142,6 +142,7 @@ public class ZreyMovements : MonoBehaviour
 
     void Awake()
     {
+
         // --- THIS IS THE KING'S DECREE ---
         // 1. If the one true input system does not exist yet, create it.
         //    This happens in Awake(), so it is GUARANTEED to run before any script's OnEnable().
@@ -153,7 +154,18 @@ public class ZreyMovements : MonoBehaviour
             inputActions.Player.Enable();
         }
         // --- END OF THE KING'S DECREE ---
+        if (inputActions == null || !inputActions.Player.enabled)
+        {
+            // If it's null, create it.
+            if (inputActions == null)
+            {
+                inputActions = new InputSystem_Actions();
+            }
 
+            // ALWAYS enable it if we enter this block.
+            inputActions.Player.Enable();
+            Debug.Log("<color=lime>ZREYMOVEMENTS HAS GUARANTEED THAT INPUTS ARE ENABLED!</color>");
+        }
         // The rest of your Awake function is perfect.
         if (rb == null) rb = GetComponent<Rigidbody2D>();
         if (animator == null) animator = GetComponent<Animator>();
@@ -164,7 +176,18 @@ public class ZreyMovements : MonoBehaviour
         playerHealth = GetComponent<PlayerHealth>();
         if (playerGrapple == null) playerGrapple = GetComponentInParent<PlayerGrapple>();
     }
-
+    public static void NukeInputSystem()
+    {
+        // If the input system exists...
+        if (inputActions != null)
+        {
+            // ...completely dispose of it and set it back to null.
+            // This is the only way to guarantee a fresh start next time.
+            inputActions.Dispose();
+            inputActions = null;
+            Debug.Log("<color=red>NUKE DEPLOYED: Input System has been destroyed and set to null.</color>");
+        }
+    }
     private void OnEnable()
     {
         // This script's ONLY job in OnEnable is to subscribe its own functions
