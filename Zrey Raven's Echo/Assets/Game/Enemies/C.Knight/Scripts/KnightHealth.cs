@@ -453,7 +453,7 @@ private int blocksNeededForNextCounter = 0;
         {
         currentHealth -= damage; // Fixed damage for counter hits.
         Debug.Log(transform.name + " took 10 damage from counter. Health is now: " + currentHealth);
-       
+        UpdateHealthUI();
         if (currentHealth <= 0)
         {
             Die();

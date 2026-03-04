@@ -146,8 +146,8 @@ public class ZreyMovements : MonoBehaviour
     [Tooltip("The particle effect to spawn during a dash animation.")]
     [SerializeField] private GameObject dashParticlePrefab; 
     [Tooltip("The point where the dash particles should spawn.")]
-    [SerializeField] private Transform dashParticleSpawnPoint; 
-
+    [SerializeField] private Transform dashParticleSpawnPoint;
+    private Coroutine airDashCoroutine = null;
     void Awake()
     {
 
@@ -587,10 +587,24 @@ public class ZreyMovements : MonoBehaviour
     }
     private void PerformAirDash()
     {
+        // --- THIS IS THE GUARANTEED FIX ---
+        // If an air dash is already running, KILL IT first.
+        if (airDashCoroutine != null)
+        {
+            Debug.LogWarning("--- INTERRUPTING previous air dash! ---");
+            StopCoroutine(airDashCoroutine);
+
+          
+            int playerLayer = this.gameObject.layer;
+            int phaseLayer = (int)Mathf.Log(phaseThroughLayer.value, 2);
+            Physics2D.IgnoreLayerCollision(playerLayer, phaseLayer, false);
+        }
+        // --- END OF FIX ---
+
         // Spend a dash charge
         airDashesRemaining--;
-        // Call the NEW coroutine
-        StartCoroutine(PhasingAirDashSequence());
+        // Start the NEW coroutine and store its reference.
+        airDashCoroutine = StartCoroutine(PhasingAirDashSequence());
         Debug.Log("Air Dashed! Remaining: " + airDashesRemaining);
     }
     private IEnumerator PhasingAirDashSequence()
@@ -623,9 +637,7 @@ public class ZreyMovements : MonoBehaviour
             dashDuration = forwardAirDashDuration;
         }
 
-        // --- 2. PHASING & MOVEMENT PHASE ---
-        originalGravityScale = rb.gravityScale;
-        rb.gravityScale = 0f; // Ignore gravity during the dash
+  
 
         // THIS IS THE MAGIC: Turn OFF collisions with the phasing layer.
         int playerLayer = this.gameObject.layer;
@@ -642,13 +654,30 @@ public class ZreyMovements : MonoBehaviour
         }
 
         // --- 3. CLEANUP PHASE ---
-        rb.gravityScale = originalGravityScale; // Restore gravity
+     
         rb.linearVelocity = Vector2.zero; // Stop instantly after the dash
         isDashing = false; // We are no longer dashing
 
         // THIS IS THE MAGIC: Turn collisions back ON.
         Physics2D.IgnoreLayerCollision(playerLayer, phaseLayer, false);
         Debug.LogWarning("PHASING OFF: Collisions restored.");
+        airDashCoroutine = null;
+    }
+    public void SetGravityScaleToZero()
+    {
+        if (rb == null) return;
+        Debug.Log("<color=cyan>--- GRAVITY SCALE: 0 (Set by Animation Event) ---</color>");
+        rb.gravityScale = 0f;
+    }
+
+    /// <summary>
+    /// Called by an Animation Event to restore the player's original gravity scale.
+    /// </summary>
+    public void RestoreOriginalGravity()
+    {
+        if (rb == null) return;
+        Debug.Log("<color=green>--- GRAVITY SCALE: Restored (Set by Animation Event) ---</color>");
+        rb.gravityScale = originalGravityScale;
     }
     public void EVENT_SpawnDashParticles()
     {

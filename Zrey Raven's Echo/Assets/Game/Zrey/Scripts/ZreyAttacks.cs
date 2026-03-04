@@ -384,6 +384,7 @@ public class ZreyAttacks : MonoBehaviour
 
     private void PerformAttack(int step)
     {
+        playerMovement.CanMove = false;
         isCustomKnockbackPrimed = false;
         isAttacking = true;
         Physics2D.IgnoreLayerCollision(playerLayerValue, enemyLayerValue, false);
@@ -402,6 +403,12 @@ public class ZreyAttacks : MonoBehaviour
     }
     private void PerformUpperAttack()
     {
+        playerMovement.CanMove = false;
+        if (playerMovement != null && playerMovement.IsDashing())
+        {
+            Debug.LogError("Upper Attack blocked: Player is still in a dash state!");
+            return;
+        }
         if (isAttacking || isDownSlamming || (playerHealth != null && playerHealth.IsBlocking()) || (playerHealth != null && playerHealth.isStunned))
         {
             return;
@@ -661,6 +668,7 @@ public class ZreyAttacks : MonoBehaviour
     }
     public void EndAttack()
     {
+        playerMovement.CanMove = true;
         if (attackWatchdogCoroutine != null)
         {
             StopCoroutine(attackWatchdogCoroutine);
