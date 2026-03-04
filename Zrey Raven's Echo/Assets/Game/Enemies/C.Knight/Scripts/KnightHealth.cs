@@ -8,9 +8,14 @@ public class KnightHealth : MonoBehaviour
 {
     [Header("Health UI")]
     [Tooltip("The UI Slider that displays the knight's health.")]
+    [SerializeField] private Transform healthBarCanvasTransform;
+    [SerializeField] private Vector3 canvasOffset = new Vector3(0, 2f, 0);
+    [SerializeField] private float uiFadeOutDuration = 0.5f;
     [SerializeField] private Slider healthSlider;
+    [SerializeField] private GameObject healthFillObject; // --- NEW ---"
     [Tooltip("The UI Slider that displays the knight's posture/guard.")]
     [SerializeField] private Slider postureSlider;
+    [SerializeField] private GameObject postureFillObject; // --- NEW ---"
     [Header("Health Settings")]
     [SerializeField] private int maxHealth = 100;
     private int currentHealth;
@@ -176,8 +181,8 @@ private int blocksNeededForNextCounter = 0;
     private readonly int finishableStateTriggerHash = Animator.StringToHash("FinishableState");
     void Awake()
     {
-        UpdateHealthUI();
-        UpdatePostureUI();
+        currentHealth = maxHealth;
+        currentGuard = maxGuard;
         rb = GetComponent<Rigidbody2D>();
         animator = GetComponent<Animator>();
         currentHealth = maxHealth;
@@ -224,28 +229,63 @@ private int blocksNeededForNextCounter = 0;
         {
             Debug.LogError("FATAL ERROR: KnightAI script is missing! The knight will have no brain.", this);
         }
+        UpdateHealthUI();
+        UpdatePostureUI();
         SetNewCounterThreshold();
     }
     private void UpdateHealthUI()
     {
-        if (healthSlider != null)
+        if (healthSlider == null) return;
+
+        // Calculate the target value
+        float healthPercent = (float)currentHealth / maxHealth;
+        healthSlider.value = healthPercent;
+
+        // --- NEW LOGIC: Hide the fill if health is zero ---
+        if (healthFillObject != null)
         {
-            // Calculate the health percentage (a value from 0.0 to 1.0)
-            healthSlider.value = (float)currentHealth / maxHealth;
+            // Enable the fill object only if health is greater than zero.
+            healthFillObject.SetActive(healthPercent > 0);
         }
     }
+    void LateUpdate()
+    {
+        // If we have a reference to the canvas...
+        if (healthBarCanvasTransform != null)
+        {
+            // --- THE "MANUAL FOLLOW" LOGIC ---
 
-    // --- NEW: A function to update the posture slider ---
+            // 1. Force its WORLD position to be the knight's position PLUS our desired offset.
+            // Because it's no longer a child, this is the ONLY thing making it move.
+            healthBarCanvasTransform.position = transform.position + canvasOffset;
+
+            // 2. We still force its rotation to be zero, just as a final guarantee
+            // that nothing else in the scene can accidentally rotate it.
+            healthBarCanvasTransform.rotation = Quaternion.identity;
+        }
+    }
+    // --- REPLACE your old UpdatePostureUI method with this one ---
     private void UpdatePostureUI()
     {
-        if (postureSlider != null)
+        if (postureSlider == null) return;
+
+        // Calculate the target value
+        float guardPercent = currentGuard / maxGuard;
+        postureSlider.value = guardPercent;
+
+        // --- NEW LOGIC: Hide the fill if posture is zero ---
+        if (postureFillObject != null)
         {
-            // Calculate the posture percentage
-            postureSlider.value = currentGuard / maxGuard;
+            // Enable the fill object only if guard is greater than zero.
+            postureFillObject.SetActive(guardPercent > 0);
         }
     }
     void Update()
     {
+        if (isFinishable)
+        {
+            return; // Stop the rest of the Update function from running.
+        }
         if (!isGuardBroken && !isBlocking)
         {
             timeSinceLastBlock += Time.deltaTime;
@@ -581,6 +621,8 @@ private int blocksNeededForNextCounter = 0;
 
     private void Die()
     {
+        currentHealth = 0;
+        UpdateHealthUI();
         if (isDying || isFinishable) return;
 
         Debug.LogWarning($"--- {transform.name} has been defeated! ---");
@@ -603,9 +645,13 @@ private int blocksNeededForNextCounter = 0;
     }
     private void TransitionToFinishable()
     {
+        if (healthBarCanvasTransform != null)
+        {
+            StartCoroutine(FadeOutUI());
+        }
         // Set the state flags.
         isFinishable = true;
-        isDying = false; // The dying process is complete.
+        isDying = false;
         if (animator != null)
         {
             animator.SetTrigger(finishableStateTriggerHash);
@@ -621,9 +667,15 @@ private int blocksNeededForNextCounter = 0;
             rb.bodyType = RigidbodyType2D.Kinematic;
             rb.linearVelocity = Vector2.zero;
         }
-
-        // You could also play a "heavy land" or "slump" animation here.
-        // animator.SetTrigger("heavyLandDeath");
+        if (healthBarCanvasTransform != null)
+        {
+            healthBarCanvasTransform.gameObject.SetActive(false);
+        }
+        // --- THIS IS THE FIX ---
+        // Force the guard to 0 and update the UI one last time to ensure it's hidden.
+        currentGuard = 0;
+        UpdatePostureUI();
+        // --- END OF FIX ---
     }
     public void TakePostureDamageOnParry()
     {
@@ -644,6 +696,37 @@ private int blocksNeededForNextCounter = 0;
             // already plays a stun animation.
             StartCoroutine(GuardBrokenSequence());
         }
+    }
+    private IEnumerator FadeOutUI()
+    {
+        // First, try to get the CanvasGroup component from the canvas.
+        // This is the best way to fade a UI element and all its children.
+        CanvasGroup canvasGroup = healthBarCanvasTransform.GetComponent<CanvasGroup>();
+
+        // If there is no CanvasGroup, we can't fade, so just disable it and exit.
+        if (canvasGroup == null)
+        {
+            Debug.LogWarning("No CanvasGroup found on HealthBarCanvas. Disabling it instantly.");
+            healthBarCanvasTransform.gameObject.SetActive(false);
+            yield break;
+        }
+
+        // --- The Fade Logic ---
+        float timer = 0f;
+        float startAlpha = canvasGroup.alpha; // Start from whatever the current alpha is.
+
+        while (timer < uiFadeOutDuration)
+        {
+            timer += Time.deltaTime;
+            // Calculate the new alpha value, moving from startAlpha down to 0.
+            float newAlpha = Mathf.Lerp(startAlpha, 0f, timer / uiFadeOutDuration);
+            canvasGroup.alpha = newAlpha;
+            yield return null; // Wait for the next frame.
+        }
+
+        // After the loop, ensure the alpha is 0 and then disable the GameObject.
+        canvasGroup.alpha = 0f;
+        healthBarCanvasTransform.gameObject.SetActive(false);
     }
     private void TriggerRandomBlock()
     {
@@ -754,12 +837,14 @@ private int blocksNeededForNextCounter = 0;
         animator.SetTrigger(guardBrokenTriggerHash);
 
         // --- THIS IS THE FIX ---
-        // Instead of containing all the logic, it now just calls the new universal method
-        // with the correct duration for a guard break.
-        TriggerStun(guardBrokenStunDuration);
+        // Immediately set the guard to 0 and update the UI to hide the fill.
+        currentGuard = 0;
+        UpdatePostureUI();
         // --- END OF FIX ---
 
-        // We yield for a tiny moment to ensure the trigger has time to fire before the sequence ends.
+        // Now, trigger the stun. The recovery logic is already in StunSequence.
+        TriggerStun(guardBrokenStunDuration);
+
         yield return null;
     }
     public void PlayHitReaction(string hitType)
@@ -983,29 +1068,48 @@ private int blocksNeededForNextCounter = 0;
     {
         Debug.LogWarning($"--- KNIGHT STUN SEQUENCE STARTED (Duration: {stunDuration}s) ---");
 
-        // --- PHASE 1: ENTER THE STUNNED STATE ---
-        isGuardBroken = true; // Use the existing flag to lock the AI brain.
-        isUnbreakable = false; // Force vulnerability.
+        // --- PHASE 1: ENTER THE STUNNED STATE (Unchanged) ---
+        isGuardBroken = true;
+        isUnbreakable = false;
         isBlocking = false;
-
-        // We now use the boolean directly to enter the WeakDamageable loop.
-        // The Animator will handle the transition from GetCountered or GuardBroken.
         animator.SetBool(isWeakAndDamageableBoolHash, true);
 
-
-        // --- PHASE 2: THE VULNERABLE LOOP ---
+        // --- PHASE 2: THE VULNERABLE LOOP (Unchanged) ---
         yield return new WaitForSeconds(stunDuration);
 
+        // --- THIS IS THE CRITICAL FIX ---
+        // Before we start the recovery, check if the knight has been defeated and is finishable.
+        if (isFinishable)
+        {
+            Debug.LogWarning("Knight is finishable. Aborting posture recovery.");
+            // If so, just exit the coroutine immediately. Do not recover posture.
+            yield break;
+        }
+        // --- END OF FIX ---
 
-        // --- PHASE 3: THE RECOVERY ---
+        // --- PHASE 3: THE RECOVERY (This code will now only run if the knight is NOT finishable) ---
         Debug.Log("<color=green>Knight has recovered from stun.</color>");
         animator.SetBool(isWeakAndDamageableBoolHash, false);
         animator.SetTrigger(recoverPostureTriggerHash);
 
         isGuardBroken = false;
+        timeSinceLastBlock = 0f;
+
+        // Dynamic posture recovery animation
+        float recoveryStartTime = Time.time;
+        float recoveryDuration = 1.0f;
+        float startingGuard = currentGuard;
+
+        while (Time.time < recoveryStartTime + recoveryDuration)
+        {
+            float progress = (Time.time - recoveryStartTime) / recoveryDuration;
+            currentGuard = Mathf.Lerp(startingGuard, maxGuard, progress);
+            UpdatePostureUI();
+            yield return null;
+        }
+
         currentGuard = maxGuard;
         UpdatePostureUI();
-        timeSinceLastBlock = 0f;
     }
     public float GetCounterStunDuration()
     {
