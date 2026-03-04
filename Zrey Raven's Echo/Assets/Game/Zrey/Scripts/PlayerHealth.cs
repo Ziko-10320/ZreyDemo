@@ -207,7 +207,26 @@ public class PlayerHealth : MonoBehaviour
                     Debug.Log("<color=yellow>Parried a normal attack. Knight is knocked back but not stunned.</color>");
                 }
             }
+            SpearAttack SAttack = attacker.GetComponent<SpearAttack>();
+            SpearHealth SHealth = attacker.GetComponent<SpearHealth>();
 
+            if (SHealth != null)
+            {
+                // 2. ALWAYS apply the small knockback to the knight on ANY parry.
+
+                SHealth.TakePostureDamageOnParry();
+                // 3. ASK if the attack was the final one.
+                if (SAttack != null &&SAttack.IsFinalComboAttack())
+                {
+                    // 4. If YES, ALSO command the enemy to play the stunned animation.
+                    Debug.Log("<color=lime>PARRIED THE FINAL ATTACK! Stunning the knight!</color>");
+                    SHealth.GetParried(transform);
+                }
+                else
+                {
+                    Debug.Log("<color=yellow>Parried a normal attack. Knight is knocked back but not stunned.</color>");
+                }
+            }
             return; // Stop all further execution. No damage, no knockback.
         }
 

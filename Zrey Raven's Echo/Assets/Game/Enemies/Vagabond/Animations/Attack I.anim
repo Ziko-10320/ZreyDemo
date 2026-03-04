@@ -9441,7 +9441,7 @@ AnimationClip:
         outWeight: 0.33333334
       - serializedVersion: 3
         time: 1.2333333
-        value: 0.5
+        value: 0.4
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -9517,15 +9517,6 @@ AnimationClip:
       - serializedVersion: 3
         time: 1.2333333
         value: 24
-        inSlope: 12.692307
-        outSlope: 12.692307
-        tangentMode: 136
-        weightedMode: 0
-        inWeight: 0.33333334
-        outWeight: 0.33333334
-      - serializedVersion: 3
-        time: 1.2666667
-        value: 28
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -36990,7 +36981,7 @@ AnimationClip:
         outWeight: 0.33333334
       - serializedVersion: 3
         time: 1.2333333
-        value: 0.5
+        value: 0.4
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -37066,15 +37057,6 @@ AnimationClip:
       - serializedVersion: 3
         time: 1.2333333
         value: 24
-        inSlope: 12.692307
-        outSlope: 12.692307
-        tangentMode: 136
-        weightedMode: 0
-        inWeight: 0.33333334
-        outWeight: 0.33333334
-      - serializedVersion: 3
-        time: 1.2666667
-        value: 28
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -38344,6 +38326,13 @@ AnimationClip:
   m_HasGenericRootTransform: 0
   m_HasMotionFloatCurves: 0
   m_Events:
+  - time: 0.33333334
+    functionName: StartCollisionWithPlayer
+    data: 
+    objectReferenceParameter: {fileID: 0}
+    floatParameter: 0
+    intParameter: 0
+    messageOptions: 0
   - time: 0.4
     functionName: SetImpactType
     data: 
@@ -38352,7 +38341,7 @@ AnimationClip:
     intParameter: 0
     messageOptions: 0
   - time: 0.43333334
-    functionName: Lunge
+    functionName: PerformTransformLunge
     data: 
     objectReferenceParameter: {fileID: 0}
     floatParameter: 0
@@ -38408,7 +38397,7 @@ AnimationClip:
     intParameter: 0
     messageOptions: 0
   - time: 1.2666667
-    functionName: Lunge
+    functionName: PerformTransformLunge
     data: 
     objectReferenceParameter: {fileID: 0}
     floatParameter: 0
@@ -38534,7 +38523,7 @@ AnimationClip:
     intParameter: 0
     messageOptions: 0
   - time: 1.9333333
-    functionName: Lunge
+    functionName: PerformTransformLunge
     data: 
     objectReferenceParameter: {fileID: 0}
     floatParameter: 0
@@ -38562,7 +38551,7 @@ AnimationClip:
     intParameter: 0
     messageOptions: 0
   - time: 2.2
-    functionName: Lunge
+    functionName: PerformTransformLunge
     data: 
     objectReferenceParameter: {fileID: 0}
     floatParameter: 0
@@ -38591,6 +38580,13 @@ AnimationClip:
     messageOptions: 0
   - time: 3.0666666
     functionName: StopDamage
+    data: 
+    objectReferenceParameter: {fileID: 0}
+    floatParameter: 0
+    intParameter: 0
+    messageOptions: 0
+  - time: 3.1333334
+    functionName: StopCollisionWithPlayer
     data: 
     objectReferenceParameter: {fileID: 0}
     floatParameter: 0

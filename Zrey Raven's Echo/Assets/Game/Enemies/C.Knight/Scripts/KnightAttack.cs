@@ -213,6 +213,14 @@ public class KnightAttack : MonoBehaviour
         if (health != null) health.isUnbreakable = false;
         isDamageWindowOpen = false;
     }
+    public void StartCollisionWithPlayer()
+    {
+        Physics2D.IgnoreLayerCollision(playerLayerValue, enemyLayerValue, false);
+    }
+    public void StopCollisionWithPlayer()
+    {
+        Physics2D.IgnoreLayerCollision(playerLayerValue, enemyLayerValue, true);
+    }
     public void StartSpecialDamage()
     {
         Debug.Log("<color=red>!!! Special Damage Over Time STARTED !!!</color>");
@@ -405,6 +413,38 @@ public class KnightAttack : MonoBehaviour
             timer += Time.deltaTime;
             yield return null;
         }
+    }
+
+    public void PerformTransformLunge()
+    {
+        // If a lunge is already happening, stop it first.
+        if (lungeCoroutine != null)
+        {
+            StopCoroutine(lungeCoroutine);
+        }
+        // Start the new, transform-based lunge coroutine.
+        lungeCoroutine = StartCoroutine(TransformLungeCoroutine());
+    }
+    private IEnumerator TransformLungeCoroutine()
+    {
+        Debug.Log("<color=orange>--- Performing TRANSFORM-BASED Lunge ---</color>");
+
+        float timer = 0f;
+        Vector3 direction = followAI.IsFacingRight() ? Vector3.right : Vector3.left;
+
+        while (timer < lungeDuration)
+        {
+            // Calculate the movement for this frame.
+            float moveStep = lungeForce * Time.deltaTime;
+
+            // Apply the movement directly to the transform.
+            transform.position += direction * moveStep;
+
+            timer += Time.deltaTime;
+            yield return null;
+        }
+
+        lungeCoroutine = null; // Mark the coroutine as finished.
     }
     public void GetParried(Transform playerTransform)
     {

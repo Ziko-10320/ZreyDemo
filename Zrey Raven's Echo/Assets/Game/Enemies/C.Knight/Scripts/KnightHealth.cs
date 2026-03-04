@@ -674,7 +674,8 @@ private int blocksNeededForNextCounter = 0;
         // --- THE LINE TO DELETE WAS HERE ---
         // if (healthBarCanvasTransform != null)
         // {
-        //     healthBarCanvasTransform.gameObject.SetActive(false); // <-- DELETE THIS BLOCK
+        //     healthBarCanvasTransform.gameObject.SetActive(false); // <--
+        //     DELETE THIS BLOCK
         // }
 
         // Force the guard to 0 and update the UI one last time to ensure it's hidden.

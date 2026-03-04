@@ -728,7 +728,7 @@ public class SpearHealth : MonoBehaviour
     {
         // Failsafe: If the guard is already broken, we can't break it again.
         if (isGuardBroken) return;
-
+        UpdatePostureUI();
         Debug.Log($"<color=orange>KNIGHT'S POSTURE DAMAGED BY PARRY! Taking {guardDamageOnParried} guard damage.</color>");
 
         // Subtract the damage from the guard meter.
