@@ -148,6 +148,24 @@ public class ZreyMovements : MonoBehaviour
     [Tooltip("The point where the dash particles should spawn.")]
     [SerializeField] private Transform dashParticleSpawnPoint;
     private Coroutine airDashCoroutine = null;
+    [Header("Combat Mode")]
+    [Tooltip("The radius of the circle where the player will detect enemies to enter combat mode.")]
+    [SerializeField] private float combatDetectionRange = 10f;  
+    [Tooltip("The layer the enemies are on.")]
+    [SerializeField] private LayerMask enemyLayer; // You may need to re-assign this in the Inspector"
+    [Tooltip("The player's movement speed when locked on in combat.")]
+    [SerializeField] private float combatRunSpeed = 4f;
+
+    private bool isInCombatMode = false;
+    private Transform lockedOnTarget = null;
+    private bool isAttackLocked = false;
+
+    // --- ADD THESE NEW ANIMATION HASHES ---
+    private readonly int combatModeBoolHash = Animator.StringToHash("isInCombatMode");
+    private readonly int forwardCombatRunTriggerHash = Animator.StringToHash("ForwardCombatRun");  
+    private readonly int backwardCombatRunTriggerHash = Animator.StringToHash("BackwardCombatRun");
+    private readonly int combatIdleTriggerHash = Animator.StringToHash("CombatIdle");
+    private float lastMoveDirection = 0f;
     void Awake()
     {
 
@@ -218,14 +236,18 @@ public class ZreyMovements : MonoBehaviour
 
     void Update()
     {
-        if (playerAttacks != null && playerAttacks.IsInCinematicState)
+        if ((playerAttacks != null && playerAttacks.IsInCinematicState) || isHanging || isWallSliding || isAttackLocked)
         {
-            moveInput = Vector2.zero; // Force movement input to zero.
+            moveInput = Vector2.zero;
         }
         else
         {
             moveInput = inputActions.Player.Move.ReadValue<Vector2>();
         }
+
+        // Run the brains.
+        HandleCombatMode();
+
         justPressedDash = false;
         if (overrideMoveTimer > 0)
         {
@@ -283,7 +305,7 @@ public class ZreyMovements : MonoBehaviour
         }
 
 
-        if (moveInput.x != 0 && canFlip && !wallJumpInputLocked)
+        if (!isInCombatMode && moveInput.x != 0 && canFlip && !wallJumpInputLocked)
         {
             if (moveInput.x < 0 && isFacingRight) { Flip(); }
             else if (moveInput.x > 0 && !isFacingRight) { Flip(); }
@@ -336,6 +358,27 @@ public class ZreyMovements : MonoBehaviour
             // If yes, do NOTHING here. Let the PhasingAirDashSequence coroutine have full control.
             return;
         }
+        if (isAttackLocked)
+        {
+            rb.linearVelocity = new Vector2(0, rb.linearVelocity.y);
+            return;
+        }
+        if (isInCombatMode && lockedOnTarget != null)
+        {
+            // 1. FORCE FACING: Always face the locked-on target.
+            ForceFaceDirection(lockedOnTarget.position.x > transform.position.x);
+
+            // 2. APPLY COMBAT MOVEMENT
+            rb.linearVelocity = new Vector2(moveInput.x * combatRunSpeed, rb.linearVelocity.y);
+        }
+        else // Normal Movement
+        {
+            // This is your existing non-combat movement logic.
+            if (!justGrappleJumped)
+            {
+                rb.linearVelocity = new Vector2(moveInput.x * runSpeed, rb.linearVelocity.y);
+            }
+        }
         Vector2 currentMoveInput = ZreyMovements.inputActions.Player.Move.ReadValue<Vector2>();
 
         if (isDashing)
@@ -379,6 +422,7 @@ public class ZreyMovements : MonoBehaviour
                 rb.linearVelocity = new Vector2(moveInput.x * runSpeed, rb.linearVelocity.y);
             }
         }
+       
 
     }
     // --- PUBLIC METHODS FOR ANIMATION EVENTS ---
@@ -843,7 +887,68 @@ public class ZreyMovements : MonoBehaviour
     }
     private void HandleMovementAnimation()
     {
-        animator.SetBool(isRunningHash, moveInput.x != 0);
+        animator.SetBool(isRunningHash, moveInput.x != 0 && !isInCombatMode);
+    }
+    private void HandleCombatMode()
+    {
+        Collider2D[] enemiesInRange = Physics2D.OverlapCircleAll(transform.position, combatDetectionRange, enemyLayer);
+
+        if (enemiesInRange.Length > 0)
+        {
+            if (!isInCombatMode)
+            {
+                isInCombatMode = true;
+                animator.SetBool(combatModeBoolHash, true);
+            }
+
+            Transform closestEnemy = null;
+            float minDistance = float.MaxValue;
+            foreach (Collider2D enemyCollider in enemiesInRange)
+            {
+                float distance = Vector2.Distance(transform.position, enemyCollider.transform.position);
+                if (distance < minDistance)
+                {
+                    minDistance = distance;
+                    closestEnemy = enemyCollider.transform;
+                }
+            }
+            lockedOnTarget = closestEnemy;
+
+            // Stateless Animation Triggering
+            if (Mathf.Abs(moveInput.x) > 0.1f)
+            {
+                bool isMovingTowardsEnemy = (Mathf.Sign(moveInput.x) == Mathf.Sign(lockedOnTarget.position.x - transform.position.x));
+                if (isMovingTowardsEnemy)
+                {
+                    animator.SetTrigger(forwardCombatRunTriggerHash);
+                }
+                else
+                {
+                    animator.SetTrigger(backwardCombatRunTriggerHash);
+                }
+            }
+            else
+            {
+                animator.SetTrigger(combatIdleTriggerHash);
+            }
+        }
+        else
+        {
+            if (isInCombatMode)
+            {
+                isInCombatMode = false;
+                lockedOnTarget = null;
+                animator.SetBool(combatModeBoolHash, false);
+            }
+        }
+    }
+
+
+    // --- STEP 5: THE PUBLIC METHOD FOR THE ATTACK SCRIPT ---
+    // Your ZreyAttacks script will call this.
+    public void SetAttacking(bool attacking)
+    {
+        isAttackLocked = attacking;
     }
 
     private void HandleAirborneAnimation()
@@ -994,5 +1099,15 @@ public class ZreyMovements : MonoBehaviour
         if (groundCheck == null) return;
         Gizmos.color = Color.red;
         Gizmos.DrawWireSphere(groundCheck.position, groundCheckRadius);
+
+        Gizmos.color = Color.blue;
+        Gizmos.DrawWireSphere(transform.position, combatDetectionRange);
+
+        // Also draw a line to the locked-on target for debugging
+        if (isInCombatMode && lockedOnTarget != null)
+        {
+            Gizmos.color = Color.yellow;
+            Gizmos.DrawLine(transform.position, lockedOnTarget.position);
+        }
     }
 }
