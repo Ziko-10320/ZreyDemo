@@ -2,6 +2,7 @@ using FirstGearGames.SmoothCameraShaker;
 using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
+using static UnityEngine.Rendering.DebugUI;
 [RequireComponent(typeof(Rigidbody2D))]
 public class SpearHealth : MonoBehaviour
 {
@@ -16,20 +17,22 @@ public class SpearHealth : MonoBehaviour
     [Tooltip("The 'Fill' child object of the Health Slider.")]
     [SerializeField] private GameObject healthFillObject;
     [Tooltip("The secondary (background) Image for the delayed health drop effect.")]
-    [SerializeField] private Image healthDelayedFill;
+    [SerializeField] private Slider healthDelayedFill;
 
     [Tooltip("The main (top) UI Slider for posture.")]
     [SerializeField] private Slider postureSlider;
     [Tooltip("The 'Fill' child object of the Posture Slider.")]
     [SerializeField] private GameObject postureFillObject;
     [Tooltip("The secondary (background) Image for the delayed posture drop effect.")]
-    [SerializeField] private Image postureDelayedFill;
+    [SerializeField] private Slider postureDelayedFill;
 
     [Header("UI Animation Settings")]
-    [Tooltip("How fast the delayed-fill bar catches up after taking damage.")]
-    [SerializeField] private float fillLerpSpeed = 5f;
-    [Tooltip("How long to wait before the delayed-fill bar starts moving.")]
-    [SerializeField] private float fillDelay = 0.5f;
+    [SerializeField] private float healthFillSpeed = 5f;
+    [Tooltip("How long to wait before the HEALTH delayed-fill bar starts moving.")]
+    [SerializeField] private float healthFillDelay = 0.5f;
+    [SerializeField] private float postureFillSpeed = 8f;
+    [Tooltip("How long to wait before the POSTURE delayed-fill bar starts moving.")]
+    [SerializeField] private float postureFillDelay = 0.2f;
     [Tooltip("How long it takes for the health bars to fade out on death.")]
     [SerializeField] private float uiFadeOutDuration = 0.5f;
 
@@ -219,9 +222,9 @@ public class SpearHealth : MonoBehaviour
         if (healthBarCanvasTransform != null)
         {
             if (healthSlider != null) healthSlider.value = (float)currentHealth / maxHealth;
-            if (healthDelayedFill != null) healthDelayedFill.fillAmount = (float)currentHealth / maxHealth;
+            if (healthDelayedFill != null) healthDelayedFill.value = (float)currentHealth / maxHealth;
             if (postureSlider != null) postureSlider.value = currentGuard / maxGuard;
-            if (postureDelayedFill != null) postureDelayedFill.fillAmount = currentGuard / maxGuard;
+            if (postureDelayedFill != null) postureDelayedFill.value = currentGuard / maxGuard;
             UpdateHealthUI(); // Call this to set the initial fill visibility
             UpdatePostureUI();
 
@@ -323,51 +326,63 @@ public class SpearHealth : MonoBehaviour
     private IEnumerator UpdateHealthBarRoutine()
     {
         float targetFill = (float)currentHealth / maxHealth;
+        // Main health slider snaps instantly
         if (healthSlider != null) healthSlider.value = targetFill;
-        UpdateHealthUI(); // Update visibility immediately
+        UpdateHealthUI();
 
         if (healthDelayedFill != null)
         {
-            yield return new WaitForSeconds(fillDelay);
-            float currentFill = healthDelayedFill.fillAmount;
-            while (currentFill > targetFill)
+            // Use the specific health delay
+            yield return new WaitForSeconds(healthFillDelay);
+            float currentFill = healthDelayedFill.value;
+
+            while (Mathf.Abs(currentFill - targetFill) > 0.01f)
             {
-                currentFill = Mathf.Lerp(currentFill, targetFill, Time.deltaTime * fillLerpSpeed);
-                healthDelayedFill.fillAmount = currentFill;
+                // Use the specific health speed
+                currentFill = Mathf.Lerp(currentFill, targetFill, Time.deltaTime * healthFillSpeed);
+                healthDelayedFill.value = currentFill;
                 yield return null;
             }
-            healthDelayedFill.fillAmount = targetFill;
+            healthDelayedFill.value = targetFill;
         }
     }
 
     private IEnumerator UpdatePostureBarRoutine()
     {
         float targetFill = currentGuard / maxGuard;
-        UpdatePostureUI(); // Update visibility immediately
+        UpdatePostureUI(); // This instantly updates the main fill's visibility
 
+        // --- Part 1: Animate the MAIN posture slider ---
         if (postureSlider != null)
         {
             float currentSliderValue = postureSlider.value;
+            // This loop makes the main yellow bar animate smoothly
             while (Mathf.Abs(currentSliderValue - targetFill) > 0.01f)
             {
-                currentSliderValue = Mathf.Lerp(currentSliderValue, targetFill, Time.deltaTime * fillLerpSpeed);
+                // Use the specific posture speed
+                currentSliderValue = Mathf.Lerp(currentSliderValue, targetFill, Time.deltaTime * postureFillSpeed);
                 postureSlider.value = currentSliderValue;
                 yield return null;
             }
-            postureSlider.value = targetFill;
+            postureSlider.value = targetFill; // Snap to final value
         }
 
+        // --- Part 2: Animate the DELAYED posture slider ---
         if (postureDelayedFill != null)
         {
-            yield return new WaitForSeconds(fillDelay);
-            float currentFill = postureDelayedFill.fillAmount;
-            while (Mathf.Abs(currentFill - targetFill) > 0.01f)
+            // Use the specific posture delay
+            yield return new WaitForSeconds(postureFillDelay);
+            float currentDelayedFill = postureDelayedFill.value;
+
+            // This loop makes the background bar catch up.
+            while (Mathf.Abs(currentDelayedFill - targetFill) > 0.01f)
             {
-                currentFill = Mathf.Lerp(currentFill, targetFill, Time.deltaTime * fillLerpSpeed);
-                postureDelayedFill.fillAmount = currentFill;
+                // Use the specific posture speed
+                currentDelayedFill = Mathf.Lerp(currentDelayedFill, targetFill, Time.deltaTime * postureFillSpeed);
+                postureDelayedFill.value = currentDelayedFill;
                 yield return null;
             }
-            postureDelayedFill.fillAmount = targetFill;
+            postureDelayedFill.value = targetFill; // Snap to final value
         }
     }
 
@@ -496,7 +511,7 @@ public class SpearHealth : MonoBehaviour
         if (isBlocking)
         {
             Debug.Log("<color=cyan>ATTACK BLOCKED!</color>");
-
+            TriggerPostureUpdate();
             // Spawn sparks effect.
             if (blockSparksPrefab != null && blockSparksPoint != null)
             {

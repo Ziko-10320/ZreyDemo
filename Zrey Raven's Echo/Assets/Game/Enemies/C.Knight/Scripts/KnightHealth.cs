@@ -12,20 +12,28 @@ public class KnightHealth : MonoBehaviour
     [SerializeField] private Vector3 canvasOffset = new Vector3(0, 2f, 0);
     [SerializeField] private float uiFadeOutDuration = 0.5f;
     [SerializeField] private Slider healthSlider;
-    [SerializeField] private GameObject healthFillObject; // --- NEW ---"
+    [SerializeField] private Slider healthDelayedFill; // NEW
     [Tooltip("The UI Slider that displays the knight's posture/guard.")]
     [SerializeField] private Slider postureSlider;
-    [SerializeField] private GameObject postureFillObject; // --- NEW ---"
+    [SerializeField] private Slider postureDelayedFill; 
     [Header("Health Settings")]
     [SerializeField] private int maxHealth = 100;
     private int currentHealth;
+    [Header("UI Animation Settings")] // <-- ADD THIS ENTIRE HEADER
+    [SerializeField] private float healthFillSpeed = 5f;
+    [Tooltip("How long to wait before the HEALTH delayed-fill bar starts moving.")]
+    [SerializeField] private float healthFillDelay = 0.5f;
+    [SerializeField] private float postureFillSpeed = 8f;
+    [Tooltip("How long to wait before the POSTURE delayed-fill bar starts moving.")]
+    [SerializeField] private float postureFillDelay = 0.2f;
 
     [Header("Knockback Settings")]
     [Tooltip("How far the knight is knocked back when hit.")]
     [SerializeField] private float knockbackDistance = 1.5f;
     [Tooltip("How long the knockback effect lasts (in seconds).")]
     [SerializeField] private float knockbackDuration = 0.2f;
-
+    private Coroutine healthUpdateCoroutine;
+    private Coroutine postureUpdateCoroutine;
     // --- Components ---
     private Rigidbody2D rb;
     private Coroutine knockbackCoroutine;
@@ -229,8 +237,8 @@ private int blocksNeededForNextCounter = 0;
         {
             Debug.LogError("FATAL ERROR: KnightAI script is missing! The knight will have no brain.", this);
         }
-        UpdateHealthUI();
-        UpdatePostureUI();
+        TriggerHealthUpdate();
+        TriggerPostureUpdate();
         SetNewCounterThreshold();
     }
     private void UpdateHealthUI()
@@ -242,11 +250,7 @@ private int blocksNeededForNextCounter = 0;
         healthSlider.value = healthPercent;
 
         // --- NEW LOGIC: Hide the fill if health is zero ---
-        if (healthFillObject != null)
-        {
-            // Enable the fill object only if health is greater than zero.
-            healthFillObject.SetActive(healthPercent > 0);
-        }
+        if (healthSlider == null) return;
     }
     void LateUpdate()
     {
@@ -274,11 +278,7 @@ private int blocksNeededForNextCounter = 0;
         postureSlider.value = guardPercent;
 
         // --- NEW LOGIC: Hide the fill if posture is zero ---
-        if (postureFillObject != null)
-        {
-            // Enable the fill object only if guard is greater than zero.
-            postureFillObject.SetActive(guardPercent > 0);
-        }
+        if (postureSlider == null) return;
     }
     void Update()
     {
@@ -292,7 +292,7 @@ private int blocksNeededForNextCounter = 0;
             if (timeSinceLastBlock >= guardRecoveryDelay)
             {
                 currentGuard = Mathf.MoveTowards(currentGuard, maxGuard, guardRecoveryRate * Time.deltaTime);
-                UpdatePostureUI(); // Call the UI update function here
+                TriggerPostureUpdate(); // Call the UI update function here
             }
         }
         wasGrounded = isGrounded;
@@ -339,6 +339,93 @@ private int blocksNeededForNextCounter = 0;
             }
         }
     }
+    #region UI Update Logic
+
+    private void TriggerHealthUpdate()
+    {
+        if (healthUpdateCoroutine != null) StopCoroutine(healthUpdateCoroutine);
+        healthUpdateCoroutine = StartCoroutine(UpdateHealthBarRoutine());
+    }
+
+    private void TriggerPostureUpdate()
+    {
+        if (postureUpdateCoroutine != null) StopCoroutine(postureUpdateCoroutine);
+        postureUpdateCoroutine = StartCoroutine(UpdatePostureBarRoutine());
+    }
+
+    private IEnumerator UpdateHealthBarRoutine()
+    {
+        float targetFill = (float)currentHealth / maxHealth;
+
+        // Main health slider snaps instantly
+        if (healthSlider != null)
+        {
+            healthSlider.value = targetFill;
+        }
+
+        // Update the visibility of the fill object
+        if (healthSlider.fillRect != null)
+        {
+            healthSlider.fillRect.gameObject.SetActive(targetFill > 0);
+        }
+
+        // Animate the delayed fill
+        if (healthDelayedFill != null)
+        {
+            yield return new WaitForSeconds(healthFillDelay);
+            float currentFill = healthDelayedFill.value;
+
+            while (Mathf.Abs(currentFill - targetFill) > 0.01f)
+            {
+                currentFill = Mathf.Lerp(currentFill, targetFill, Time.deltaTime * healthFillSpeed);
+                healthDelayedFill.value = currentFill;
+                yield return null;
+            }
+            healthDelayedFill.value = targetFill;
+        }
+    }
+
+    private IEnumerator UpdatePostureBarRoutine()
+    {
+        float targetFill = currentGuard / maxGuard;
+        UpdatePostureUI(); // This instantly updates the main fill's visibility
+
+        // --- Part 1: Animate the MAIN posture slider ---
+        if (postureSlider != null)
+        {
+            float currentSliderValue = postureSlider.value;
+            // This loop makes the main yellow bar animate smoothly
+            while (Mathf.Abs(currentSliderValue - targetFill) > 0.01f)
+            {
+                // Use the specific posture speed
+                currentSliderValue = Mathf.Lerp(currentSliderValue, targetFill, Time.deltaTime * postureFillSpeed);
+                postureSlider.value = currentSliderValue;
+                yield return null;
+            }
+            postureSlider.value = targetFill; // Snap to final value
+        }
+
+        // --- Part 2: Animate the DELAYED posture slider ---
+        if (postureDelayedFill != null)
+        {
+            // Use the specific posture delay
+            yield return new WaitForSeconds(postureFillDelay);
+            float currentDelayedFill = postureDelayedFill.value;
+
+            // This loop makes the background bar catch up.
+            // It works for both going down AND going up.
+            while (Mathf.Abs(currentDelayedFill - targetFill) > 0.01f)
+            {
+                // Use the specific posture speed
+                currentDelayedFill = Mathf.Lerp(currentDelayedFill, targetFill, Time.deltaTime * postureFillSpeed);
+                postureDelayedFill.value = currentDelayedFill;
+                yield return null;
+            }
+            postureDelayedFill.value = targetFill; // Snap to final value
+        }
+    }
+
+    #endregion
     public void KillAllMomentum()
     {
         // Failsafe: If there is no Rigidbody, do nothing.
@@ -453,7 +540,7 @@ private int blocksNeededForNextCounter = 0;
         {
         currentHealth -= damage; // Fixed damage for counter hits.
         Debug.Log(transform.name + " took 10 damage from counter. Health is now: " + currentHealth);
-        UpdateHealthUI();
+        TriggerHealthUpdate();
         if (currentHealth <= 0)
         {
             Die();
@@ -473,7 +560,7 @@ private int blocksNeededForNextCounter = 0;
         // THE CORE LOGIC: Was the enemy blocking?
         if (isBlocking)
         {
-            UpdatePostureUI();
+            TriggerPostureUpdate();
             // --- CASE 1: ENEMY WAS BLOCKING ---
             Debug.LogWarning("--- Upper Attack BLOCKED! Applying Guard Damage. ---");
 
@@ -509,7 +596,7 @@ private int blocksNeededForNextCounter = 0;
             SpawnBloodVFX();
             if (flashCoroutine != null) StopCoroutine(flashCoroutine);
             flashCoroutine = StartCoroutine(FlashDamageEffect());
-            UpdatePostureUI();
+            TriggerPostureUpdate();
             // Apply the knockback, which now includes the upward force.
             if (knockbackCoroutine != null) StopCoroutine(knockbackCoroutine);
             knockbackCoroutine = StartCoroutine(KnockbackRoutine(
@@ -622,7 +709,7 @@ private int blocksNeededForNextCounter = 0;
     private void Die()
     {
         currentHealth = 0;
-        UpdateHealthUI();
+        TriggerHealthUpdate();
         if (isDying || isFinishable) return;
 
         Debug.LogWarning($"--- {transform.name} has been defeated! ---");
@@ -680,13 +767,14 @@ private int blocksNeededForNextCounter = 0;
 
         // Force the guard to 0 and update the UI one last time to ensure it's hidden.
         currentGuard = 0;
-        UpdatePostureUI();
+        TriggerPostureUpdate();
     }
+
     public void TakePostureDamageOnParry()
     {
         // Failsafe: If the guard is already broken, we can't break it again.
         if (isGuardBroken) return;
-        UpdatePostureUI();
+        TriggerPostureUpdate();
         Debug.Log($"<color=orange>KNIGHT'S POSTURE DAMAGED BY PARRY! Taking {guardDamageOnParried} guard damage.</color>");
 
         // Subtract the damage from the guard meter.
@@ -834,7 +922,7 @@ private int blocksNeededForNextCounter = 0;
         // --- THIS IS THE FIX ---
         // Immediately set the guard to 0 and update the UI to hide the fill.
         currentGuard = 0;
-        UpdatePostureUI();
+        TriggerPostureUpdate();
         // --- END OF FIX ---
 
         // Now, trigger the stun. The recovery logic is already in StunSequence.
@@ -982,7 +1070,7 @@ private int blocksNeededForNextCounter = 0;
         // --- 2. APPLY THE LOGIC (This part is exactly the same as before) ---
         if (isGuardBroken)
         {
-            UpdateHealthUI();
+            TriggerHealthUpdate();
             PlayHitReaction(hitType);
             currentHealth -= damage;
             SpawnBloodVFX();
@@ -996,7 +1084,7 @@ private int blocksNeededForNextCounter = 0;
 
         if (isBlocking)
         {
-            UpdatePostureUI();
+            TriggerPostureUpdate();
             ZreyAttacks playerAttacks = attacker.GetComponent<ZreyAttacks>();
             if (playerAttacks != null)
             {
@@ -1030,7 +1118,7 @@ private int blocksNeededForNextCounter = 0;
             if (currentGuard <= 0) StartCoroutine(GuardBrokenSequence());
             return;
         }
-        UpdateHealthUI();
+        TriggerHealthUpdate();
         PlayHitReaction(hitType);
         currentHealth -= damage;
         SpawnBloodVFX();
@@ -1099,12 +1187,12 @@ private int blocksNeededForNextCounter = 0;
         {
             float progress = (Time.time - recoveryStartTime) / recoveryDuration;
             currentGuard = Mathf.Lerp(startingGuard, maxGuard, progress);
-            UpdatePostureUI();
+            TriggerPostureUpdate();
             yield return null;
         }
 
         currentGuard = maxGuard;
-        UpdatePostureUI();
+        TriggerPostureUpdate();
     }
     public float GetCounterStunDuration()
     {
