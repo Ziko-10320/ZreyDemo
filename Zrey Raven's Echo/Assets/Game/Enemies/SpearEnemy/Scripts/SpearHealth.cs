@@ -1,10 +1,40 @@
 using FirstGearGames.SmoothCameraShaker;
 using System.Collections;
 using UnityEngine;
-
+using UnityEngine.UI;
 [RequireComponent(typeof(Rigidbody2D))]
 public class SpearHealth : MonoBehaviour
 {
+    [Header("Health UI")]
+    [Tooltip("The parent Canvas object for the health bars.")]
+    [SerializeField] private Transform healthBarCanvasTransform;
+    [Tooltip("The vertical offset to position the canvas above the enemy's head.")]
+    [SerializeField] private Vector3 canvasOffset = new Vector3(0, 2.5f, 0);
+
+    [Tooltip("The main (top) UI Slider for health.")]
+    [SerializeField] private Slider healthSlider;
+    [Tooltip("The 'Fill' child object of the Health Slider.")]
+    [SerializeField] private GameObject healthFillObject;
+    [Tooltip("The secondary (background) Image for the delayed health drop effect.")]
+    [SerializeField] private Image healthDelayedFill;
+
+    [Tooltip("The main (top) UI Slider for posture.")]
+    [SerializeField] private Slider postureSlider;
+    [Tooltip("The 'Fill' child object of the Posture Slider.")]
+    [SerializeField] private GameObject postureFillObject;
+    [Tooltip("The secondary (background) Image for the delayed posture drop effect.")]
+    [SerializeField] private Image postureDelayedFill;
+
+    [Header("UI Animation Settings")]
+    [Tooltip("How fast the delayed-fill bar catches up after taking damage.")]
+    [SerializeField] private float fillLerpSpeed = 5f;
+    [Tooltip("How long to wait before the delayed-fill bar starts moving.")]
+    [SerializeField] private float fillDelay = 0.5f;
+    [Tooltip("How long it takes for the health bars to fade out on death.")]
+    [SerializeField] private float uiFadeOutDuration = 0.5f;
+
+    private Coroutine healthUpdateCoroutine;
+    private Coroutine postureUpdateCoroutine;
     [Header("Health Settings")]
     [SerializeField] private int maxHealth = 100;
     private int currentHealth;
@@ -183,6 +213,19 @@ public class SpearHealth : MonoBehaviour
     private readonly int finishableStateTriggerHash = Animator.StringToHash("FinishableState");
     void Awake()
     {
+        currentHealth = maxHealth;
+        currentGuard = maxGuard;
+
+        if (healthBarCanvasTransform != null)
+        {
+            if (healthSlider != null) healthSlider.value = (float)currentHealth / maxHealth;
+            if (healthDelayedFill != null) healthDelayedFill.fillAmount = (float)currentHealth / maxHealth;
+            if (postureSlider != null) postureSlider.value = currentGuard / maxGuard;
+            if (postureDelayedFill != null) postureDelayedFill.fillAmount = currentGuard / maxGuard;
+            UpdateHealthUI(); // Call this to set the initial fill visibility
+            UpdatePostureUI();
+
+        }
         rb = GetComponent<Rigidbody2D>();
         animator = GetComponent<Animator>();
         currentHealth = maxHealth;
@@ -228,8 +271,127 @@ public class SpearHealth : MonoBehaviour
         {
             Debug.LogError("FATAL ERROR: Ground Check transform is not assigned on SpearHealth!", this);
         }
+        UpdateHealthUI();
+        UpdatePostureUI();
+    }
+    void LateUpdate()
+    {
+        if (healthBarCanvasTransform != null)
+        {
+            healthBarCanvasTransform.position = transform.position + canvasOffset;
+            healthBarCanvasTransform.rotation = Quaternion.identity;
+        }
     }
 
+    // --- NEW: All the UI update logic ---
+    #region UI Update Logic
+
+    private void UpdateHealthUI()
+    {
+        if (healthSlider == null) return;
+        float healthPercent = (float)currentHealth / maxHealth;
+        healthSlider.value = healthPercent;
+        if (healthFillObject != null)
+        {
+            healthFillObject.SetActive(healthPercent > 0);
+        }
+    }
+
+    private void UpdatePostureUI()
+    {
+        if (postureSlider == null) return;
+        float guardPercent = currentGuard / maxGuard;
+        postureSlider.value = guardPercent;
+        if (postureFillObject != null)
+        {
+            postureFillObject.SetActive(guardPercent > 0);
+        }
+    }
+
+    private void TriggerHealthUpdate()
+    {
+        if (healthUpdateCoroutine != null) StopCoroutine(healthUpdateCoroutine);
+        healthUpdateCoroutine = StartCoroutine(UpdateHealthBarRoutine());
+    }
+
+    private void TriggerPostureUpdate()
+    {
+        if (postureUpdateCoroutine != null) StopCoroutine(postureUpdateCoroutine);
+        postureUpdateCoroutine = StartCoroutine(UpdatePostureBarRoutine());
+    }
+
+    private IEnumerator UpdateHealthBarRoutine()
+    {
+        float targetFill = (float)currentHealth / maxHealth;
+        if (healthSlider != null) healthSlider.value = targetFill;
+        UpdateHealthUI(); // Update visibility immediately
+
+        if (healthDelayedFill != null)
+        {
+            yield return new WaitForSeconds(fillDelay);
+            float currentFill = healthDelayedFill.fillAmount;
+            while (currentFill > targetFill)
+            {
+                currentFill = Mathf.Lerp(currentFill, targetFill, Time.deltaTime * fillLerpSpeed);
+                healthDelayedFill.fillAmount = currentFill;
+                yield return null;
+            }
+            healthDelayedFill.fillAmount = targetFill;
+        }
+    }
+
+    private IEnumerator UpdatePostureBarRoutine()
+    {
+        float targetFill = currentGuard / maxGuard;
+        UpdatePostureUI(); // Update visibility immediately
+
+        if (postureSlider != null)
+        {
+            float currentSliderValue = postureSlider.value;
+            while (Mathf.Abs(currentSliderValue - targetFill) > 0.01f)
+            {
+                currentSliderValue = Mathf.Lerp(currentSliderValue, targetFill, Time.deltaTime * fillLerpSpeed);
+                postureSlider.value = currentSliderValue;
+                yield return null;
+            }
+            postureSlider.value = targetFill;
+        }
+
+        if (postureDelayedFill != null)
+        {
+            yield return new WaitForSeconds(fillDelay);
+            float currentFill = postureDelayedFill.fillAmount;
+            while (Mathf.Abs(currentFill - targetFill) > 0.01f)
+            {
+                currentFill = Mathf.Lerp(currentFill, targetFill, Time.deltaTime * fillLerpSpeed);
+                postureDelayedFill.fillAmount = currentFill;
+                yield return null;
+            }
+            postureDelayedFill.fillAmount = targetFill;
+        }
+    }
+
+    private IEnumerator FadeOutUI()
+    {
+        if (healthBarCanvasTransform == null) yield break;
+        CanvasGroup canvasGroup = healthBarCanvasTransform.GetComponent<CanvasGroup>();
+        if (canvasGroup == null)
+        {
+            healthBarCanvasTransform.gameObject.SetActive(false);
+            yield break;
+        }
+
+        float timer = 0f;
+        float startAlpha = canvasGroup.alpha;
+        while (timer < uiFadeOutDuration)
+        {
+            timer += Time.deltaTime;
+            canvasGroup.alpha = Mathf.Lerp(startAlpha, 0f, timer / uiFadeOutDuration);
+            yield return null;
+        }
+        healthBarCanvasTransform.gameObject.SetActive(false);
+    }
+    #endregion
     void Update()
     {
         wasGrounded = isGrounded;
@@ -273,8 +435,10 @@ public class SpearHealth : MonoBehaviour
             {
                 // ...start recovering the guard meter back towards its maximum value.
                 currentGuard = Mathf.MoveTowards(currentGuard, maxGuard, guardRecoveryRate * Time.deltaTime);
+                TriggerPostureUpdate();
             }
         }
+     
     }
     public void KillAllMomentum()
     {
@@ -390,7 +554,8 @@ public class SpearHealth : MonoBehaviour
     {
         currentHealth -= damage; // Fixed damage for counter hits.
         Debug.Log(transform.name + " took 10 damage from counter. Health is now: " + currentHealth);
-
+        TriggerHealthUpdate();
+        UpdateHealthUI();
         if (currentHealth <= 0)
         {
             Die();
@@ -491,9 +656,9 @@ public class SpearHealth : MonoBehaviour
     private void Die()
     {
         if (isDying || isFinishable) return;
-
+        currentHealth = 0;
         Debug.LogWarning($"--- {transform.name} has been defeated! ---");
-
+        TriggerHealthUpdate();
         // --- THIS IS THE NEW, CONTEXT-AWARE LOGIC ---
         if (isGrounded)
         {
@@ -513,6 +678,12 @@ public class SpearHealth : MonoBehaviour
     }
     private void TransitionToFinishable()
     {
+        if (healthBarCanvasTransform != null)
+        {
+            StartCoroutine(FadeOutUI());
+        }
+        currentGuard = 0;
+        TriggerPostureUpdate();
         // Set the state flags.
         isFinishable = true;
         isDying = false; // The dying process is complete.
@@ -562,6 +733,7 @@ public class SpearHealth : MonoBehaviour
 
         // Subtract the damage from the guard meter.
         currentGuard -= guardDamageOnParried;
+        TriggerPostureUpdate();
         timeSinceLastBlock = 0f; // A parry is a form of block, so reset the recovery timer.
 
         // Check if this parry was the one that broke the guard.
@@ -680,7 +852,8 @@ public class SpearHealth : MonoBehaviour
     {
         Debug.Log("<color=red>KNIGHT'S GUARD IS BROKEN!</color>");
         animator.SetTrigger(guardBrokenTriggerHash);
-
+        currentGuard = 0;
+        TriggerPostureUpdate();
         // --- THIS IS THE FIX ---
         // Instead of containing all the logic, it now just calls the new universal method
         // with the correct duration for a guard break.
@@ -834,6 +1007,7 @@ public class SpearHealth : MonoBehaviour
         {
             PlayHitReaction(hitType);
             currentHealth -= damage;
+            TriggerHealthUpdate();
             SpawnBloodVFX();
             SpawnWoundEffect();
             if (flashCoroutine != null) StopCoroutine(flashCoroutine);
@@ -842,9 +1016,10 @@ public class SpearHealth : MonoBehaviour
             if (currentHealth <= 0) Die();
             return;
         }
-
+        TriggerHealthUpdate();
         if (isBlocking)
         {
+            TriggerPostureUpdate();
             ZreyAttacks playerAttacks = attacker.GetComponent<ZreyAttacks>();
             if (playerAttacks != null)
             {
@@ -909,30 +1084,46 @@ public class SpearHealth : MonoBehaviour
     // This new coroutine contains the logic that used to be in GuardBrokenSequence.
     private IEnumerator StunSequence(float stunDuration)
     {
-        Debug.LogWarning($"--- KNIGHT STUN SEQUENCE STARTED (Duration: {stunDuration}s) ---");
+        Debug.LogWarning($"--- SPEAR ENEMY STUN SEQUENCE STARTED (Duration: {stunDuration}s) ---");
 
-        // --- PHASE 1: ENTER THE STUNNED STATE ---
-        isGuardBroken = true; // Use the existing flag to lock the AI brain.
-        isUnbreakable = false; // Force vulnerability.
+        // --- PHASE 1 & 2 (Unchanged) ---
+        isGuardBroken = true;
+        isUnbreakable = false;
         isBlocking = false;
-
-        // We now use the boolean directly to enter the WeakDamageable loop.
-        // The Animator will handle the transition from GetCountered or GuardBroken.
         animator.SetBool(isWeakAndDamageableBoolHash, true);
-
-
-        // --- PHASE 2: THE VULNERABLE LOOP ---
         yield return new WaitForSeconds(stunDuration);
 
+        // --- Safety check before recovery ---
+        if (isFinishable)
+        {
+            yield break; // Abort if defeated during stun
+        }
 
         // --- PHASE 3: THE RECOVERY ---
-        Debug.Log("<color=green>Knight has recovered from stun.</color>");
+        Debug.Log("<color=green>Spear Enemy has recovered from stun.</color>");
         animator.SetBool(isWeakAndDamageableBoolHash, false);
         animator.SetTrigger(recoverPostureTriggerHash);
 
         isGuardBroken = false;
-        currentGuard = maxGuard;
         timeSinceLastBlock = 0f;
+
+        // --- NEW: DYNAMIC POSTURE RECOVERY ANIMATION ---
+        float recoveryStartTime = Time.time;
+        float recoveryDuration = 1.0f; // How long the recovery animation takes
+        float startingGuard = currentGuard;
+
+        while (Time.time < recoveryStartTime + recoveryDuration)
+        {
+            float progress = (Time.time - recoveryStartTime) / recoveryDuration;
+            currentGuard = Mathf.Lerp(startingGuard, maxGuard, progress);
+            // Use the trigger function to animate the UI smoothly
+            TriggerPostureUpdate();
+            yield return null;
+        }
+
+        // Snap to final value and update UI one last time
+        currentGuard = maxGuard;
+        TriggerPostureUpdate();
     }
     public float GetCounterStunDuration()
     {
@@ -978,6 +1169,7 @@ public class SpearHealth : MonoBehaviour
         // THE CORE LOGIC: Was the enemy blocking?
         if (isBlocking)
         {
+            TriggerPostureUpdate();
             // --- CASE 1: ENEMY WAS BLOCKING ---
             Debug.LogWarning("--- Upper Attack BLOCKED! Applying Guard Damage. ---");
 
@@ -1003,6 +1195,7 @@ public class SpearHealth : MonoBehaviour
         }
         else
         {
+            TriggerHealthUpdate();
             // --- CASE 2: ENEMY WAS NOT BLOCKING ---
             Debug.Log("<color=yellow>--- Upper Attack LANDED! Launching enemy. ---</color>");
 

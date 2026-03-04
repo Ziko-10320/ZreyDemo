@@ -645,37 +645,41 @@ private int blocksNeededForNextCounter = 0;
     }
     private void TransitionToFinishable()
     {
+        // --- Start the fade-out coroutine ---
         if (healthBarCanvasTransform != null)
         {
             StartCoroutine(FadeOutUI());
         }
-        // Set the state flags.
+
+        // Set the state flags
         isFinishable = true;
         isDying = false;
         if (animator != null)
         {
             animator.SetTrigger(finishableStateTriggerHash);
         }
-        // Disable all AI and movement components.
+
+        // Disable all AI and movement components
         if (knightAI != null) knightAI.enabled = false;
         if (knightAttack != null) knightAttack.enabled = false;
         if (followAI != null) followAI.enabled = false;
 
-        // Make the Rigidbody kinematic to freeze it in place.
+        // Make the Rigidbody kinematic to freeze it in place
         if (rb != null)
         {
             rb.bodyType = RigidbodyType2D.Kinematic;
             rb.linearVelocity = Vector2.zero;
         }
-        if (healthBarCanvasTransform != null)
-        {
-            healthBarCanvasTransform.gameObject.SetActive(false);
-        }
-        // --- THIS IS THE FIX ---
+
+        // --- THE LINE TO DELETE WAS HERE ---
+        // if (healthBarCanvasTransform != null)
+        // {
+        //     healthBarCanvasTransform.gameObject.SetActive(false); // <-- DELETE THIS BLOCK
+        // }
+
         // Force the guard to 0 and update the UI one last time to ensure it's hidden.
         currentGuard = 0;
         UpdatePostureUI();
-        // --- END OF FIX ---
     }
     public void TakePostureDamageOnParry()
     {
@@ -699,35 +703,25 @@ private int blocksNeededForNextCounter = 0;
     }
     private IEnumerator FadeOutUI()
     {
-        // First, try to get the CanvasGroup component from the canvas.
-        // This is the best way to fade a UI element and all its children.
+        if (healthBarCanvasTransform == null) yield break;
         CanvasGroup canvasGroup = healthBarCanvasTransform.GetComponent<CanvasGroup>();
-
-        // If there is no CanvasGroup, we can't fade, so just disable it and exit.
         if (canvasGroup == null)
         {
-            Debug.LogWarning("No CanvasGroup found on HealthBarCanvas. Disabling it instantly.");
             healthBarCanvasTransform.gameObject.SetActive(false);
             yield break;
         }
 
-        // --- The Fade Logic ---
         float timer = 0f;
-        float startAlpha = canvasGroup.alpha; // Start from whatever the current alpha is.
-
+        float startAlpha = canvasGroup.alpha;
         while (timer < uiFadeOutDuration)
         {
             timer += Time.deltaTime;
-            // Calculate the new alpha value, moving from startAlpha down to 0.
-            float newAlpha = Mathf.Lerp(startAlpha, 0f, timer / uiFadeOutDuration);
-            canvasGroup.alpha = newAlpha;
-            yield return null; // Wait for the next frame.
+            canvasGroup.alpha = Mathf.Lerp(startAlpha, 0f, timer / uiFadeOutDuration);
+            yield return null;
         }
-
-        // After the loop, ensure the alpha is 0 and then disable the GameObject.
-        canvasGroup.alpha = 0f;
         healthBarCanvasTransform.gameObject.SetActive(false);
     }
+
     private void TriggerRandomBlock()
     {
         int nextBlockIndex;
