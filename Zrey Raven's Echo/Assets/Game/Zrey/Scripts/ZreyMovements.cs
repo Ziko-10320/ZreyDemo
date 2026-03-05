@@ -162,10 +162,9 @@ public class ZreyMovements : MonoBehaviour
 
     // --- ADD THESE NEW ANIMATION HASHES ---
     private readonly int combatModeBoolHash = Animator.StringToHash("isInCombatMode");
-    private readonly int forwardCombatRunTriggerHash = Animator.StringToHash("ForwardCombatRun");  
-    private readonly int backwardCombatRunTriggerHash = Animator.StringToHash("BackwardCombatRun");
-    private readonly int combatIdleTriggerHash = Animator.StringToHash("CombatIdle");
-    private float lastMoveDirection = 0f;
+    private readonly int isMovingForwardHash = Animator.StringToHash("isMovingForward");
+    private readonly int isMovingBackwardHash = Animator.StringToHash("isMovingBackward");
+    private readonly int isAttackingBoolHash = Animator.StringToHash("isAttacking");
     void Awake()
     {
 
@@ -236,7 +235,7 @@ public class ZreyMovements : MonoBehaviour
 
     void Update()
     {
-        if ((playerAttacks != null && playerAttacks.IsInCinematicState) || isHanging || isWallSliding || isAttackLocked)
+        if ((playerAttacks != null && playerAttacks.IsInCinematicState) || isHanging || isWallSliding)
         {
             moveInput = Vector2.zero;
         }
@@ -244,17 +243,16 @@ public class ZreyMovements : MonoBehaviour
         {
             moveInput = inputActions.Player.Move.ReadValue<Vector2>();
         }
-
         // Run the brains.
-        HandleCombatMode();
-
+        HandleCombatAndAnimation();
+        HandleWallMechanics();
         justPressedDash = false;
         if (overrideMoveTimer > 0)
         {
             overrideMoveTimer -= Time.deltaTime;
         }
-        HandleWallMechanics();
-        moveInput = inputActions.Player.Move.ReadValue<Vector2>();
+       
+    
 
         // We only freeze input if we are actively sliding on a wall.
         if (isHanging || isWallSliding)
@@ -363,22 +361,7 @@ public class ZreyMovements : MonoBehaviour
             rb.linearVelocity = new Vector2(0, rb.linearVelocity.y);
             return;
         }
-        if (isInCombatMode && lockedOnTarget != null)
-        {
-            // 1. FORCE FACING: Always face the locked-on target.
-            ForceFaceDirection(lockedOnTarget.position.x > transform.position.x);
-
-            // 2. APPLY COMBAT MOVEMENT
-            rb.linearVelocity = new Vector2(moveInput.x * combatRunSpeed, rb.linearVelocity.y);
-        }
-        else // Normal Movement
-        {
-            // This is your existing non-combat movement logic.
-            if (!justGrappleJumped)
-            {
-                rb.linearVelocity = new Vector2(moveInput.x * runSpeed, rb.linearVelocity.y);
-            }
-        }
+       
         Vector2 currentMoveInput = ZreyMovements.inputActions.Player.Move.ReadValue<Vector2>();
 
         if (isDashing)
@@ -400,30 +383,38 @@ public class ZreyMovements : MonoBehaviour
             // 4. Apply the velocity directly to the Rigidbody.
             rb.linearVelocity = new Vector2(currentDashSpeed * dashDirection, 0);
         }
-        else if (justWallJumped)
+        if (justWallJumped)
         {
             if (wallJumpInputLocked)
             {
+                // During the input lock, the initial velocity from PerformWallJump() is maintained.
                 return;
             }
-
-            // If input is NOT locked, check if the player wants to take over.
+            // After the lock, the player can take over.
             if (moveInput.x != 0)
             {
-                // Player is taking control. Cut the momentum.
                 rb.linearVelocity = new Vector2(moveInput.x * runSpeed, rb.linearVelocity.y);
-                justWallJumped = false; // End the wall jump state.
+                justWallJumped = false;
             }
+            // If there's no input, we let the momentum continue until it naturally decays or hits something.
+            // We do NOT set velocity to zero here.
         }
+        // PRIORITY #3: COMBAT MODE
+        // If not attacking or wall jumping, check for combat mode.
+        else if (isInCombatMode && lockedOnTarget != null)
+        {
+            ForceFaceDirection(lockedOnTarget.position.x > transform.position.x);
+            rb.linearVelocity = new Vector2(moveInput.x * combatRunSpeed, rb.linearVelocity.y);
+        }
+        // PRIORITY #4: NORMAL MOVEMENT
+        // If none of the above are true, perform normal, non-combat movement.
         else
         {
-            if (!justGrappleJumped)
+            if (!justGrappleJumped) // Respect grapple momentum
             {
                 rb.linearVelocity = new Vector2(moveInput.x * runSpeed, rb.linearVelocity.y);
             }
         }
-       
-
     }
     // --- PUBLIC METHODS FOR ANIMATION EVENTS ---
     /// </summary>
@@ -889,18 +880,32 @@ public class ZreyMovements : MonoBehaviour
     {
         animator.SetBool(isRunningHash, moveInput.x != 0 && !isInCombatMode);
     }
-    private void HandleCombatMode()
+    private void HandleCombatAndAnimation()
     {
+        // --- Master shield for attacks is correct ---
+        if (isAttackLocked)
+        {
+            // If we are attacking, we must ensure all movement booleans are OFF.
+            // This prevents the animator from getting confused.
+            animator.SetBool(isRunningHash, false);
+            animator.SetBool(isMovingForwardHash, false);
+            animator.SetBool(isMovingBackwardHash, false);
+            return;
+        }
+
+        // --- Combat Detection ---
         Collider2D[] enemiesInRange = Physics2D.OverlapCircleAll(transform.position, combatDetectionRange, enemyLayer);
 
         if (enemiesInRange.Length > 0)
         {
+            // --- ENTER/UPDATE COMBAT MODE ---
             if (!isInCombatMode)
             {
                 isInCombatMode = true;
                 animator.SetBool(combatModeBoolHash, true);
             }
 
+            // Find and lock on to the closest enemy.
             Transform closestEnemy = null;
             float minDistance = float.MaxValue;
             foreach (Collider2D enemyCollider in enemiesInRange)
@@ -914,35 +919,46 @@ public class ZreyMovements : MonoBehaviour
             }
             lockedOnTarget = closestEnemy;
 
-            // Stateless Animation Triggering
-            if (Mathf.Abs(moveInput.x) > 0.1f)
+            // --- THIS IS THE FINAL, GUARANTEED ANIMATION FIX ---
+            bool isMoving = Mathf.Abs(moveInput.x) > 0.1f;
+
+            // We ONLY set movement booleans if the player is actually pressing a key.
+            if (isMoving)
             {
                 bool isMovingTowardsEnemy = (Mathf.Sign(moveInput.x) == Mathf.Sign(lockedOnTarget.position.x - transform.position.x));
-                if (isMovingTowardsEnemy)
-                {
-                    animator.SetTrigger(forwardCombatRunTriggerHash);
-                }
-                else
-                {
-                    animator.SetTrigger(backwardCombatRunTriggerHash);
-                }
+                animator.SetBool(isMovingForwardHash, isMovingTowardsEnemy);
+                animator.SetBool(isMovingBackwardHash, !isMovingTowardsEnemy);
             }
-            else
+            else // If there is NO input, we force all movement booleans to FALSE.
             {
-                animator.SetTrigger(combatIdleTriggerHash);
+                animator.SetBool(isMovingForwardHash, false);
+                animator.SetBool(isMovingBackwardHash, false);
             }
+            // --- END OF FINAL FIX ---
+
+            // Ensure normal running is off.
+            animator.SetBool(isRunningHash, false);
         }
         else
         {
+            // --- EXIT COMBAT / NORMAL MOVEMENT LOGIC ---
             if (isInCombatMode)
             {
                 isInCombatMode = false;
                 lockedOnTarget = null;
                 animator.SetBool(combatModeBoolHash, false);
+                animator.SetBool(isMovingForwardHash, false);
+                animator.SetBool(isMovingBackwardHash, false);
+                animator.SetBool(isAttackingBoolHash, false);
             }
-        }
-    }
 
+            // Handle normal running animation ONLY when not in combat.
+            animator.SetBool(isRunningHash, Mathf.Abs(moveInput.x) > 0.1f && isGrounded);
+        }
+
+        // Handle airborne animation universally.
+        animator.SetBool(isFallingHash, !isGrounded && rb.linearVelocity.y < 0);
+    }
 
     // --- STEP 5: THE PUBLIC METHOD FOR THE ATTACK SCRIPT ---
     // Your ZreyAttacks script will call this.

@@ -6779,6 +6779,11 @@ MonoBehaviour:
   canFlip: 1
   dashParticlePrefab: {fileID: 6299253961794609330, guid: 2e9c15a04b6dea94db16ad73c16f06f0, type: 3}
   dashParticleSpawnPoint: {fileID: 5075840690354734784}
+  combatDetectionRange: 32
+  enemyLayer:
+    serializedVersion: 2
+    m_Bits: 256
+  combatRunSpeed: 10
 --- !u!114 &9211028478507294103
 MonoBehaviour:
   m_ObjectHideFlags: 0

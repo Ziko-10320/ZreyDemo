@@ -152,8 +152,8 @@ public class ZreyAttacks : MonoBehaviour
     [SerializeField] private Vector3 vagabondFinisherSnapOffset = new Vector3(1.5f, 0, 0);
 
     private readonly int rootUpperAttackLeftTriggerHash = Animator.StringToHash("RootUpperAttackLeft");
-   
 
+    private readonly int isAttackingBoolHash = Animator.StringToHash("isAttacking");
     private void OnEnable()
     {
         InputManager.OnInteractPressed += HandleInteractionInput;
@@ -384,9 +384,11 @@ public class ZreyAttacks : MonoBehaviour
 
     private void PerformAttack(int step)
     {
+        playerMovement.SetAttacking(true);
         playerMovement.CanMove = false;
         isCustomKnockbackPrimed = false;
         isAttacking = true;
+        animator.SetBool(isAttackingBoolHash, true);
         Physics2D.IgnoreLayerCollision(playerLayerValue, enemyLayerValue, false);
         if (attackWatchdogCoroutine != null) StopCoroutine(attackWatchdogCoroutine);
         attackWatchdogCoroutine = StartCoroutine(AttackWatchdogRoutine());
@@ -668,7 +670,9 @@ public class ZreyAttacks : MonoBehaviour
     }
     public void EndAttack()
     {
+        playerMovement.SetAttacking(false);
         playerMovement.CanMove = true;
+        animator.SetBool(isAttackingBoolHash, false);
         if (attackWatchdogCoroutine != null)
         {
             StopCoroutine(attackWatchdogCoroutine);
