@@ -83393,6 +83393,14 @@ PrefabInstance:
       value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 145530402851806784, guid: 03c0e644632d72741ab866b9c63e36ea, type: 3}
+      propertyPath: RotationModule.enabled
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 145530402851806784, guid: 03c0e644632d72741ab866b9c63e36ea, type: 3}
+      propertyPath: RotationModule.curve.scalar
+      value: 12.217304
+      objectReference: {fileID: 0}
+    - target: {fileID: 145530402851806784, guid: 03c0e644632d72741ab866b9c63e36ea, type: 3}
       propertyPath: InitialModule.startSpeed.scalar
       value: 50
       objectReference: {fileID: 0}
@@ -92094,6 +92102,14 @@ PrefabInstance:
     - target: {fileID: 145530402851806784, guid: 03c0e644632d72741ab866b9c63e36ea, type: 3}
       propertyPath: moveWithTransform
       value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 145530402851806784, guid: 03c0e644632d72741ab866b9c63e36ea, type: 3}
+      propertyPath: RotationModule.enabled
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 145530402851806784, guid: 03c0e644632d72741ab866b9c63e36ea, type: 3}
+      propertyPath: RotationModule.curve.scalar
+      value: 12.217304
       objectReference: {fileID: 0}
     - target: {fileID: 145530402851806784, guid: 03c0e644632d72741ab866b9c63e36ea, type: 3}
       propertyPath: InitialModule.startSpeed.scalar

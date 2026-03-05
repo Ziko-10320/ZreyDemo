@@ -165,6 +165,10 @@ public class ZreyMovements : MonoBehaviour
     private readonly int isMovingForwardHash = Animator.StringToHash("isMovingForward");
     private readonly int isMovingBackwardHash = Animator.StringToHash("isMovingBackward");
     private readonly int isAttackingBoolHash = Animator.StringToHash("isAttacking");
+    private readonly int isChangingDirectionBoolHash = Animator.StringToHash("isChangingDirection");
+    private readonly int rootDashBackwardTriggerHash = Animator.StringToHash("rootDashBackward");
+    private readonly int rootDashBackwardLeftTriggerHash = Animator.StringToHash("rootDashBackwardLeft");
+    private readonly int dashBackTriggerHash = Animator.StringToHash("dashback");
     void Awake()
     {
 
@@ -303,7 +307,7 @@ public class ZreyMovements : MonoBehaviour
         }
 
 
-        if (!isInCombatMode && moveInput.x != 0 && canFlip && !wallJumpInputLocked)
+        if (!isInCombatMode && isGrounded && moveInput.x != 0 && canFlip && !wallJumpInputLocked)
         {
             if (moveInput.x < 0 && isFacingRight) { Flip(); }
             else if (moveInput.x > 0 && !isFacingRight) { Flip(); }
@@ -383,38 +387,38 @@ public class ZreyMovements : MonoBehaviour
             // 4. Apply the velocity directly to the Rigidbody.
             rb.linearVelocity = new Vector2(currentDashSpeed * dashDirection, 0);
         }
-        if (justWallJumped)
+        if (isInCombatMode && isGrounded && lockedOnTarget != null)
         {
-            if (wallJumpInputLocked)
-            {
-                // During the input lock, the initial velocity from PerformWallJump() is maintained.
-                return;
-            }
-            // After the lock, the player can take over.
-            if (moveInput.x != 0)
-            {
-                rb.linearVelocity = new Vector2(moveInput.x * runSpeed, rb.linearVelocity.y);
-                justWallJumped = false;
-            }
-            // If there's no input, we let the momentum continue until it naturally decays or hits something.
-            // We do NOT set velocity to zero here.
-        }
-        // PRIORITY #3: COMBAT MODE
-        // If not attacking or wall jumping, check for combat mode.
-        else if (isInCombatMode && lockedOnTarget != null)
-        {
+            // RESULT: LOCK-ON IS ACTIVE.
+            // The game forces your facing direction.
             ForceFaceDirection(lockedOnTarget.position.x > transform.position.x);
+            // Apply combat speed.
             rb.linearVelocity = new Vector2(moveInput.x * combatRunSpeed, rb.linearVelocity.y);
         }
-        // PRIORITY #4: NORMAL MOVEMENT
-        // If none of the above are true, perform normal, non-combat movement.
+        // PRIORITY #2: If not locked on (either not in combat OR in the air), do normal movement.
         else
         {
-            if (!justGrappleJumped) // Respect grapple momentum
+            // RESULT: AERIAL FREEDOM / NORMAL MOVEMENT.
+            // The player has full control over flipping.
+            if (moveInput.x < 0 && isFacingRight) { Flip(); }
+            else if (moveInput.x > 0 && !isFacingRight) { Flip(); }
+
+            // Apply normal movement physics (this also handles wall jumps correctly).
+            if (justWallJumped)
+            {
+                if (wallJumpInputLocked) return;
+                if (moveInput.x != 0)
+                {
+                    rb.linearVelocity = new Vector2(moveInput.x * runSpeed, rb.linearVelocity.y);
+                    justWallJumped = false;
+                }
+            }
+            else if (!justGrappleJumped)
             {
                 rb.linearVelocity = new Vector2(moveInput.x * runSpeed, rb.linearVelocity.y);
             }
         }
+       
     }
     // --- PUBLIC METHODS FOR ANIMATION EVENTS ---
     /// </summary>
@@ -518,28 +522,49 @@ public class ZreyMovements : MonoBehaviour
             Debug.Log("<color=orange>Dash Input Ignored: A root motion action is already in progress.</color>");
             return;
         }
-
         if (isGrounded)
         {
-            // --- THIS IS THE FINAL, GUARANTEED FIX ---
+            // --- THIS IS THE GUARANTEED FIX ---
+            // THE NEW BRAIN FOR THE GROUND DASH
 
-            // 1. Trigger the visual animation on the player.
-            animator.SetTrigger(dashTriggerHash);
+            // 1. Determine the player's intent based on input.
+            bool wantsToMoveBackward = (moveInput.x < -0.1f && isFacingRight) || (moveInput.x > 0.1f && !isFacingRight);
 
-            if (isGrounded)
+            // 2. We are in combat mode AND the player wants to move backward.
+            if (isInCombatMode && wantsToMoveBackward)
             {
-                // --- THIS IS THE FIX ---
-                // Trigger the visual animation.
-                animator.SetTrigger(dashTriggerHash);
+                Debug.Log("<color=orange>--- Performing GROUND BACKWARD Dash ---</color>");
+                // Play the generic dash animation for the player model
+                animator.SetTrigger(dashBackTriggerHash); // You can create a new "dashBackward" trigger if you have a different visual animation
+
+                // Trigger the correct ROOT MOTION animation based on facing direction
                 if (isFacingRight)
                 {
-                    InitiateRootMotion(rootDashTriggerHash, 0.3f); // Call the renamed method
+                    // Facing right, but moving left -> Play the backward dash that moves left
+                    InitiateRootMotion(rootDashBackwardLeftTriggerHash, 0.3f);
                 }
                 else
                 {
-                    InitiateRootMotion(rootDashLeftTriggerHash, 0.3f); // Call the renamed method
+                    // Facing left, but moving right -> Play the backward dash that moves right
+                    InitiateRootMotion(rootDashBackwardTriggerHash, 0.3f);
                 }
             }
+            // 3. Default Case: Forward Dash
+            else
+            {
+                Debug.Log("<color=green>--- Performing GROUND FORWARD Dash ---</color>");
+                // This is your existing, correct forward dash logic.
+                animator.SetTrigger(dashTriggerHash);
+                if (isFacingRight)
+                {
+                    InitiateRootMotion(rootDashTriggerHash, 0.3f);
+                }
+                else
+                {
+                    InitiateRootMotion(rootDashLeftTriggerHash, 0.3f);
+                }
+            }
+            // --- END OF THE GUARANTEED FIX ---
         }
         else
         {
@@ -892,7 +917,7 @@ public class ZreyMovements : MonoBehaviour
             animator.SetBool(isMovingBackwardHash, false);
             return;
         }
-
+        animator.SetBool(isChangingDirectionBoolHash, false);
         // --- Combat Detection ---
         Collider2D[] enemiesInRange = Physics2D.OverlapCircleAll(transform.position, combatDetectionRange, enemyLayer);
 
@@ -921,37 +946,53 @@ public class ZreyMovements : MonoBehaviour
 
             // --- THIS IS THE FINAL, GUARANTEED ANIMATION FIX ---
             bool isMoving = Mathf.Abs(moveInput.x) > 0.1f;
-
-            // We ONLY set movement booleans if the player is actually pressing a key.
+            bool wasMovingForward = animator.GetBool(isMovingForwardHash);
+            bool wasMovingBackward = animator.GetBool(isMovingBackwardHash);
             if (isMoving)
             {
                 bool isMovingTowardsEnemy = (Mathf.Sign(moveInput.x) == Mathf.Sign(lockedOnTarget.position.x - transform.position.x));
+
+                // --- THE VETO LOGIC ---
+                // Did we just switch from backward to forward?
+                if (isMovingTowardsEnemy && wasMovingBackward)
+                {
+                    animator.SetBool(isChangingDirectionBoolHash, true);
+                }
+                // Did we just switch from forward to backward?
+                else if (!isMovingTowardsEnemy && wasMovingForward)
+                {
+                    animator.SetBool(isChangingDirectionBoolHash, true);
+                }
+                // --- END VETO LOGIC ---
+
                 animator.SetBool(isMovingForwardHash, isMovingTowardsEnemy);
                 animator.SetBool(isMovingBackwardHash, !isMovingTowardsEnemy);
             }
-            else // If there is NO input, we force all movement booleans to FALSE.
+            else
             {
+                // If not moving, both are false.
                 animator.SetBool(isMovingForwardHash, false);
                 animator.SetBool(isMovingBackwardHash, false);
             }
-            // --- END OF FINAL FIX ---
-
-            // Ensure normal running is off.
             animator.SetBool(isRunningHash, false);
         }
         else
         {
             // --- EXIT COMBAT / NORMAL MOVEMENT LOGIC ---
-            if (isInCombatMode)
+            if (!isGrounded)
             {
-                isInCombatMode = false;
-                lockedOnTarget = null;
-                animator.SetBool(combatModeBoolHash, false);
-                animator.SetBool(isMovingForwardHash, false);
-                animator.SetBool(isMovingBackwardHash, false);
-                animator.SetBool(isAttackingBoolHash, false);
+                // If we were in combat mode, force an exit.
+                if (isInCombatMode)
+                {
+                    isInCombatMode = false;
+                    lockedOnTarget = null;
+                    animator.SetBool(combatModeBoolHash, false);
+                    animator.SetBool(isMovingForwardHash, false);
+                    animator.SetBool(isMovingBackwardHash, false);
+                }
+                // The brain does nothing else while airborne.
+                return;
             }
-
             // Handle normal running animation ONLY when not in combat.
             animator.SetBool(isRunningHash, Mathf.Abs(moveInput.x) > 0.1f && isGrounded);
         }
