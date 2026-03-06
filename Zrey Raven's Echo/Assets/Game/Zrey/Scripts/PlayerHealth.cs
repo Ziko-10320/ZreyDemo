@@ -207,6 +207,7 @@ public class PlayerHealth : MonoBehaviour
             playerMovements.CanMove = true;
             currentShieldHealth -= parryShieldCost;
             currentShieldHealth = Mathf.Max(0, currentShieldHealth); // Don't go below zero
+            postureDamageTimer = 0f;
 
             // After the cost is paid, check if the shield broke.
             if (currentShieldHealth <= 0)
