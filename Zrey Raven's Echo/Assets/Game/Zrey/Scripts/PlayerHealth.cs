@@ -11,6 +11,19 @@ public class PlayerHealth : MonoBehaviour
     [SerializeField] private int maxHealth = 100;
     [SerializeField] private GameObject deathPanel;
     private int currentHealth;
+    [Header("UI Sliders")]
+    [SerializeField] private Slider healthSlider;
+    [SerializeField] private Slider healthDelayedSlider;
+    [SerializeField] private Slider postureSlider;
+    [SerializeField] private Slider postureDelayedSlider;
+    [SerializeField] private CanvasGroup healthCanvasGroup;
+    [SerializeField] private CanvasGroup postureCanvasGroup;
+    [SerializeField] private float healthDelayBeforeCatchUp = 0.8f;
+    [SerializeField] private float healthCatchUpSpeed = 0.4f;
+    [SerializeField] private float postureDelayBeforeCatchUp = 0.8f;
+    [SerializeField] private float postureCatchUpSpeed = 0.4f;
+    [SerializeField] private float guardBreakEmptyDisplayDuration = 1f;
+    [SerializeField] private float fadeSpeed = 2f;
 
     [Header("Posture/Shield UI")]
     [SerializeField] private int maxShieldHealth = 100;
@@ -29,7 +42,8 @@ public class PlayerHealth : MonoBehaviour
     private Animator animator;
     private ZreyAttacks playerAttacks;
     private Coroutine knockbackCoroutine;
-
+    private float healthDamageTimer;
+    private float postureDamageTimer;
     // --- Animation Hashes ---
     private readonly int getHitBackTriggerHash = Animator.StringToHash("getHitBack");
     private readonly int getHitDownTriggerHash = Animator.StringToHash("getHitDown");
@@ -100,7 +114,31 @@ public class PlayerHealth : MonoBehaviour
         currentShieldHealth = maxShieldHealth;
       
     }
+    void Update()
+    {
+        float healthNorm = (float)currentHealth / maxHealth;
+        float postureNorm = (float)currentShieldHealth / maxShieldHealth;
 
+        // Snap main sliders
+        healthSlider.value = healthNorm;
+        postureSlider.value = postureNorm;
+
+        // Delayed bars catch up after delay
+        healthDamageTimer += Time.deltaTime;
+        postureDamageTimer += Time.deltaTime;
+
+        if (healthDamageTimer > healthDelayBeforeCatchUp)
+            healthDelayedSlider.value = Mathf.MoveTowards(healthDelayedSlider.value, healthNorm, healthCatchUpSpeed * Time.deltaTime);
+
+        if (postureDamageTimer > postureDelayBeforeCatchUp)
+            postureDelayedSlider.value = Mathf.MoveTowards(postureDelayedSlider.value, postureNorm, postureCatchUpSpeed * Time.deltaTime);
+
+        // Fading
+        float targetHealthAlpha = currentHealth <= 0 ? 0f : 1f;
+        float targetPostureAlpha = currentShieldHealth <= 0 ? 0f : 1f;
+        healthCanvasGroup.alpha = Mathf.MoveTowards(healthCanvasGroup.alpha, targetHealthAlpha, fadeSpeed * Time.deltaTime);
+        postureCanvasGroup.alpha = Mathf.MoveTowards(postureCanvasGroup.alpha, targetPostureAlpha, fadeSpeed * Time.deltaTime);
+    }
     private void OnEnable()
     {
         inputActions.Enable();
@@ -155,7 +193,7 @@ public class PlayerHealth : MonoBehaviour
     {
         if (IsInvincible) { Debug.Log("Damage ignored: Player is invincible."); return; }
         if (currentHealth <= 0) return;
-
+  
         if (isParryWindowActive)
         {
             Debug.Log("<color=lime>PARRY SUCCESSFUL!</color>");
@@ -216,6 +254,7 @@ public class PlayerHealth : MonoBehaviour
                 CameraShakerHandler.Shake(CameraShakeParry);
 
                 currentShieldHealth -= damageAmount;
+                postureDamageTimer = 0f;
                 currentShieldHealth = Mathf.Max(0, currentShieldHealth);
                 // FIX: This now correctly sets slider via normalized value
                 if (blockVFX != null) Instantiate(blockVFX, defenseVFXSpawnPoint.position, Quaternion.identity);
@@ -246,6 +285,7 @@ public class PlayerHealth : MonoBehaviour
         }
 
         currentHealth -= damageAmount;
+        healthDamageTimer = 0f;
         currentHealth = Mathf.Max(0, currentHealth);
        
 
@@ -267,6 +307,7 @@ public class PlayerHealth : MonoBehaviour
         Debug.LogWarning($"<color=red>!!! PLAYER TOOK UNBLOCKABLE DAMAGE: {damageAmount} !!!</color>");
 
         currentHealth -= damageAmount;
+        healthDamageTimer = 0f;
         currentHealth = Mathf.Max(0, currentHealth);
        
 
@@ -285,6 +326,7 @@ public class PlayerHealth : MonoBehaviour
         Debug.LogWarning($"<color=orange>PLAYER HIT A HAZARD! Taking {damageAmount} damage.</color>");
 
         currentHealth -= damageAmount;
+        healthDamageTimer = 0f;
         currentHealth = Mathf.Max(0, currentHealth);
         
 
@@ -485,7 +527,10 @@ public class PlayerHealth : MonoBehaviour
 
         float timer = 0f;
         float startShieldHealth = 0; // We always start from zero after a break.
-        currentShieldHealth = 0; // Set it to 0 at the beginning.
+        currentShieldHealth = 0;
+        postureDelayedSlider.value = 0f;
+        postureDamageTimer = 0f;
+        yield return new WaitForSeconds(guardBreakEmptyDisplayDuration);// Set it to 0 at the beginning.
 
         // This loop runs for the entire duration of the stun.
         while (timer < guardBreakStunDuration)
