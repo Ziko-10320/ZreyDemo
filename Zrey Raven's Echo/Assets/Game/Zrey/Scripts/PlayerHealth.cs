@@ -9,10 +9,6 @@ public class PlayerHealth : MonoBehaviour
 {
     [Header("Health & UI")]
     [SerializeField] private int maxHealth = 100;
-    [SerializeField] private Slider healthSlider;
-    [SerializeField] private Slider healthDelayedFill;
-    // ADD a CanvasGroup on the health bar's ROOT GameObject in the Inspector
-    [SerializeField] private CanvasGroup healthBarCanvasGroup;
     [SerializeField] private GameObject deathPanel;
     private int currentHealth;
 
@@ -21,19 +17,8 @@ public class PlayerHealth : MonoBehaviour
     [SerializeField] private float shieldRegenDelay = 2.5f;
     [SerializeField] private float shieldRegenRate = 20f;
     [SerializeField] private float guardBreakStunDuration = 3f;
-    [SerializeField] private Slider shieldSlider;
-    [Tooltip("The secondary (background) SLIDER for the delayed posture drop effect.")]
-    [SerializeField] private Slider shieldDelayedFill;
-    // ADD a CanvasGroup on the shield/posture bar's ROOT GameObject in the Inspector
-    [SerializeField] private CanvasGroup shieldBarCanvasGroup;
 
-    [Header("UI Animation Settings")]
-    [SerializeField] private float healthFillSpeed = 5f;
-    [SerializeField] private float healthFillDelay = 0.5f;
-    [SerializeField] private float postureFillSpeed = 8f;
-    [SerializeField] private float postureFillDelay = 0.2f;
-    [Tooltip("How long the slider takes to fade in/out when hitting 0.")]
-    [SerializeField] private float sliderFadeDuration = 0.5f;
+
 
     [Header("Impact & VFX")]
     [SerializeField] private GameObject bloodVFX;
@@ -88,15 +73,12 @@ public class PlayerHealth : MonoBehaviour
     public bool IsGrabbed { get; private set; } = false;
     public bool IsInvincible { get; private set; } = false;
 
-    private Coroutine healthUpdateCoroutine;
-    private Coroutine postureUpdateCoroutine;
-    private Coroutine healthFadeCoroutine;
-    private Coroutine shieldFadeCoroutine;
+ 
 
     private int currentShieldHealth;
     private bool isShieldBroken = false;
     private Coroutine shieldRegenCoroutine;
-
+    private Coroutine guardBreakCoroutine;
     private readonly int guardBrokenTriggerHash = Animator.StringToHash("guardBroken");
     private readonly int isWeakBoolHash = Animator.StringToHash("isWeak");
     private readonly int recoverShieldTriggerHash = Animator.StringToHash("recoverShield");
@@ -114,15 +96,9 @@ public class PlayerHealth : MonoBehaviour
 
         inputActions = new InputSystem_Actions();
         if (checkpointManager == null) checkpointManager = FindFirstObjectByType<CheckpointManager>();
-
-        // --- FIX: Initialize sliders properly with min=0, max=1 ---
-        if (healthSlider != null) { healthSlider.minValue = 0f; healthSlider.maxValue = 1f; }
-        if (healthDelayedFill != null) { healthDelayedFill.minValue = 0f; healthDelayedFill.maxValue = 1f; }
-        if (shieldSlider != null) { shieldSlider.minValue = 0f; shieldSlider.maxValue = 1f; }
-        if (shieldDelayedFill != null) { shieldDelayedFill.minValue = 0f; shieldDelayedFill.maxValue = 1f; }
-
+ 
         currentShieldHealth = maxShieldHealth;
-        TriggerPostureUpdate();
+      
     }
 
     private void OnEnable()
@@ -132,124 +108,7 @@ public class PlayerHealth : MonoBehaviour
         inputActions.Player.Block.canceled += HandleBlockInput;
     }
 
-    #region UI Update Logic
-
-    private void TriggerHealthUpdate()
-    {
-        if (healthUpdateCoroutine != null) StopCoroutine(healthUpdateCoroutine);
-        healthUpdateCoroutine = StartCoroutine(UpdateHealthBarRoutine());
-
-        // Handle fade based on value
-        if (healthBarCanvasGroup != null)
-        {
-            bool shouldBeVisible = currentHealth > 0;
-            if (healthFadeCoroutine != null) StopCoroutine(healthFadeCoroutine);
-            healthFadeCoroutine = StartCoroutine(FadeCanvasGroup(healthBarCanvasGroup, shouldBeVisible ? 1f : 0f, sliderFadeDuration));
-        }
-    }
-
-    private void TriggerPostureUpdate()
-    {
-        if (postureUpdateCoroutine != null) StopCoroutine(postureUpdateCoroutine);
-        postureUpdateCoroutine = StartCoroutine(UpdatePostureBarRoutine());
-
-        // Handle fade based on value
-        if (shieldBarCanvasGroup != null)
-        {
-            bool shouldBeVisible = currentShieldHealth > 0;
-            if (shieldFadeCoroutine != null) StopCoroutine(shieldFadeCoroutine);
-            shieldFadeCoroutine = StartCoroutine(FadeCanvasGroup(shieldBarCanvasGroup, shouldBeVisible ? 1f : 0f, sliderFadeDuration));
-        }
-    }
-
-    // FIX BUG 1 & 2: All slider values are now normalized (0.0 - 1.0).
-    // The raw int value was being set directly before, clamping the slider at max.
-    private IEnumerator UpdateHealthBarRoutine()
-    {
-        if (healthSlider == null) yield break;
-
-        float targetFill = (float)currentHealth / maxHealth;
-
-        // Main slider snaps instantly
-        healthSlider.value = targetFill;
-
-        // Handle fade based on value
-        if (healthBarCanvasGroup != null)
-        {
-            bool shouldBeVisible = currentHealth > 0;
-            if (healthFadeCoroutine != null) StopCoroutine(healthFadeCoroutine);
-            healthFadeCoroutine = StartCoroutine(FadeCanvasGroup(healthBarCanvasGroup, shouldBeVisible ? 1f : 0f, sliderFadeDuration));
-        }
-
-        if (healthDelayedFill != null)
-        {
-            yield return new WaitForSeconds(healthFillDelay);
-            float currentFill = healthDelayedFill.value;
-            while (Mathf.Abs(currentFill - targetFill) > 0.001f)
-            {
-                currentFill = Mathf.Lerp(currentFill, targetFill, Time.deltaTime * healthFillSpeed);
-                healthDelayedFill.value = currentFill;
-                yield return null;
-            }
-            healthDelayedFill.value = targetFill;
-        }
-    }
-
-    private IEnumerator UpdatePostureBarRoutine()
-    {
-        if (shieldSlider == null) yield break;
-
-        float targetFill = (float)currentShieldHealth / maxShieldHealth;
-
-        // Handle fade based on value
-        if (shieldBarCanvasGroup != null)
-        {
-            bool shouldBeVisible = currentShieldHealth > 0;
-            if (shieldFadeCoroutine != null) StopCoroutine(shieldFadeCoroutine);
-            shieldFadeCoroutine = StartCoroutine(FadeCanvasGroup(shieldBarCanvasGroup, shouldBeVisible ? 1f : 0f, sliderFadeDuration));
-        }
-
-        // Animate the MAIN posture slider
-        float currentSliderValue = shieldSlider.value;
-        while (Mathf.Abs(currentSliderValue - targetFill) > 0.001f)
-        {
-            currentSliderValue = Mathf.Lerp(currentSliderValue, targetFill, Time.deltaTime * postureFillSpeed);
-            shieldSlider.value = currentSliderValue;
-            yield return null;
-        }
-        shieldSlider.value = targetFill;
-
-        // Animate the DELAYED posture slider
-        if (shieldDelayedFill != null)
-        {
-            yield return new WaitForSeconds(postureFillDelay);
-            float currentDelayedFill = shieldDelayedFill.value;
-            while (Mathf.Abs(currentDelayedFill - targetFill) > 0.001f)
-            {
-                currentDelayedFill = Mathf.Lerp(currentDelayedFill, targetFill, Time.deltaTime * postureFillSpeed);
-                shieldDelayedFill.value = currentDelayedFill;
-                yield return null;
-            }
-            shieldDelayedFill.value = targetFill;
-        }
-    }
-
-    // NEW: Generic fade coroutine for any CanvasGroup
-    private IEnumerator FadeCanvasGroup(CanvasGroup cg, float targetAlpha, float duration)
-    {
-        float startAlpha = cg.alpha;
-        float timer = 0f;
-
-        while (timer < duration)
-        {
-            timer += Time.deltaTime;
-            cg.alpha = Mathf.Lerp(startAlpha, targetAlpha, timer / duration);
-            yield return null;
-        }
-        cg.alpha = targetAlpha;
-    }
-
-    #endregion
+   
 
     private void OnDisable()
     {
@@ -276,7 +135,7 @@ public class PlayerHealth : MonoBehaviour
     void Start()
     {
         currentHealth = maxHealth;
-        TriggerHealthUpdate();
+       
         if (deathPanel != null) deathPanel.SetActive(false);
     }
 
@@ -358,8 +217,8 @@ public class PlayerHealth : MonoBehaviour
 
                 currentShieldHealth -= damageAmount;
                 currentShieldHealth = Mathf.Max(0, currentShieldHealth);
-                TriggerPostureUpdate(); // FIX: This now correctly sets slider via normalized value
-
+                // FIX: This now correctly sets slider via normalized value
+                if (blockVFX != null) Instantiate(blockVFX, defenseVFXSpawnPoint.position, Quaternion.identity);
                 if (knockbackCoroutine != null) StopCoroutine(knockbackCoroutine);
 
                 ImpactData parryImpact = ScriptableObject.CreateInstance<ImpactData>();
@@ -371,9 +230,16 @@ public class PlayerHealth : MonoBehaviour
                 if (shieldRegenCoroutine != null) StopCoroutine(shieldRegenCoroutine);
 
                 if (currentShieldHealth <= 0)
+                {
                     StartCoroutine(GuardBreakRoutine());
+                }
                 else
+                {
+                    // --- THIS IS THE GUARANTEED FIX ---
+                    // ALWAYS start a new regen timer after taking shield damage.
                     shieldRegenCoroutine = StartCoroutine(ShieldRegenRoutine());
+                    // --- END OF THE GUARANTEED FIX ---
+                }
 
                 return;
             }
@@ -381,7 +247,7 @@ public class PlayerHealth : MonoBehaviour
 
         currentHealth -= damageAmount;
         currentHealth = Mathf.Max(0, currentHealth);
-        TriggerHealthUpdate(); // FIX: This now correctly sets slider via normalized value
+       
 
         if (impact == null) { Debug.LogWarning("TakeDamage was called with null ImpactData!"); return; }
         Debug.Log($"<color=red>PLAYER TOOK DAMAGE. Health: {currentHealth}/{maxHealth}</color>");
@@ -402,7 +268,7 @@ public class PlayerHealth : MonoBehaviour
 
         currentHealth -= damageAmount;
         currentHealth = Mathf.Max(0, currentHealth);
-        TriggerHealthUpdate(); // FIX: normalized update
+       
 
         if (currentHealth <= 0) { Die(attacker); return; }
 
@@ -420,7 +286,7 @@ public class PlayerHealth : MonoBehaviour
 
         currentHealth -= damageAmount;
         currentHealth = Mathf.Max(0, currentHealth);
-        TriggerHealthUpdate(); // FIX: normalized update
+        
 
         if (currentHealth <= 0)
             Die(null);
@@ -519,6 +385,8 @@ public class PlayerHealth : MonoBehaviour
 
     private void StartBlocking()
     {
+        if (isShieldBroken || isStunned) { Debug.LogWarning("Block ignored: Shield broken or stunned."); return; }
+
         if (IsGrabbed) { Debug.LogWarning("Block Input Ignored: Player is GRABBED."); return; }
         if (playerAttacks != null && playerAttacks.IsInCinematicState) { Debug.Log("Block Input Ignored: In Cinematic State."); return; }
         if (playerAttacks != null) playerAttacks.CancelAttack();
@@ -586,53 +454,89 @@ public class PlayerHealth : MonoBehaviour
         else Debug.LogError("ReleaseFromGrab failed: ZreyMovements script not found!");
         if (playerAttacks != null) playerAttacks.ForceResetState();
 
-        StopAllCoroutines();
+        if (knockbackCoroutine != null) StopCoroutine(knockbackCoroutine);
+        if (guardBreakCoroutine != null) StopCoroutine(guardBreakCoroutine);
         if (playerMovements != null) playerMovements.CanMove = true;
         if (rb != null) rb.linearVelocity = new Vector2(0, rb.linearVelocity.y);
     }
 
     private IEnumerator GuardBreakRoutine()
     {
+        if (isShieldBroken)
+        {
+            yield break; // Exit the coroutine immediately. Do nothing.
+        }
+        // --- PHASE 1: THE PUNISHMENT (This part is correct) ---
+        Debug.LogError("--- PLAYER GUARD BROKEN! STUNNED! ---");
         isShieldBroken = true;
         isStunned = true;
-        StopBlocking();
+        isBeingKnockedBack = true; // Use this to lock movement
+
+        StopBlocking(); // Force the block to end
+
         if (playerMovements != null) playerMovements.CanMove = false;
+        if (playerAttacks != null) playerAttacks.CancelAttack();
+        if (rb != null) rb.linearVelocity = Vector2.zero;
 
         animator.SetTrigger(guardBrokenTriggerHash);
-        yield return null;
+        yield return null; // Wait a frame for the trigger to register
         animator.SetBool(isWeakBoolHash, true);
+        Debug.Log("<color=yellow>--- Starting Parallel Shield Regen during Stun ---</color>");
 
-        yield return new WaitForSeconds(guardBreakStunDuration);
+        float timer = 0f;
+        float startShieldHealth = 0; // We always start from zero after a break.
+        currentShieldHealth = 0; // Set it to 0 at the beginning.
+
+        // This loop runs for the entire duration of the stun.
+        while (timer < guardBreakStunDuration)
+        {
+            // Calculate how far through the stun we are (a value from 0 to 1).
+            float progress = timer / guardBreakStunDuration;
+
+            // Use Lerp to smoothly move the shield health from 0 to max.
+            currentShieldHealth = (int)Mathf.Lerp(startShieldHealth, maxShieldHealth, progress);
+
+            // Increment the timer.
+            timer += Time.deltaTime;
+            yield return null; // Wait for the next frame.
+        }
+        currentShieldHealth = maxShieldHealth;
 
         animator.SetBool(isWeakBoolHash, false);
         animator.SetTrigger(recoverShieldTriggerHash);
+
+        // Wait for the "get up" animation to have some time to play
+        yield return new WaitForSeconds(0.3f);
+
+        // --- THE FORCED AWAKENING ---
+        // 1. Unlock all the state flags.
         isStunned = false;
+        isBeingKnockedBack = false;
         isShieldBroken = false;
+
+        // 2. Give control back to the player.
         if (playerMovements != null) playerMovements.CanMove = true;
 
-        currentShieldHealth = maxShieldHealth;
-        TriggerPostureUpdate(); // Will also trigger fade-in since value > 0 now
-
-        Debug.Log("<color=green>Shield recovered after guard break!</color>");
+        if (shieldRegenCoroutine != null) StopCoroutine(shieldRegenCoroutine);
+        shieldRegenCoroutine = StartCoroutine(ShieldRegenRoutine());
     }
-
     private IEnumerator ShieldRegenRoutine()
     {
+        Debug.Log("<color=yellow>--- SHIELD REGEN ROUTINE STARTED. Waiting " + shieldRegenDelay + " seconds... ---</color>");
         yield return new WaitForSeconds(shieldRegenDelay);
+        Debug.Log("<color=yellow>--- SHIELD REGEN DELAY OVER. Starting to fill... Current: " + currentShieldHealth + " ---</color>");
 
-        // This loop now smoothly regenerates the shield AND updates the UI correctly.
-        while (currentShieldHealth < maxShieldHealth)
+
+        float regenAccumulator = currentShieldHealth; // Use a float accumulator
+
+        while (regenAccumulator < maxShieldHealth)
         {
-            // Regenerate the value
-            currentShieldHealth += Mathf.RoundToInt(shieldRegenRate * Time.deltaTime);
-            currentShieldHealth = Mathf.Clamp(currentShieldHealth, 0, maxShieldHealth);
-
-            // Animate the UI to the new value
-            TriggerPostureUpdate();
-
+            regenAccumulator += shieldRegenRate * Time.deltaTime;
+            currentShieldHealth = Mathf.Clamp(Mathf.FloorToInt(regenAccumulator), 0, maxShieldHealth);
             yield return null;
         }
 
+        currentShieldHealth = maxShieldHealth;
         Debug.Log("<color=cyan>Shield fully regenerated.</color>");
     }
 
@@ -642,7 +546,7 @@ public class PlayerHealth : MonoBehaviour
         if (checkpointManager != null) checkpointManager.RespawnAtMajorCheckpoint();
 
         currentHealth = maxHealth;
-        TriggerHealthUpdate();
+
 
         animator.SetTrigger(deathTriggerHash);
         playerAttacks.enabled = false;
@@ -672,7 +576,9 @@ public class PlayerHealth : MonoBehaviour
         isShieldBroken = false;
         animator.SetBool(isWeakBoolHash, false);
         if (animator != null) animator.SetTrigger(stopBlockTriggerHash);
-        StopAllCoroutines();
+        if (knockbackCoroutine != null) StopCoroutine(knockbackCoroutine);
+        if (parryWindowCoroutine != null) StopCoroutine(parryWindowCoroutine);
+        if (guardBreakCoroutine != null) StopCoroutine(guardBreakCoroutine);
     }
 
     private IEnumerator DeathSequence()

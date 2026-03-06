@@ -243,6 +243,7 @@ public class KnightAttack : MonoBehaviour
     /// </summary>
     public void StopSpecialDamage()
     {
+
         Debug.Log("<color=grey>Special Damage Over Time STOPPED</color>");
         if (knightAI != null)
         {

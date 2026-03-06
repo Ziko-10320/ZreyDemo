@@ -404,7 +404,7 @@ public class KnightAI : MonoBehaviour
         specialAttackCooldownTimer = Random.Range(minSpecialAttackCooldown, maxSpecialAttackCooldown);
         Debug.Log($"Special Attack cooldown reset. Next attempt in {specialAttackCooldownTimer} seconds.");
     }
-    public void OnPlayerCounterAttempt(ZreyAttacks player)
+    public bool OnPlayerCounterAttempt(ZreyAttacks player)
     {
         // 1. The Knight hears the player's broadcast.
         Debug.LogWarning("--- KnightAI heard player's counter broadcast. Checking conditions... ---");
@@ -415,12 +415,9 @@ public class KnightAI : MonoBehaviour
             // 3. SUCCESS! The conditions are met. The Knight takes command.
             Debug.LogError("--- GRAB COUNTER SUCCESS! Knight is in command! ---");
             StartCoroutine(ExecuteGrabCounterSequence(player));
+            return true;
         }
-        else
-        {
-            Debug.Log("Counter attempt failed. Conditions not met." +
-                      $" isCounterWindowOpen: {isCounterWindowOpen}, isPlayerInCounterBox: {isPlayerInCounterBox}");
-        }
+        return false;
     }
 
 

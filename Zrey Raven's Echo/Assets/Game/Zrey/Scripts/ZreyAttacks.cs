@@ -965,43 +965,48 @@ public class ZreyAttacks : MonoBehaviour
     }
     private void HandleInteractionInput()
     {
-        // This method is called every time the 'C' button is pressed.
-        // It decides what to do based on priority.
-
-        // PRIORITY #1: FINISHER
-        // First, we try to perform a finisher. We will create a new method
-        // that returns 'true' if it succeeds and 'false' if it fails.
-        bool finisherSuccess =  AttemptFinisher();
-
-        // If the finisher was successful, we do nothing else.
-        if (finisherSuccess)
+        // Block ALL counter input if player is stunned
+        if (playerHealth != null && playerHealth.isStunned)
         {
+            Debug.Log("<color=orange>Counter Input Ignored: Player is stunned.</color>");
             return;
         }
-        BroadcastCounterAttempt();
-        // PRIORITY #2: COUNTER
-        // If the finisher failed, we then attempt a counter by firing our
-        // own event for any nearby enemies to hear.
+        if (playerHealth != null && playerHealth.IsGrabbed) return;
+        if (isAttacking || IsInCinematicState) return;
+
+        // PRIORITY #1: FINISHER
+        bool finisherSuccess = AttemptFinisher();
+        if (finisherSuccess) return;
+
+        // PRIORITY #2: VAGABOND COUNTER (Knight enemy only)
+        bool vagabondSuccess = BroadcastCounterAttempt();
+        if (vagabondSuccess) return;
+
+        // PRIORITY #3: KNIGHT COUNTER (Spear enemy only) — only fires if Vagabond failed
         OnPlayerCounterAttempt?.Invoke();
     }
-    private void BroadcastCounterAttempt()
+    private bool BroadcastCounterAttempt()
     {
-        Debug.Log("<color=cyan>--- PLAYER BROADCASTING COUNTER ATTEMPT ---</color>");
+        Debug.Log("<color=cyan>--- PLAYER BROADCASTING VAGABOND COUNTER ATTEMPT ---</color>");
 
-        // 1. Find all enemies in a radius.
         Collider2D[] nearbyEnemies = Physics2D.OverlapCircleAll(transform.position, counterBroadcastRange, enemyLayer);
 
         foreach (Collider2D enemyCollider in nearbyEnemies)
         {
-            // 2. Get the Knight's AI script.
             KnightAI knightAI = enemyCollider.GetComponent<KnightAI>();
             if (knightAI != null)
             {
-                // 3. Tell the Knight, "I just pressed the counter button."
-                //    The Knight will then decide if it was successful.
-                knightAI.OnPlayerCounterAttempt(this); // Pass a reference to ourselves.
+                // Ask the knight if it ACCEPTS the counter right now
+                bool accepted = knightAI.OnPlayerCounterAttempt(this);
+                if (accepted)
+                {
+                    Debug.Log("<color=lime>Vagabond Counter ACCEPTED by Knight enemy.</color>");
+                    return true; // Knight accepted — stop here, never fire KnightCounter
+                }
             }
         }
+
+        return false; // No knight accepted the counter
     }
     public void ExecuteVagabondCounter(float sequenceDuration)
     {
@@ -1178,6 +1183,10 @@ public class ZreyAttacks : MonoBehaviour
             Debug.Log("<color=green>--- Gravity Scale restored to normal ---</color>");
             rb.gravityScale = originalGravityScale;
         }
+    }
+    public void IsInCinematicState_ForceSet(bool value)
+    {
+        IsInCinematicState = value;
     }
     private void OnDrawGizmosSelected()
     {
