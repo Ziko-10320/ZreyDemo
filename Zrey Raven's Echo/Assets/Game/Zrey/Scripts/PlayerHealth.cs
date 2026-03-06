@@ -30,7 +30,7 @@ public class PlayerHealth : MonoBehaviour
     [SerializeField] private float shieldRegenDelay = 2.5f;
     [SerializeField] private float shieldRegenRate = 20f;
     [SerializeField] private float guardBreakStunDuration = 3f;
-
+    [SerializeField]  private int parryShieldCost = 20;
 
 
     [Header("Impact & VFX")]
@@ -205,7 +205,24 @@ public class PlayerHealth : MonoBehaviour
 
             if (parryVFX != null) Instantiate(parryVFX, defenseVFXSpawnPoint.position, Quaternion.identity);
             playerMovements.CanMove = true;
+            currentShieldHealth -= parryShieldCost;
+            currentShieldHealth = Mathf.Max(0, currentShieldHealth); // Don't go below zero
 
+            // After the cost is paid, check if the shield broke.
+            if (currentShieldHealth <= 0)
+            {
+                // If the parry itself breaks the shield, trigger the guard break sequence.
+                if (guardBreakCoroutine == null) // Check to prevent multiple calls
+                {
+                    guardBreakCoroutine = StartCoroutine(GuardBreakRoutine());
+                }
+            }
+            else
+            {
+                // If the shield didn't break, start the regeneration timer.
+                if (shieldRegenCoroutine != null) StopCoroutine(shieldRegenCoroutine);
+                shieldRegenCoroutine = StartCoroutine(ShieldRegenRoutine());
+            }
             ImpactData parryRecoilImpact = ScriptableObject.CreateInstance<ImpactData>();
             parryRecoilImpact.knockbackDistance = impact.parryKnockbackDistance;
             parryRecoilImpact.knockbackDuration = impact.parryKnockbackDuration;
@@ -427,7 +444,7 @@ public class PlayerHealth : MonoBehaviour
 
     private void StartBlocking()
     {
-        if (isShieldBroken || isStunned) { Debug.LogWarning("Block ignored: Shield broken or stunned."); return; }
+        if (isShieldBroken ) { Debug.LogWarning("Block ignored: Shield broken or stunned."); return; }
 
         if (IsGrabbed) { Debug.LogWarning("Block Input Ignored: Player is GRABBED."); return; }
         if (playerAttacks != null && playerAttacks.IsInCinematicState) { Debug.Log("Block Input Ignored: In Cinematic State."); return; }

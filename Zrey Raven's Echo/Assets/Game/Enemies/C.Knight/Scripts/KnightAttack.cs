@@ -133,6 +133,12 @@ public class KnightAttack : MonoBehaviour
                 PlayerHealth playerHealth = player.GetComponent<PlayerHealth>();
                 if (playerHealth != null)
                 {
+                    if (knightAI != null && knightAI.IsCounterBeingExecuted())
+                    {
+                        Debug.LogWarning("Grab cancelled: player counter is already executing.");
+                        isGrabWindowOpen = false;
+                        return;
+                    }
                     Debug.LogError("--- PLAYER CAUGHT IN GRAB! ---");
                     StopAllMovement();
                     // --- THIS IS THE ALIGNMENT FIX ---

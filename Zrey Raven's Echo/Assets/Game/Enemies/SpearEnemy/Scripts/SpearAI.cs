@@ -60,6 +60,13 @@ public class SpearAI : MonoBehaviour
     [SerializeField] private GameObject finisherPromptUI; 
     [Tooltip("The range within which the player can perform a finisher.")]
     [SerializeField] private float finisherRange = 2.5f;
+
+    [Header("Special Attack Settings")]
+    [Tooltip("The maximum distance from the player at which the AI can decide to use the special attack.")]
+    [SerializeField] private float specialAttackRange = 7f; // Add this new variable"
+
+    [Tooltip("The chance (0 to 1) that the knight will perform a special attack when the cooldown is ready.")]
+  
     private void OnEnable()
     {
         // --- THIS IS THE FIX ---
@@ -77,27 +84,17 @@ public class SpearAI : MonoBehaviour
 
     private void HandleCounterInput()
     {
-        // --- THIS IS THE FIX ---
-        // This method is ONLY called when the counter button is pressed.
+        Debug.LogWarning("!!! SpearAI HEARD OnCounterPressed EVENT !!!");
 
-        // 1. BRUTAL DEBUG: Announce that we heard the event.
-        Debug.LogWarning("!!! KnightAI HEARD OnCounterPressed EVENT !!!");
-
-        // 2. Check the two conditions for a successful counter.
-        //    A. Is the counter window open?
-        //    B. Is the player inside the box?
         if (isCounterWindowOpen && isPlayerInCounterBox)
         {
-            // 3. SUCCESS! The conditions are met. Execute the counter.
-            Debug.LogError("--- SUCCESS! Conditions met. Calling ExecuteCounterSequence() NOW. ---");
+            Debug.LogError("--- SPEAR COUNTER SUCCESS! ---");
             StartCoroutine(ExecuteCounterSequence());
         }
         else
         {
-            Debug.LogWarning("KnightAI heard counter press, but conditions were not met." +
-                             $" isCounterWindowOpen: {isCounterWindowOpen}, isPlayerInCounterBox: {isPlayerInCounterBox}");
+            Debug.LogWarning($"SpearAI counter failed. Window: {isCounterWindowOpen}, InBox: {isPlayerInCounterBox}");
         }
-        // --- END OF FIX ---
     }
     void Awake()
     {
@@ -162,36 +159,36 @@ public class SpearAI : MonoBehaviour
             specialAttackCooldownTimer -= Time.deltaTime;
         }
 
-        // --- THIS IS THE SPECIAL ATTACK DECISION LOGIC ---
-        // HIGHEST PRIORITY CHECK: Should we do the special attack?
-        // 1. Is the cooldown ready?
-        // 2. Are we NOT already doing something important (like a combo or counter)?
         if (specialAttackCooldownTimer <= 0 && !isActionLocked && !attack.IsAttacking())
         {
-            // 3. Roll the dice to see if we should perform the attack.
-            float roll = Random.Range(0f, 1f);
-            if (roll <= specialAttackChance)
-            {
-                isActionLocked = true;
-                Debug.LogWarning("--- AI DECISION: Backstep into Special Attack ---");
+            // --- THIS IS THE GUARANTEED FIX ---
+            // NEW CONDITION: Check the distance to the player.
+            float distanceToPlayer = Vector2.Distance(transform.position, playerTarget.position);
 
-                // 2. Command the KnightAttack script to perform the backstep.
-                if (attack != null)
+            // The AI will only even CONSIDER the attack if the player is in range.
+            if (distanceToPlayer <= specialAttackRange)
+            {
+                // If in range, THEN roll the dice.
+                float roll = Random.Range(0f, 1f);
+                if (roll <= specialAttackChance)
                 {
-                    attack.PerformBackstep();
+                    // SUCCESS: We are in range and the dice roll passed.
+                    isActionLocked = true;
+                    Debug.LogWarning($"--- AI DECISION: Player in range ({distanceToPlayer}m). Backstep into Special Attack ---");
+                    if (attack != null)
+                    {
+                        attack.PerformBackstep();
+                    }
+                    return; // Exit Update
                 }
-
-                return; // CRITICAL: Exit the Update loop immediately.
+                else
+                {
+                    // Failed the roll, reset cooldown.
+                    ResetSpecialAttackCooldown();
+                }
             }
-            else
-            {
-                // 5. FAILED THE ROLL. Reset the cooldown for another attempt later.
-                // This prevents the AI from spamming the check every frame.
-                ResetSpecialAttackCooldown();
-            }
+            // --- END OF THE GUARANTEED FIX ---
         }
-        // --- END OF FIX ---
-
 
     }
     public void TriggerCounterAttack()
@@ -320,6 +317,11 @@ public class SpearAI : MonoBehaviour
     }
     private IEnumerator ExecuteCounterSequence()
     {
+        if (playerAttacks != null && playerAttacks.IsInCinematicState)
+        {
+            Debug.LogWarning("Spear counter ignored: player already in cinematic state.");
+            yield break;
+        }
         if (counterPromptUI != null)
         {
             counterPromptUI.SetActive(false);
@@ -389,7 +391,9 @@ public class SpearAI : MonoBehaviour
 
         // 2. Draw the box with the chosen color.
         Gizmos.DrawWireCube(counterCheckPoint.position, counterCheckAreaSize);
-        // --- END OF FIX ---
+        Gizmos.color = Color.red;
+        Gizmos.DrawWireSphere(transform.position, specialAttackRange);
+        
     }
     public void SpawnCounterBloodEffect()
     {

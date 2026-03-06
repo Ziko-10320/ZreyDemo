@@ -80,51 +80,15 @@ public class KnightAI : MonoBehaviour
     [SerializeField] private float handLaunchTorque = 2f;
     [Header("Special Attack Settings")]
     [Tooltip("The maximum distance from the player at which the knight can decide to use the special grab.")]
-    [SerializeField] private float specialAttackRange = 4f; 
-    private void OnEnable()
-    {
-        // --- THIS IS THE FIX ---
-        // We now listen to the event from ZreyAttacks.
-        ZreyAttacks.OnPlayerCounterAttempt += HandleCounterInput;
-        // --- END OF FIX ---
-    }
+    [SerializeField] private float specialAttackRange = 4f;
+    private bool isCounterBeingExecuted = false;
+    public PlayerHealth playerHealth;
 
-    private void OnDisable()
-    {
-        // --- THIS IS THE FIX ---
-        ZreyAttacks.OnPlayerCounterAttempt -= HandleCounterInput;
-        // --- END OF FIX ---
-    }
-
-    private void HandleCounterInput()
-    {
-        // --- THIS IS THE FIX ---
-        // This method is ONLY called when the counter button is pressed.
-
-        // 1. BRUTAL DEBUG: Announce that we heard the event.
-        Debug.LogWarning("!!! KnightAI HEARD OnCounterPressed EVENT !!!");
-
-        // 2. Check the two conditions for a successful counter.
-        //    A. Is the counter window open?
-        //    B. Is the player inside the box?
-        if (isCounterWindowOpen && isPlayerInCounterBox)
-        {
-            // 3. SUCCESS! The conditions are met. Execute the counter.
-            Debug.LogError("--- SUCCESS! Conditions met. Calling ExecuteCounterSequence() NOW. ---");
-            StartCoroutine(ExecuteCounterSequence());
-        }
-        else
-        {
-            Debug.LogWarning("KnightAI heard counter press, but conditions were not met." +
-                             $" isCounterWindowOpen: {isCounterWindowOpen}, isPlayerInCounterBox: {isPlayerInCounterBox}");
-        }
-        // --- END OF FIX ---
-    }
     void Awake()
     {
         animator = GetComponent<Animator>();
         follow = GetComponent<KnightFollow>();
-
+        playerHealth = FindObjectOfType<PlayerHealth>();
         // 2. Add this block to find the player automatically.
         if (playerTarget == null)
         {
@@ -424,29 +388,73 @@ public class KnightAI : MonoBehaviour
     // --- ADD THIS NEW COROUTINE ---
     private IEnumerator ExecuteGrabCounterSequence(ZreyAttacks player)
     {
-        // --- 1. COMMAND SELF ---
-        // Cancel the grab attack and play the "get countered" animation.
+        if (playerHealth != null && playerHealth.IsGrabbed)
+        {
+            Debug.LogWarning("Counter aborted: player was grabbed on the same frame.");
+            yield break;
+        }
+        isCounterBeingExecuted = true;
+        // --- 1. FREEZE BOTH INSTANTLY ---
+        // Stop the knight dead
         if (attack != null)
         {
             attack.StopAllMovement();
             attack.CloseGrabWindow();
-           
         }
-        animator.SetTrigger(getCounteredTriggerHash); // Use the existing hash
 
-        // --- 2. COMMAND PLAYER ---
-        // Get the stun duration from the player's attack script.
+        // Stop the player dead
+        Rigidbody2D playerRb = player.GetComponent<Rigidbody2D>();
+        if (playerRb != null) playerRb.linearVelocity = Vector2.zero;
+
+        // Wait one frame to let physics settle before we read positions
+        yield return null;
+
+        // --- 2. CALCULATE ALIGNMENT ---
+        // The knight snaps to a fixed offset from the PLAYER'S current position
+        // We determine which side based on where the knight currently is
+        float directionFromPlayerToKnight = Mathf.Sign(transform.position.x - player.transform.position.x);
+
+        // How far the knight should stand from the player — tune this in Inspector
+        float snapDistance = counterSuccessOffsetX;
+
+        Vector3 knightSnapPosition = new Vector3(
+            player.transform.position.x + (snapDistance * directionFromPlayerToKnight),
+            transform.position.y,
+            transform.position.z
+        );
+
+        // --- 3. SNAP KNIGHT TO ALIGNED POSITION ---
+        transform.position = knightSnapPosition;
+
+        // --- 4. FORCE BOTH TO FACE EACH OTHER ---
+        if (follow != null) follow.FacePlayer();
+
+        // Force player to face the knight
+        ZreyMovements playerMovement = player.GetComponent<ZreyMovements>();
+        if (playerMovement != null)
+        {
+            playerMovement.ForceFaceDirection(transform.position.x > player.transform.position.x);
+        }
+
+        // Wait one more frame to guarantee facing is applied before animations start
+        yield return null;
+
+        // --- 5. PLAY ANIMATIONS ---
+        animator.SetTrigger(getCounteredTriggerHash);
+
         float counterDuration = player.grabCounterStunDuration;
         player.ExecuteVagabondCounter(counterDuration);
 
-        // --- 3. STUN SELF ---
+        // --- 6. STUN SELF ---
         if (health != null)
         {
             health.TriggerStun(counterDuration);
         }
-
-        // This coroutine's job is done. It has given the commands.
-        yield return null;
+        isCounterBeingExecuted = false;
+    }
+    public bool IsCounterBeingExecuted()
+    {
+        return isCounterBeingExecuted;
     }
     public void EVENT_DetachAndLaunchHand()
     {

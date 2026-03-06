@@ -339,6 +339,7 @@ private int blocksNeededForNextCounter = 0;
             }
         }
     }
+
     #region UI Update Logic
 
     private void TriggerHealthUpdate()

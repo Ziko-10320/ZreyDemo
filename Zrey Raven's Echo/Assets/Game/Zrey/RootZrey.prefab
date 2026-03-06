@@ -6828,7 +6828,7 @@ MonoBehaviour:
   finisherSnapOffset: {x: 6.5, y: 0.8, z: 0}
   maxAerialComboSteps: 3
   downSlamHoldTime: 0.3
-  counterBroadcastRange: 5
+  counterBroadcastRange: 12
   grabCounterStunDuration: 2.5
   vagabondFinisherSnapOffset: {x: 4, y: 0, z: 0}
 --- !u!114 &7602604384865269816
@@ -6844,12 +6844,28 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerHealth
   maxHealth: 300
-  healthSlider: {fileID: 0}
   deathPanel: {fileID: 0}
+  healthSlider: {fileID: 0}
+  healthDelayedSlider: {fileID: 0}
+  postureSlider: {fileID: 0}
+  postureDelayedSlider: {fileID: 0}
+  healthCanvasGroup: {fileID: 0}
+  postureCanvasGroup: {fileID: 0}
+  healthDelayBeforeCatchUp: 0.8
+  healthCatchUpSpeed: 0.4
+  postureDelayBeforeCatchUp: 0.8
+  postureCatchUpSpeed: 0.4
+  guardBreakEmptyDisplayDuration: 1
+  fadeSpeed: 2
+  maxShieldHealth: 300
+  shieldRegenDelay: 5
+  shieldRegenRate: 15
+  guardBreakStunDuration: 3
+  parryShieldCost: 20
   bloodVFX: {fileID: 3847384204462952536, guid: 943732c2e859694408f07c89b7ab2ad9, type: 3}
   bloodSpawnPoint: {fileID: 5075840690354734784}
-  damageReduction: 0.7
-  parryWindow: 0.4
+  damageReduction: 0
+  parryWindow: 0.35
   hitStunDuration: 0.3
   blockVFX: {fileID: 705328942918691095, guid: 5dce07fd34615404e8c8dd94fcad6ea5, type: 3}
   parryVFX: {fileID: 4380937939522614157, guid: d7f0187e25865eb428c73922f0aeb1ee, type: 3}

@@ -974,39 +974,67 @@ public class ZreyAttacks : MonoBehaviour
         if (playerHealth != null && playerHealth.IsGrabbed) return;
         if (isAttacking || IsInCinematicState) return;
 
-        // PRIORITY #1: FINISHER
-        bool finisherSuccess = AttemptFinisher();
-        if (finisherSuccess) return;
+        // PRIORITY 1: Finisher
+        if (AttemptFinisher()) return;
 
-        // PRIORITY #2: VAGABOND COUNTER (Knight enemy only)
-        bool vagabondSuccess = BroadcastCounterAttempt();
-        if (vagabondSuccess) return;
+        // PRIORITY 2: Vagabond Counter — Knight enemies ONLY via direct call
+        if (BroadcastVagabondCounter()) return;
 
-        // PRIORITY #3: KNIGHT COUNTER (Spear enemy only) — only fires if Vagabond failed
-        OnPlayerCounterAttempt?.Invoke();
+        // PRIORITY 3: Knight Counter — Spear enemies ONLY via direct call
+        BroadcastSpearCounter();
     }
-    private bool BroadcastCounterAttempt()
+    private bool BroadcastVagabondCounter()
     {
-        Debug.Log("<color=cyan>--- PLAYER BROADCASTING VAGABOND COUNTER ATTEMPT ---</color>");
+        if (playerHealth != null && playerHealth.isStunned) return false;
 
         Collider2D[] nearbyEnemies = Physics2D.OverlapCircleAll(transform.position, counterBroadcastRange, enemyLayer);
 
+        Debug.Log($"<color=yellow>BroadcastVagabondCounter: checking {nearbyEnemies.Length} nearby enemies.</color>");
+
         foreach (Collider2D enemyCollider in nearbyEnemies)
         {
-            KnightAI knightAI = enemyCollider.GetComponent<KnightAI>();
+            // Search parent and children, not just the exact object
+            SpearAI spearCheck = enemyCollider.GetComponentInParent<SpearAI>();
+            if (spearCheck == null) spearCheck = enemyCollider.GetComponentInChildren<SpearAI>();
+            if (spearCheck != null) continue; // Skip spear enemies
+
+            KnightAI knightAI = enemyCollider.GetComponentInParent<KnightAI>();
+            if (knightAI == null) knightAI = enemyCollider.GetComponentInChildren<KnightAI>();
             if (knightAI != null)
             {
-                // Ask the knight if it ACCEPTS the counter right now
+                Debug.Log($"<color=yellow>Found KnightAI on {enemyCollider.name}. Calling OnPlayerCounterAttempt.</color>");
                 bool accepted = knightAI.OnPlayerCounterAttempt(this);
-                if (accepted)
-                {
-                    Debug.Log("<color=lime>Vagabond Counter ACCEPTED by Knight enemy.</color>");
-                    return true; // Knight accepted — stop here, never fire KnightCounter
-                }
+                if (accepted) return true;
             }
         }
+        return false;
+    }
 
-        return false; // No knight accepted the counter
+    private void BroadcastSpearCounter()
+    {
+        if (playerHealth != null && playerHealth.isStunned) return;
+
+        Collider2D[] nearbyEnemies = Physics2D.OverlapCircleAll(transform.position, counterBroadcastRange, enemyLayer);
+
+        Debug.Log($"<color=cyan>BroadcastSpearCounter: checking {nearbyEnemies.Length} nearby enemies.</color>");
+
+        foreach (Collider2D enemyCollider in nearbyEnemies)
+        {
+            // Search parent and children
+            KnightAI knightCheck = enemyCollider.GetComponentInParent<KnightAI>();
+            if (knightCheck == null) knightCheck = enemyCollider.GetComponentInChildren<KnightAI>();
+            if (knightCheck != null) continue; // Skip knight enemies
+
+            SpearAI spearAI = enemyCollider.GetComponentInParent<SpearAI>();
+            if (spearAI == null) spearAI = enemyCollider.GetComponentInChildren<SpearAI>();
+            if (spearAI != null)
+            {
+                Debug.Log($"<color=cyan>Found SpearAI on {enemyCollider.name}. Firing event.</color>");
+                OnPlayerCounterAttempt?.Invoke();
+                return;
+            }
+        }
+        Debug.Log("<color=grey>Spear counter broadcast: no spear enemy nearby.</color>");
     }
     public void ExecuteVagabondCounter(float sequenceDuration)
     {

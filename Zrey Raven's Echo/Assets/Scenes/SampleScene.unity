@@ -5447,6 +5447,10 @@ PrefabInstance:
       propertyPath: counterPromptUI
       value: 
       objectReference: {fileID: 261271424}
+    - target: {fileID: 5728327074184983398, guid: 6dca67278431fa1499679f260bca6dd5, type: 3}
+      propertyPath: counterCheckAreaSize.x
+      value: 11.28
+      objectReference: {fileID: 0}
     - target: {fileID: 8085923461248934020, guid: 6dca67278431fa1499679f260bca6dd5, type: 3}
       propertyPath: playerTarget
       value: 
@@ -6532,14 +6536,6 @@ PrefabInstance:
       propertyPath: targetIndicator
       value: 
       objectReference: {fileID: 37532756}
-    - target: {fileID: 1170531750293168393, guid: 901e76773e0373943b1ffb363577cd0b, type: 3}
-      propertyPath: ShapeModule.type
-      value: 4
-      objectReference: {fileID: 0}
-    - target: {fileID: 1170531750293168393, guid: 901e76773e0373943b1ffb363577cd0b, type: 3}
-      propertyPath: ShapeModule.radiusThickness
-      value: 1
-      objectReference: {fileID: 0}
     - target: {fileID: 4578265700644922314, guid: 901e76773e0373943b1ffb363577cd0b, type: 3}
       propertyPath: m_Name
       value: RootZrey
@@ -6548,26 +6544,6 @@ PrefabInstance:
       propertyPath: trailSpawnParent
       value: 
       objectReference: {fileID: 1430523441}
-    - target: {fileID: 7602604384865269816, guid: 901e76773e0373943b1ffb363577cd0b, type: 3}
-      propertyPath: parryWindow
-      value: 0.35
-      objectReference: {fileID: 0}
-    - target: {fileID: 7602604384865269816, guid: 901e76773e0373943b1ffb363577cd0b, type: 3}
-      propertyPath: damageReduction
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 7602604384865269816, guid: 901e76773e0373943b1ffb363577cd0b, type: 3}
-      propertyPath: maxShieldHealth
-      value: 80
-      objectReference: {fileID: 0}
-    - target: {fileID: 7602604384865269816, guid: 901e76773e0373943b1ffb363577cd0b, type: 3}
-      propertyPath: shieldRegenDelay
-      value: 4
-      objectReference: {fileID: 0}
-    - target: {fileID: 7602604384865269816, guid: 901e76773e0373943b1ffb363577cd0b, type: 3}
-      propertyPath: guardBreakStunDuration
-      value: 3
-      objectReference: {fileID: 0}
     - target: {fileID: 8990848837076458346, guid: 901e76773e0373943b1ffb363577cd0b, type: 3}
       propertyPath: m_LocalPosition.x
       value: -40.07
