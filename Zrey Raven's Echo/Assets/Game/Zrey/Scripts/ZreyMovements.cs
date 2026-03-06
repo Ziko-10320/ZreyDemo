@@ -169,6 +169,8 @@ public class ZreyMovements : MonoBehaviour
     private readonly int rootDashBackwardTriggerHash = Animator.StringToHash("rootDashBackward");
     private readonly int rootDashBackwardLeftTriggerHash = Animator.StringToHash("rootDashBackwardLeft");
     private readonly int dashBackTriggerHash = Animator.StringToHash("dashback");
+    private readonly int exitCombatTriggerHash = Animator.StringToHash("ExitCombat");
+
     void Awake()
     {
 
@@ -239,14 +241,31 @@ public class ZreyMovements : MonoBehaviour
 
     void Update()
     {
+        Vector2 rawCompositeInput = inputActions.Player.Move.ReadValue<Vector2>();
+
+        // 2. Check the individual key states.
+        bool isLeftPressed = inputActions.Player.Move.ReadValue<Vector2>().x < 0;
+        bool isRightPressed = inputActions.Player.Move.ReadValue<Vector2>().x > 0;
+
+        // 3. The Latching Logic.
+        // If the combined input is NOT zero, it means only one key is pressed. Use it.
+        if (rawCompositeInput.x != 0)
+        {
+            moveInput = rawCompositeInput;
+        }
+        // If the combined input IS zero, it could mean two things:
+        // A) No keys are pressed.
+        // B) Both keys are pressed.
+        // We only want to stop if NO keys are pressed.
+        else if (!isLeftPressed && !isRightPressed)
+        {
+            moveInput = Vector2.zero;
+        }
         if ((playerAttacks != null && playerAttacks.IsInCinematicState) || isHanging || isWallSliding)
         {
             moveInput = Vector2.zero;
         }
-        else
-        {
-            moveInput = inputActions.Player.Move.ReadValue<Vector2>();
-        }
+       
         // Run the brains.
         HandleCombatAndAnimation();
         HandleWallMechanics();
@@ -522,6 +541,8 @@ public class ZreyMovements : MonoBehaviour
             Debug.Log("<color=orange>Dash Input Ignored: A root motion action is already in progress.</color>");
             return;
         }
+        animator.SetBool(isMovingForwardHash, false);
+        animator.SetBool(isMovingBackwardHash, false);
         if (isGrounded)
         {
             // --- THIS IS THE GUARANTEED FIX ---
@@ -536,7 +557,7 @@ public class ZreyMovements : MonoBehaviour
                 Debug.Log("<color=orange>--- Performing GROUND BACKWARD Dash ---</color>");
                 // Play the generic dash animation for the player model
                 animator.SetTrigger(dashBackTriggerHash); // You can create a new "dashBackward" trigger if you have a different visual animation
-
+                animator.SetBool(isMovingBackwardHash, false);
                 // Trigger the correct ROOT MOTION animation based on facing direction
                 if (isFacingRight)
                 {
@@ -918,6 +939,7 @@ public class ZreyMovements : MonoBehaviour
             return;
         }
         animator.SetBool(isChangingDirectionBoolHash, false);
+        if (!isInCombatMode) { animator.SetBool(isMovingForwardHash, false); animator.SetBool(isMovingBackwardHash, false); }
         // --- Combat Detection ---
         Collider2D[] enemiesInRange = Physics2D.OverlapCircleAll(transform.position, combatDetectionRange, enemyLayer);
 
@@ -979,20 +1001,21 @@ public class ZreyMovements : MonoBehaviour
         else
         {
             // --- EXIT COMBAT / NORMAL MOVEMENT LOGIC ---
-            if (!isGrounded)
+            if (isInCombatMode)
             {
-                // If we were in combat mode, force an exit.
-                if (isInCombatMode)
-                {
-                    isInCombatMode = false;
-                    lockedOnTarget = null;
-                    animator.SetBool(combatModeBoolHash, false);
-                    animator.SetBool(isMovingForwardHash, false);
-                    animator.SetBool(isMovingBackwardHash, false);
-                }
-                // The brain does nothing else while airborne.
-                return;
+                isInCombatMode = false;
+                lockedOnTarget = null;
+                animator.SetBool(isMovingForwardHash, false);
+                animator.SetBool(isMovingBackwardHash, false);
+                animator.SetBool(combatModeBoolHash, false);
+                animator.SetTrigger(exitCombatTriggerHash);
             }
+
+            // Always force-clear these regardless, every frame, when no enemies exist
+            animator.SetBool(isMovingForwardHash, false);
+            animator.SetBool(isMovingBackwardHash, false);
+
+            if (!isGrounded) return;
             // Handle normal running animation ONLY when not in combat.
             animator.SetBool(isRunningHash, Mathf.Abs(moveInput.x) > 0.1f && isGrounded);
         }

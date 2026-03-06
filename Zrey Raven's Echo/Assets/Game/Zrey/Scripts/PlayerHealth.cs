@@ -66,6 +66,21 @@ public class PlayerHealth : MonoBehaviour
     [SerializeField] private Transform stabBloodSpawnPoint;
     public bool IsGrabbed { get; private set; } = false;
     public bool IsInvincible { get; private set; } = false;
+
+    [Header("Shield")]
+    [SerializeField] private int maxShieldHealth = 100;
+    [SerializeField] private float shieldRegenDelay = 2.5f;
+    [SerializeField] private float shieldRegenRate = 20f; // points per second
+    [SerializeField] private float guardBreakStunDuration = 3f;
+    [SerializeField] private Slider shieldSlider;
+
+    private int currentShieldHealth;
+    private bool isShieldBroken = false;
+    private Coroutine shieldRegenCoroutine;
+
+    private readonly int guardBrokenTriggerHash = Animator.StringToHash("guardBroken");
+    private readonly int isWeakBoolHash = Animator.StringToHash("isWeak");
+    private readonly int recoverShieldTriggerHash = Animator.StringToHash("recoverShield");
     void Awake()
     {
         // --- THIS IS THE GUARANTEE ---
@@ -81,6 +96,12 @@ public class PlayerHealth : MonoBehaviour
         if (playerAttacks == null) Debug.LogError("FATAL ERROR: ZreyAttacks script is missing on Player!", this);
         inputActions = new InputSystem_Actions();
         if (checkpointManager == null) checkpointManager = FindFirstObjectByType<CheckpointManager>();
+        currentShieldHealth = maxShieldHealth;
+        if (shieldSlider != null)
+        {
+            shieldSlider.maxValue = maxShieldHealth;
+            shieldSlider.value = currentShieldHealth;
+        }
     }
     private void OnEnable()
     {
@@ -233,28 +254,46 @@ public class PlayerHealth : MonoBehaviour
         // --- 2. BLOCK LOGIC (from your old script) ---
         if (isBlocking)
         {
-            Debug.Log("<color=cyan>BLOCK SUCCESSFUL!</color>");
-            CameraShakerHandler.Shake(CameraShakeParry); // Shake on block too
+            if (isShieldBroken)
+            {
+                // Shield is broken, block does nothing — fall through to take full damage
+            }
+            else
+            {
+                Debug.Log("<color=cyan>BLOCK SUCCESSFUL!</color>");
+                CameraShakerHandler.Shake(CameraShakeParry);
 
-            int reducedDamage = Mathf.RoundToInt(damageAmount * (1f - damageReduction));
-            currentHealth -= reducedDamage;
-            if (healthSlider != null) healthSlider.value = currentHealth;
+                // Damage the shield instead of health
+                currentShieldHealth -= damageAmount;
+                if (shieldSlider != null) shieldSlider.value = currentShieldHealth;
 
-            if (blockVFX != null) Instantiate(blockVFX, defenseVFXSpawnPoint.position, Quaternion.identity);
-            if (knockbackCoroutine != null) StopCoroutine(knockbackCoroutine);
+              
+                if (knockbackCoroutine != null) StopCoroutine(knockbackCoroutine);
 
-            // Create a temporary ImpactData for the parry knockback
-            ImpactData parryImpact = ScriptableObject.CreateInstance<ImpactData>();
-            parryImpact.knockbackDistance = impact.knockbackDistance; // Half distance
-            parryImpact.knockbackDuration = impact.knockbackDuration;
-            parryImpact.hitReactionType = "none"; // No hit animation
-            SpawnBlood();
-            knockbackCoroutine = StartCoroutine(HitReactionRoutine(attacker, parryImpact));
+                ImpactData parryImpact = ScriptableObject.CreateInstance<ImpactData>();
+                parryImpact.knockbackDistance = impact.knockbackDistance;
+                parryImpact.knockbackDuration = impact.knockbackDuration;
+                parryImpact.hitReactionType = "none";
 
-            if (currentHealth <= 0) Die(attacker);
-            return; // Stop all further execution.
+                knockbackCoroutine = StartCoroutine(HitReactionRoutine(attacker, parryImpact));
+
+                // Restart the regen delay timer every time shield takes a hit
+                if (shieldRegenCoroutine != null) StopCoroutine(shieldRegenCoroutine);
+
+                if (currentShieldHealth <= 0)
+                {
+                    currentShieldHealth = 0;
+                    if (shieldSlider != null) shieldSlider.value = 0;
+                    StartCoroutine(GuardBreakRoutine());
+                }
+                else
+                {
+                    shieldRegenCoroutine = StartCoroutine(ShieldRegenRoutine());
+                }
+
+                return;
+            }
         }
-
         currentHealth -= damageAmount;
         if (healthSlider != null) healthSlider.value = currentHealth;
         if (impact == null)
@@ -568,6 +607,52 @@ public class PlayerHealth : MonoBehaviour
             Debug.Log("Reset Rigidbody horizontal velocity.");
         }
     }
+    private IEnumerator GuardBreakRoutine()
+    {
+        isShieldBroken = true;
+        isStunned = true;
+        StopBlocking();
+        if (playerMovements != null) playerMovements.CanMove = false;
+
+        animator.SetTrigger(guardBrokenTriggerHash);
+
+        // Wait one frame so the trigger fires before we set the bool
+        yield return null;
+        animator.SetBool(isWeakBoolHash, true);
+
+        yield return new WaitForSeconds(guardBreakStunDuration);
+
+        // Recovery
+        animator.SetBool(isWeakBoolHash, false);
+        animator.SetTrigger(recoverShieldTriggerHash);
+
+        isStunned = false;
+        isShieldBroken = false;
+        if (playerMovements != null) playerMovements.CanMove = true;
+
+        // Restore shield fully
+        currentShieldHealth = maxShieldHealth;
+        if (shieldSlider != null) shieldSlider.value = currentShieldHealth;
+
+        Debug.Log("<color=green>Shield recovered after guard break!</color>");
+    }
+
+    private IEnumerator ShieldRegenRoutine()
+    {
+        // Wait before starting regen
+        yield return new WaitForSeconds(shieldRegenDelay);
+
+        // Regen over time
+        while (currentShieldHealth < maxShieldHealth)
+        {
+            currentShieldHealth += Mathf.RoundToInt(shieldRegenRate * Time.deltaTime);
+            currentShieldHealth = Mathf.Clamp(currentShieldHealth, 0, maxShieldHealth);
+            if (shieldSlider != null) shieldSlider.value = currentShieldHealth;
+            yield return null;
+        }
+
+        Debug.Log("<color=cyan>Shield fully regenerated.</color>");
+    }
     private void Die(Transform killer)
     {
         Debug.Log("<color=black>PLAYER IS DEAD.</color>");
@@ -606,7 +691,10 @@ public class PlayerHealth : MonoBehaviour
         isParryWindowActive = false;
         isStunned = false;
         isBeingKnockedBack = false;
-
+        isShieldBroken = false;
+      
+        
+        animator.SetBool(isWeakBoolHash, false);
         // We also need to ensure the animator's block state is reset.
         if (animator != null)
         {
