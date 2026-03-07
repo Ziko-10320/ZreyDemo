@@ -350,41 +350,55 @@ public class ZreyMovements : MonoBehaviour
             Debug.Log("Dashes Reset to: " + airDashesRemaining);
         }
     }
-    
 
+    public void EVENT_LockAllMovement()
+    {
+        CanMove = false;
+        canFlip = false;
+        isDashing = false;
+        isInRootMotionState = false;
+
+        if (rb != null)
+        {
+            rb.linearVelocity = Vector2.zero;
+            rb.simulated = true; // Keep physics on so gravity works
+        }
+
+        Debug.LogError("--- EVENT_LockAllMovement: MOVEMENT FULLY LOCKED ---");
+    }
+
+    // Call this from Animation Event to fully restore movement
+    public void EVENT_UnlockAllMovement()
+    {
+        CanMove = true;
+        canFlip = true;
+
+        Debug.Log("<color=green>--- EVENT_UnlockAllMovement: MOVEMENT RESTORED ---</color>");
+    }
     void FixedUpdate()
     {
-        if (playerHealth != null && playerHealth.isBeingKnockedBack)
-        {
-            // If YES, do NOTHING.
-            // This allows the knockback coroutines in PlayerHealth to have full
-            // control over the Rigidbody's velocity without interference.
-            return;
-        }
-        if (isInRootMotionState)
-        {
-            return;
-        }
-        if (!CanMove)
-        {
-            return;
-        }
-        if (overrideMoveTimer > 0)
-        {
-            // If the override timer is active, let the grapple momentum ride.
-            return;
-        }
-        if (isDashing)
-        {
-            // If yes, do NOTHING here. Let the PhasingAirDashSequence coroutine have full control.
-            return;
-        }
+        if (playerHealth != null && playerHealth.isBeingKnockedBack) { return; }
+        if (isInRootMotionState) { return; }
+
+        // MUST check attackLocked BEFORE CanMove because PerformAttack sets both
         if (isAttackLocked)
         {
-            rb.linearVelocity = new Vector2(0, rb.linearVelocity.y);
-            return;
+            // If a dash started during an attack, the dash wins — clear the lock
+            if (isDashing || isInRootMotionState)
+            {
+                isAttackLocked = false;
+                CanMove = true;
+            }
+            else
+            {
+                rb.linearVelocity = new Vector2(0, rb.linearVelocity.y);
+                return;
+            }
         }
-       
+
+        if (!CanMove) { return; }
+        if (overrideMoveTimer > 0) { return; }
+        if (isDashing) { return; }
         Vector2 currentMoveInput = ZreyMovements.inputActions.Player.Move.ReadValue<Vector2>();
 
         if (isDashing)
@@ -641,14 +655,22 @@ public class ZreyMovements : MonoBehaviour
             // --- END OF POSITION-SYNC ---
         }
 
-        // --- CLEANUP ---
         isInRootMotionState = false;
+        isAttackLocked = false;
         CanMove = true;
-
-        // 5. RE-ENABLE THE RIGIDBODY.
-        //    We give control back to the physics engine.
         rb.simulated = true;
+        rb.linearVelocity = Vector2.zero; // Clean slate after root motion
+
+        if (playerAttacks != null && playerAttacks.IsAttacking())
+        {
+            Debug.LogWarning("Root motion ended while attack was active — force ending attack.");
+            playerAttacks.EndAttack();
+        }
     }
+    public bool IsInRootMotionState()
+{
+    return isInRootMotionState;
+}
     public void InitiateRootMotion(int triggerHash, float duration)
     {
         if (isInRootMotionState) return;

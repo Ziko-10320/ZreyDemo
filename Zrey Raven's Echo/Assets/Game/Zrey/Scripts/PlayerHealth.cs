@@ -490,6 +490,11 @@ public class PlayerHealth : MonoBehaviour
     public void GetGrabbedByEnemy(Vector3 targetPosition, Transform enemyTransform)
     {
         Debug.LogError("--- PLAYER HAS BEEN GRABBED! LOSING CONTROL. ---");
+        if (isShieldBroken)
+        {
+            Debug.LogWarning("Grab ignored: Player is in guard break state.");
+            return;
+        }
         IsGrabbed = true;
         isStunned = true;
         if (playerAttacks != null) playerAttacks.CancelAttack();
@@ -548,6 +553,10 @@ public class PlayerHealth : MonoBehaviour
         isBeingKnockedBack = true; // Use this to lock movement
 
         StopBlocking(); // Force the block to end
+        animator.ResetTrigger(startBlockTriggerHash);
+        animator.ResetTrigger(parry1TriggerHash);
+        animator.ResetTrigger(parry2TriggerHash);
+        isParryWindowActive = false;
 
         if (playerMovements != null) playerMovements.CanMove = false;
         if (playerAttacks != null) playerAttacks.CancelAttack();
@@ -661,7 +670,50 @@ public class PlayerHealth : MonoBehaviour
         if (knockbackCoroutine != null) StopCoroutine(knockbackCoroutine);
         if (parryWindowCoroutine != null) StopCoroutine(parryWindowCoroutine);
     }
+    public void EVENT_LockGuardBreakState()
+    {
+        isShieldBroken = true;
+        isStunned = true;
+        IsGrabbed = false; // Cannot be grabbed while broken
+        IsInvincible = false; // Not fully invincible, just grab-immune
 
+        // Kill any regen that snuck in
+        if (shieldRegenCoroutine != null)
+        {
+            StopCoroutine(shieldRegenCoroutine);
+            shieldRegenCoroutine = null;
+        }
+
+        // Kill any parry/block coroutines
+        if (parryWindowCoroutine != null)
+        {
+            StopCoroutine(parryWindowCoroutine);
+            parryWindowCoroutine = null;
+        }
+
+        isBlocking = false;
+        isParryWindowActive = false;
+        if (playerMovements != null) playerMovements.CanMove = false;
+        if (playerAttacks != null) playerAttacks.IsInCinematicState_ForceSet(true);
+
+        Debug.LogError("--- EVENT_LockGuardBreakState: ALL INPUT LOCKED ---");
+    }
+
+    // Called by Animation Event when recovery is complete
+    public void EVENT_UnlockGuardBreakState()
+    {
+        isShieldBroken = false;
+        isStunned = false;
+        currentShieldHealth = maxShieldHealth;
+        guardBreakCoroutine = null;
+
+        if (playerMovements != null) playerMovements.CanMove = true;
+        if (playerAttacks != null) playerAttacks.IsInCinematicState_ForceSet(false);
+
+        postureDelayedSlider.value = 1f;
+
+        Debug.Log("<color=green>--- EVENT_UnlockGuardBreakState: PLAYER RESTORED ---</color>");
+    }
     private IEnumerator DeathSequence()
     {
         yield return new WaitForSeconds(1.5f);

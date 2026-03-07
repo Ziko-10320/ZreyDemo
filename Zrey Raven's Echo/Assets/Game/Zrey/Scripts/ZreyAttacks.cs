@@ -214,7 +214,7 @@ public class ZreyAttacks : MonoBehaviour
             }
 
             // Grounded Tap Logic (Normal Combo or Block Attack)
-            if (attackReleased && !isChargeAttackPrimed)
+            if (attackReleased && !isChargeAttackPrimed && !playerMovement.IsDashing())
             {
                 HandleAttack(); // This method already handles the block-attack check.
             }
@@ -233,7 +233,7 @@ public class ZreyAttacks : MonoBehaviour
             }
 
             // Aerial Tap Logic (Aerial Combo)
-            if (attackReleased && !isDownSlamPrimed)
+            if (attackReleased && !isDownSlamPrimed && !playerMovement.IsDashing())
             {
                 PerformAerialAttack();
             }
@@ -289,6 +289,7 @@ public class ZreyAttacks : MonoBehaviour
     }
     private void HandleAttack()
     {
+        if (playerMovement != null && playerMovement.IsDashing()) return;
         if (playerHealth != null && playerHealth.IsBlocking())
         {
             // 2. If YES, perform the new Block Special Attack.
@@ -381,9 +382,37 @@ public class ZreyAttacks : MonoBehaviour
     /// <summary>
     /// Triggers the correct attack animation based on the combo step.
     /// </summary>
+    public void EVENT_OnDashComplete()
+    {
+        Debug.Log("<color=lime>ZreyAttacks: Dash complete cleanup.</color>");
 
+        // If an attack fired during the dash it must be cancelled cleanly
+        if (isAttacking)
+        {
+            isAttacking = false;
+            IsInCinematicState = false;
+            isChargeAttackPrimed = false;
+            comboStep = 0;
+
+            Physics2D.IgnoreLayerCollision(playerLayerValue, enemyLayerValue, true);
+
+            if (attackWatchdogCoroutine != null)
+            {
+                StopCoroutine(attackWatchdogCoroutine);
+                attackWatchdogCoroutine = null;
+            }
+
+            animator.SetBool(isAttackingBoolHash, false);
+            animator.SetInteger(attackStepHash, 0);
+        }
+    }
     private void PerformAttack(int step)
     {
+        if (playerMovement.IsDashing() || playerMovement.IsInRootMotionState())
+        {
+            Debug.LogWarning("Attack blocked: Player is dashing or in root motion.");
+            return;
+        }
         playerMovement.SetAttacking(true);
         playerMovement.CanMove = false;
         isCustomKnockbackPrimed = false;
