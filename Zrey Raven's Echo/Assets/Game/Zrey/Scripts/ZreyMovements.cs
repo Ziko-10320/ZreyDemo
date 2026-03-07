@@ -467,6 +467,8 @@ public class ZreyMovements : MonoBehaviour
             Debug.Log("Jump Input Ignored: In Cinematic State.");
             return;
         }
+        if (playerHealth != null && playerHealth.IsShieldBroken()) { Debug.LogWarning("Dash ignored: Shield broken."); return; }
+
         // Check for wall slide condition directly here. This is more reliable.
         bool onWall = Physics2D.OverlapCircle(wallCheck.position, wallCheckRadius, wallLayer) && !isGrounded;
 
@@ -519,6 +521,7 @@ public class ZreyMovements : MonoBehaviour
             Debug.Log("<color=orange>Dash Input Ignored: Currently Attacking.</color>");
             return;
         }
+        if (playerHealth != null && playerHealth.IsShieldBroken()) { Debug.LogWarning("Dash ignored: Shield broken."); return; }
 
         // SHIELD 3: Are we on a wall or hanging?
         if (isWallSliding || isHanging)

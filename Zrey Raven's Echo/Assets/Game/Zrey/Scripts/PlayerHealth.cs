@@ -218,9 +218,8 @@ public class PlayerHealth : MonoBehaviour
                     guardBreakCoroutine = StartCoroutine(GuardBreakRoutine());
                 }
             }
-            else
+            else if (!isShieldBroken) // NEVER start regen if guard break is active
             {
-                // If the shield didn't break, start the regeneration timer.
                 if (shieldRegenCoroutine != null) StopCoroutine(shieldRegenCoroutine);
                 shieldRegenCoroutine = StartCoroutine(ShieldRegenRoutine());
             }
@@ -288,14 +287,13 @@ public class PlayerHealth : MonoBehaviour
 
                 if (currentShieldHealth <= 0)
                 {
-                    StartCoroutine(GuardBreakRoutine());
+                    if (guardBreakCoroutine != null) StopCoroutine(guardBreakCoroutine);
+                    guardBreakCoroutine = StartCoroutine(GuardBreakRoutine());
                 }
-                else
+                else if (!isShieldBroken) // NEVER start regen if guard break is active
                 {
-                    // --- THIS IS THE GUARANTEED FIX ---
-                    // ALWAYS start a new regen timer after taking shield damage.
+                    if (shieldRegenCoroutine != null) StopCoroutine(shieldRegenCoroutine);
                     shieldRegenCoroutine = StartCoroutine(ShieldRegenRoutine());
-                    // --- END OF THE GUARANTEED FIX ---
                 }
 
                 return;
@@ -313,10 +311,16 @@ public class PlayerHealth : MonoBehaviour
         if (currentHealth <= 0) { Die(attacker); return; }
 
         SpawnBlood();
-        if (knockbackCoroutine != null) StopCoroutine(knockbackCoroutine);
-        knockbackCoroutine = StartCoroutine(HitReactionRoutine(attacker, impact));
+        if (!isShieldBroken) // Don't override guard break stun with a shorter hit stun
+        {
+            if (knockbackCoroutine != null) StopCoroutine(knockbackCoroutine);
+            knockbackCoroutine = StartCoroutine(HitReactionRoutine(attacker, impact));
+        }
     }
-
+    public bool IsShieldBroken()
+    {
+        return isShieldBroken;
+    }
     public void TakeUnblockableDamage(int damageAmount, Transform attacker, ImpactData impact)
     {
         if (IsInvincible) { Debug.Log("Damage ignored: Player is invincible."); return; }
@@ -418,6 +422,11 @@ public class PlayerHealth : MonoBehaviour
 
         isStunned = false;
         playerMovements.CanMove = true;
+        if (!isShieldBroken)
+        {
+            isStunned = false;
+            playerMovements.CanMove = true;
+        }
         knockbackCoroutine = null;
         isBeingKnockedBack = false;
     }
@@ -446,7 +455,7 @@ public class PlayerHealth : MonoBehaviour
     private void StartBlocking()
     {
         if (isShieldBroken ) { Debug.LogWarning("Block ignored: Shield broken or stunned."); return; }
-
+        if (playerMovements != null && playerMovements.IsDashing()) { Debug.LogWarning("Block ignored: Currently dashing."); return; }
         if (IsGrabbed) { Debug.LogWarning("Block Input Ignored: Player is GRABBED."); return; }
         if (playerAttacks != null && playerAttacks.IsInCinematicState) { Debug.Log("Block Input Ignored: In Cinematic State."); return; }
         if (playerAttacks != null) playerAttacks.CancelAttack();
@@ -526,6 +535,12 @@ public class PlayerHealth : MonoBehaviour
         {
             yield break; // Exit the coroutine immediately. Do nothing.
         }
+        if (shieldRegenCoroutine != null)
+        {
+            StopCoroutine(shieldRegenCoroutine);
+            shieldRegenCoroutine = null;
+        }
+
         // --- PHASE 1: THE PUNISHMENT (This part is correct) ---
         Debug.LogError("--- PLAYER GUARD BROKEN! STUNNED! ---");
         isShieldBroken = true;
@@ -571,17 +586,17 @@ public class PlayerHealth : MonoBehaviour
         // Wait for the "get up" animation to have some time to play
         yield return new WaitForSeconds(0.3f);
 
-        // --- THE FORCED AWAKENING ---
-        // 1. Unlock all the state flags.
         isStunned = false;
         isBeingKnockedBack = false;
         isShieldBroken = false;
+        guardBreakCoroutine = null; // Mark as finished so ForceResetState knows it's done
 
-        // 2. Give control back to the player.
         if (playerMovements != null) playerMovements.CanMove = true;
 
-        if (shieldRegenCoroutine != null) StopCoroutine(shieldRegenCoroutine);
-        shieldRegenCoroutine = StartCoroutine(ShieldRegenRoutine());
+        // Shield is already maxShieldHealth from the lerp — no regen needed
+        // but reset the delayed slider to match
+        postureDelayedSlider.value = 1f;
+
     }
     private IEnumerator ShieldRegenRoutine()
     {
@@ -636,12 +651,15 @@ public class PlayerHealth : MonoBehaviour
         isParryWindowActive = false;
         isStunned = false;
         isBeingKnockedBack = false;
-        isShieldBroken = false;
-        animator.SetBool(isWeakBoolHash, false);
+        if (guardBreakCoroutine == null)
+        {
+            isStunned = false;
+            isShieldBroken = false;
+            animator.SetBool(isWeakBoolHash, false);
+        }
         if (animator != null) animator.SetTrigger(stopBlockTriggerHash);
         if (knockbackCoroutine != null) StopCoroutine(knockbackCoroutine);
         if (parryWindowCoroutine != null) StopCoroutine(parryWindowCoroutine);
-        if (guardBreakCoroutine != null) StopCoroutine(guardBreakCoroutine);
     }
 
     private IEnumerator DeathSequence()
