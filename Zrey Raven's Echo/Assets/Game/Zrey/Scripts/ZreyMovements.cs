@@ -420,34 +420,39 @@ public class ZreyMovements : MonoBehaviour
             // 4. Apply the velocity directly to the Rigidbody.
             rb.linearVelocity = new Vector2(currentDashSpeed * dashDirection, 0);
         }
-        if (isInCombatMode && isGrounded && lockedOnTarget != null)
+        if (isInCombatMode && isGrounded && lockedOnTarget != null && !wallJumpInputLocked)
         {
-            // RESULT: LOCK-ON IS ACTIVE.
-            // The game forces your facing direction.
             ForceFaceDirection(lockedOnTarget.position.x > transform.position.x);
-            // Apply combat speed.
             rb.linearVelocity = new Vector2(moveInput.x * combatRunSpeed, rb.linearVelocity.y);
         }
         // PRIORITY #2: If not locked on (either not in combat OR in the air), do normal movement.
         else
         {
-            // RESULT: AERIAL FREEDOM / NORMAL MOVEMENT.
-            // The player has full control over flipping.
-            if (moveInput.x < 0 && isFacingRight) { Flip(); }
-            else if (moveInput.x > 0 && !isFacingRight) { Flip(); }
+            if (!wallJumpInputLocked)
+            {
+                if (moveInput.x < 0 && isFacingRight) { Flip(); }
+                else if (moveInput.x > 0 && !isFacingRight) { Flip(); }
+            }
 
             // Apply normal movement physics (this also handles wall jumps correctly).
             if (justWallJumped)
             {
+                // While input is locked, preserve the wall jump arc completely
                 if (wallJumpInputLocked) return;
+
+                // Lock expired — check if player is actively steering
                 if (moveInput.x != 0)
                 {
+                    // Player wants to steer — hand off to normal movement and end wall jump state
                     rb.linearVelocity = new Vector2(moveInput.x * runSpeed, rb.linearVelocity.y);
                     justWallJumped = false;
                 }
+                // No input held: do NOT touch rb.linearVelocity at all
+                // Physics drag will decelerate naturally, no hard stop
             }
             else if (!justGrappleJumped)
             {
+                // Only runs when justWallJumped is false (normal movement or after player steered)
                 rb.linearVelocity = new Vector2(moveInput.x * runSpeed, rb.linearVelocity.y);
             }
         }
@@ -810,28 +815,32 @@ public class ZreyMovements : MonoBehaviour
     }
     private void PerformWallJump()
     {
-        if (playerAttacks != null && playerAttacks.IsInCinematicState)
-        {
-            Debug.Log("Dash Input Ignored: In Cinematic State.");
-            return;
-        }
+        if (playerAttacks != null && playerAttacks.IsInCinematicState) { return; }
+
         Debug.Log("PERFORMING DYNAMIC WALL JUMP!");
 
+        if (wallJumpCoroutine != null) StopCoroutine(wallJumpCoroutine);
 
-        if (wallJumpCoroutine != null)
-        {
-            StopCoroutine(wallJumpCoroutine);
-        }
+        // Kill wall state FIRST — must happen before anything touches rb.linearVelocity
+        isWallSliding = false;
+        wallStickCounter = 0f;
+        animator.SetBool(isWallSlidingBoolHash, false);
 
-        // --- THIS IS THE FIX ---
-        // Before adding any new force, we must guarantee that all previous
-        // velocity from the last jump is completely erased.
+        // Restore gravity immediately — HandleWallMechanics may have zeroed it
+        rb.gravityScale = originalGravityScale;
+
+        // Set lock flags immediately so FixedUpdate respects them this frame
+        wallJumpInputLocked = true;
+        justWallJumped = true;
+
+        // Clean velocity slate
         rb.linearVelocity = Vector2.zero;
-        // --- END OF FIX ---
 
-        // Now, we apply the new force to a clean slate.
+        // Apply jump force
         float jumpDirectionX = isFacingRight ? -1f : 1f;
         rb.linearVelocity = new Vector2(wallJumpForce.x * jumpDirectionX, wallJumpForce.y);
+
+        Debug.Log($"Wall jump velocity applied: {rb.linearVelocity}");
 
         animator.SetTrigger(wallJumpTriggerHash);
         Flip();
@@ -841,20 +850,11 @@ public class ZreyMovements : MonoBehaviour
 
     private IEnumerator WallJumpInputLock()
     {
-        // 1. Start the wall jump state and lock input.
-        justWallJumped = true;
-        wallJumpInputLocked = true;
-        isWallSliding = false;
-        animator.SetBool(isWallSlidingBoolHash, false);
-
-        // 2. Wait for the lock duration.
-        // During this time, FixedUpdate sees wallJumpInputLocked is true and does nothing.
         yield return new WaitForSeconds(wallJumpInputLockTime);
-
-        // 3. After the timer, unlock input.
-        // The player can now move to cut the momentum.
         wallJumpInputLocked = false;
         Debug.Log("Wall jump air control is now available.");
+
+      
     }
     private void HandleWallMechanics()
     {
@@ -868,6 +868,7 @@ public class ZreyMovements : MonoBehaviour
             Debug.Log("Dash Input Ignored: In Cinematic State.");
             return;
         }
+        if (wallJumpInputLocked) { return; }
         // Store the state from the previous frame. This is key for the animation trigger.
         bool wasTouchingWall = isTouchingWall;
         isTouchingWall = Physics2D.OverlapCircle(wallCheck.position, wallCheckRadius, wallLayer);
