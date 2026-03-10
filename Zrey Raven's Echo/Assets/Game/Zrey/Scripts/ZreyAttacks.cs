@@ -154,6 +154,17 @@ public class ZreyAttacks : MonoBehaviour
     private readonly int rootUpperAttackLeftTriggerHash = Animator.StringToHash("RootUpperAttackLeft");
 
     private readonly int isAttackingBoolHash = Animator.StringToHash("isAttacking");
+
+    [Header("Attack Jump Settings")]
+    [Tooltip("Max times the same AttackJump variant can play in a row.")]
+    [SerializeField] private int maxSameAttackJumpInRow = 2;
+
+    private readonly int attackJumpV1TriggerHash = Animator.StringToHash("AttackJumpV1");
+   
+
+    private int lastAttackJumpVariant = -1; // -1 = none played yet
+    private int sameAttackJumpCount = 0;
+    private bool isAttackJumping = false;
     private void OnEnable()
     {
         InputManager.OnInteractPressed += HandleInteractionInput;
@@ -515,6 +526,54 @@ public class ZreyAttacks : MonoBehaviour
         comboStep = 0;
         aerialComboStep = 0;
     }
+    public bool TryAttackJump()
+    {
+        // Only trigger if currently in a ground combo
+        if (!isAttacking || isAttackJumping || IsInCinematicState || isDownSlamming) return false;
+        if (!playerMovement.IsGrounded()) return false;
+
+        // Pick a variant, respecting the max-same-in-a-row rule
+        int chosenVariant;
+
+        if (lastAttackJumpVariant == -1)
+        {
+            // First time — purely random
+            chosenVariant = UnityEngine.Random.Range(0, 2);
+        }
+        else if (sameAttackJumpCount >= maxSameAttackJumpInRow)
+        {
+            // Forced to switch — pick the OTHER variant
+            chosenVariant = lastAttackJumpVariant == 0 ? 1 : 0;
+        }
+        else
+        {
+            // Random but track repeats
+            chosenVariant = UnityEngine.Random.Range(0, 2);
+        }
+
+        // Update tracking
+        if (chosenVariant == lastAttackJumpVariant)
+            sameAttackJumpCount++;
+        else
+            sameAttackJumpCount = 1;
+
+        lastAttackJumpVariant = chosenVariant;
+
+        // Execute
+        isAttackJumping = true;
+        Debug.Log($"<color=lime>ATTACK JUMP V{chosenVariant + 1} TRIGGERED!</color>");
+
+        animator.SetTrigger(attackJumpV1TriggerHash);
+        return true;
+    }
+
+    // Call this from the Animation Event on the last frame of both AttackJump animations
+    public void EVENT_OnAttackJumpComplete()
+    {
+        isAttackJumping = false;
+        EndAttack();
+        Debug.Log("<color=lime>Attack Jump complete. Player restored.</color>");
+    }
     public void OnPlayerLanded()
     {
         // If we were in the middle of an aerial combo, this landing cancels it.
@@ -602,7 +661,8 @@ public class ZreyAttacks : MonoBehaviour
         isDownSlamPrimed = false;
         comboStep = 0;
         aerialComboStep = 0;
-
+        lastAttackJumpVariant = -1;
+        sameAttackJumpCount = 0;
         // --- Reset Physics/Collisions ---
         Physics2D.IgnoreLayerCollision(playerLayerValue, enemyLayerValue, true);
         RestoreNormalGravity(); // Use your existing method to be safe.
@@ -709,7 +769,7 @@ public class ZreyAttacks : MonoBehaviour
         }
         isAttacking = false;
         Physics2D.IgnoreLayerCollision(playerLayerValue, enemyLayerValue, true);
-       
+        isAttackJumping = false;
         animator.SetInteger(attackStepHash, 0);
         animator.SetInteger(aerialAttackStepHash, 0);
         isChargeAttackPrimed = false;
@@ -757,6 +817,13 @@ public class ZreyAttacks : MonoBehaviour
                 spearHealth.ApplyDamageAndKnockback(attackData);
                 break; // Hit one enemy and stop.
             }
+            ReaperHealth reaperHealth = enemy.GetComponent<ReaperHealth>();
+            if (reaperHealth != null)
+            {
+                // Call the new, all-in-one function on the knight, passing the data container.
+                reaperHealth.ApplyDamageAndKnockback(attackData);
+                break; // Hit one enemy and stop.
+            }
         }
     }
     private IEnumerator ComboResetRoutine()
@@ -766,6 +833,8 @@ public class ZreyAttacks : MonoBehaviour
         // If we get here, it means the player didn't press the attack button in time.
         Debug.Log("<color=orange>Combo Reset Timer Expired.</color>");
         comboStep = 0;
+        lastAttackJumpVariant = -1;
+        sameAttackJumpCount = 0;
     }
 
     public void ApplyKnockback(Transform attacker, float knockbackDistance, float knockbackDuration)
@@ -848,6 +917,12 @@ public class ZreyAttacks : MonoBehaviour
                 // Tell the AI BRAIN that we are starting an attack.
                 enemyAi.OnPlayerAttackTelegraphed(this.transform);
             }
+            ReaperAI ReaperAi = enemy.GetComponent<ReaperAI>();
+            if (ReaperAi != null)
+            {
+                // Tell the AI BRAIN that we are starting an attack.
+                ReaperAi.OnPlayerAttackTelegraphed(this.transform);
+            }
         }
     }
     public void CancelAttack()
@@ -865,6 +940,8 @@ public class ZreyAttacks : MonoBehaviour
         isDownSlamming = false;
         comboStep = 0; // An interruption always breaks the combo.
         aerialComboStep = 0;
+        lastAttackJumpVariant = -1;
+        sameAttackJumpCount = 0;
         // 3. Reset physics and animator states.
         Physics2D.IgnoreLayerCollision(playerLayerValue, enemyLayerValue, true);
         animator.SetInteger(attackStepHash, 0);

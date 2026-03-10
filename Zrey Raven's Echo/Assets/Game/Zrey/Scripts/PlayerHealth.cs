@@ -86,8 +86,9 @@ public class PlayerHealth : MonoBehaviour
     [SerializeField] private Transform stabBloodSpawnPoint;
     public bool IsGrabbed { get; private set; } = false;
     public bool IsInvincible { get; private set; } = false;
+    private Coroutine invincibilityWatchdogCoroutine;
 
- 
+
 
     private int currentShieldHealth;
     private bool isShieldBroken = false;
@@ -181,14 +182,35 @@ public class PlayerHealth : MonoBehaviour
     {
         Debug.Log("<color=cyan>--- PLAYER IS NOW INVINCIBLE ---</color>");
         IsInvincible = true;
+        if (invincibilityWatchdogCoroutine != null)
+        {
+            StopCoroutine(invincibilityWatchdogCoroutine);
+        }
+        invincibilityWatchdogCoroutine = StartCoroutine(InvincibilityWatchdog());
     }
 
     public void MakeVulnerable()
     {
         Debug.Log("<color=grey>--- Player is now VULNERABLE ---</color>");
         IsInvincible = false;
+        if (invincibilityWatchdogCoroutine != null)
+        {
+            StopCoroutine(invincibilityWatchdogCoroutine);
+            invincibilityWatchdogCoroutine = null;
+        }
     }
+    private IEnumerator InvincibilityWatchdog()
+    {
+        yield return new WaitForSeconds(0.5f);
 
+        if (IsInvincible)
+        {
+            Debug.LogWarning("<color=orange>INVINCIBILITY WATCHDOG: Flag stuck! Forcing vulnerable.</color>");
+            IsInvincible = false;
+        }
+
+        invincibilityWatchdogCoroutine = null;
+    }
     public void TakeDamage(int damageAmount, Transform attacker, ImpactData impact)
     {
         if (IsInvincible) { Debug.Log("Damage ignored: Player is invincible."); return; }

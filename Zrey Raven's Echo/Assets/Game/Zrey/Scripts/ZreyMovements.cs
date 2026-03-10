@@ -476,6 +476,11 @@ public class ZreyMovements : MonoBehaviour
    
     private void HandleJump(InputAction.CallbackContext context)
     {
+        if (playerAttacks != null && playerAttacks.IsAttacking() && isGrounded)
+        {
+            bool consumed = playerAttacks.TryAttackJump();
+            if (consumed) return; // Attack jump fired — don't do a normal jump
+        }
         if (playerHealth != null && playerHealth.IsGrabbed)
         {
             Debug.LogWarning("Jump Input Ignored: Player is GRABBED.");
