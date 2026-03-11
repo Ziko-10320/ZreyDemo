@@ -37,7 +37,8 @@ public class EndLevelManager : MonoBehaviour
     [Header("Scene Settings")]
     [Tooltip("The name of your Main Menu scene (e.g., 'MainMenu').")]
     public string mainMenuSceneName;
-
+    [Header("Audio")]
+    public AudioManager audioManager;
     private void OnTriggerEnter2D(Collider2D other)
     {
         if (other.CompareTag("Player"))
@@ -67,6 +68,7 @@ public class EndLevelManager : MonoBehaviour
         {
             mainMenuButton.onClick.AddListener(GoToMainMenu);
         }
+        if (audioManager != null) audioManager.StartFadeOut();
         StartCoroutine(ChainedFadeInSequence());
     }
 

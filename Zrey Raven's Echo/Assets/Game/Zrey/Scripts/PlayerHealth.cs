@@ -97,7 +97,12 @@ public class PlayerHealth : MonoBehaviour
     private readonly int guardBrokenTriggerHash = Animator.StringToHash("guardBroken");
     private readonly int isWeakBoolHash = Animator.StringToHash("isWeak");
     private readonly int recoverShieldTriggerHash = Animator.StringToHash("recoverShield");
-
+    [Header("Defense Sounds")]
+    [SerializeField] private AudioSource defenseSfxSource;
+    [Range(0f, 1f)][SerializeField] private float defenseSfxVolume = 1f;
+    [SerializeField] private AudioClip blockStartClip;        // plays when entering block stance
+    [SerializeField] private AudioClip[] blockHitClips;       // random pick when blocking an attack
+    [SerializeField] private AudioClip[] parryClips;
     void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
@@ -113,7 +118,12 @@ public class PlayerHealth : MonoBehaviour
         if (checkpointManager == null) checkpointManager = FindFirstObjectByType<CheckpointManager>();
  
         currentShieldHealth = maxShieldHealth;
-      
+        if (defenseSfxSource == null)
+        {
+            defenseSfxSource = gameObject.AddComponent<AudioSource>();
+            defenseSfxSource.playOnAwake = false;
+            defenseSfxSource.spatialBlend = 0f;
+        }
     }
     void Update()
     {
@@ -226,6 +236,7 @@ public class PlayerHealth : MonoBehaviour
             animator.SetTrigger(parryAnim == 0 ? parry1TriggerHash : parry2TriggerHash);
 
             if (parryVFX != null) Instantiate(parryVFX, defenseVFXSpawnPoint.position, Quaternion.identity);
+            PlayRandomDefenseSound(parryClips);
             playerMovements.CanMove = true;
             currentShieldHealth -= parryShieldCost;
             currentShieldHealth = Mathf.Max(0, currentShieldHealth); // Don't go below zero
@@ -297,6 +308,7 @@ public class PlayerHealth : MonoBehaviour
                 currentShieldHealth = Mathf.Max(0, currentShieldHealth);
                 // FIX: This now correctly sets slider via normalized value
                 if (blockVFX != null) Instantiate(blockVFX, defenseVFXSpawnPoint.position, Quaternion.identity);
+                PlayRandomDefenseSound(blockHitClips);
                 if (knockbackCoroutine != null) StopCoroutine(knockbackCoroutine);
 
                 ImpactData parryImpact = ScriptableObject.CreateInstance<ImpactData>();
@@ -338,6 +350,23 @@ public class PlayerHealth : MonoBehaviour
             if (knockbackCoroutine != null) StopCoroutine(knockbackCoroutine);
             knockbackCoroutine = StartCoroutine(HitReactionRoutine(attacker, impact));
         }
+    }
+    private void PlayDefenseSound(AudioClip clip)
+    {
+        if (clip == null || defenseSfxSource == null) return;
+        defenseSfxSource.PlayOneShot(clip, defenseSfxVolume);
+    }
+
+    private void PlayRandomDefenseSound(AudioClip[] clips)
+    {
+        if (clips == null || clips.Length == 0 || defenseSfxSource == null) return;
+        AudioClip clip = clips[Random.Range(0, clips.Length)];
+        if (clip != null) defenseSfxSource.PlayOneShot(clip, defenseSfxVolume);
+    }
+
+    public void UpdateVolume(float masterVolume)
+    {
+        defenseSfxVolume = masterVolume;
     }
     public bool IsShieldBroken()
     {
@@ -485,6 +514,7 @@ public class PlayerHealth : MonoBehaviour
 
         animator.ResetTrigger(stopBlockTriggerHash);
         isBlocking = true;
+        PlayDefenseSound(blockStartClip);
         animator.SetTrigger(startBlockTriggerHash);
         playerMovements.CanMove = false;
         if (rb != null) rb.linearVelocity = new Vector2(0, rb.linearVelocity.y);

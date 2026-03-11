@@ -58,8 +58,10 @@ public class ZreyAttacks : MonoBehaviour
     [SerializeField] private int playerLayerValue = 6; // Example: Change this to your actual Player layer number"
     [Tooltip("The integer value of the Enemy's layer.")]
     [SerializeField] private int enemyLayerValue = 7;
-    [SerializeField] private float attackTimeout = 2f; 
-
+    [SerializeField] private float attackTimeout = 2f;
+    [Header("Attack Sounds")]
+    [SerializeField] private AudioSource attackSfxSource;
+    [Range(0f, 1f)][SerializeField] private float attackSfxVolume = 1f;
     private Coroutine attackWatchdogCoroutine;
     [Header("Down Slam Settings")]
     [Tooltip("The downward force applied to the player during the down slam.")]
@@ -176,7 +178,12 @@ public class ZreyAttacks : MonoBehaviour
     }
     void Awake()
     {
-      
+        if (attackSfxSource == null)
+        {
+            attackSfxSource = gameObject.AddComponent<AudioSource>();
+            attackSfxSource.playOnAwake = false;
+            attackSfxSource.spatialBlend = 0f;
+        }
         // Automatically get components if they aren't assigned.
         if (animator == null) animator = GetComponent<Animator>();
         if (playerMovement == null) playerMovement = GetComponent<ZreyMovements>();
@@ -196,7 +203,10 @@ public class ZreyAttacks : MonoBehaviour
         }
         originalGravityScale = rb.gravityScale;
     }
-
+    public void UpdateVolume(float masterVolume)
+    {
+        attackSfxVolume = masterVolume;
+    }
     void Update()
     {
         // Master shield: If we are busy, do nothing.
@@ -629,6 +639,11 @@ public class ZreyAttacks : MonoBehaviour
             }
         }
         // --- END OF FIX ---
+    }
+    public void PlayAttackSound(AudioClip clip)
+    {
+        if (clip == null || attackSfxSource == null) return;
+        attackSfxSource.PlayOneShot(clip, attackSfxVolume);
     }
     public bool IsAttacking()
     {

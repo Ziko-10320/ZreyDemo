@@ -20,7 +20,9 @@ public class GameManager : MonoBehaviour
     [Tooltip("How long the fade-to-black should take before changing scenes.")]
     public float sceneFadeDuration = 0.5f;
     // --- END OF NEW VARIABLES ---
-
+    [Header("Audio")]
+    [Tooltip("Drag the AudioManager object here.")]
+    public AudioManager audioManager;
     private CanvasGroup panelCanvasGroup;
     private RectTransform panelRectTransform;
 
@@ -65,23 +67,31 @@ public class GameManager : MonoBehaviour
     // --- Your PauseGame() and ResumeGame() functions remain the same ---
     public void PauseGame()
     {
+        // --- ADD THIS LINE ---
+        if (audioManager != null) audioManager.MuffleMusic();
+        // --- END OF ADDED LINE ---
+
         if (pausePanel == null) return;
         StartCoroutine(AnimatePanel(true));
         Time.timeScale = 0f;
         ZreyMovements.inputActions.Player.Disable();
         ZreyMovements.inputActions.UI.Enable();
-        AudioListener.pause = true;
+        // AudioListener.pause = true; // <-- IMPORTANT: DELETE OR COMMENT OUT THIS LINE!
         isPaused = true;
     }
 
     public void ResumeGame()
     {
+        // --- ADD THIS LINE ---
+        if (audioManager != null) audioManager.UnmuffleMusic();
+        // --- END OF ADDED LINE ---
+
         if (pausePanel == null) return;
         StartCoroutine(AnimatePanel(false));
         Time.timeScale = 1f;
         ZreyMovements.inputActions.UI.Disable();
         ZreyMovements.inputActions.Player.Enable();
-        AudioListener.pause = false;
+        // AudioListener.pause = false; // <-- IMPORTANT: DELETE OR COMMENT OUT THIS LINE!
         isPaused = false;
     }
 

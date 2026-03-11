@@ -21105,6 +21105,13 @@ AnimationClip:
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
+  - time: 0.05
+    functionName: PlayAttackSound
+    data: 
+    objectReferenceParameter: {fileID: 8300000, guid: f94c4f53fb0a6574997bd8bfe90a4041, type: 3}
+    floatParameter: 0
+    intParameter: 0
+    messageOptions: 0
   - time: 0.125
     functionName: AttackEnemy
     data: 
@@ -21140,6 +21147,13 @@ AnimationClip:
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
+  - time: 0.225
+    functionName: PlayAttackSound
+    data: 
+    objectReferenceParameter: {fileID: 8300000, guid: 4d2aeae3379cd7b49b164ec36d8700fa, type: 3}
+    floatParameter: 0
+    intParameter: 0
+    messageOptions: 0
   - time: 0.3
     functionName: AttackEnemy
     data: 
@@ -21158,6 +21172,13 @@ AnimationClip:
     functionName: TelegraphAttack
     data: 
     objectReferenceParameter: {fileID: 0}
+    floatParameter: 0
+    intParameter: 0
+    messageOptions: 0
+  - time: 0.575
+    functionName: PlayAttackSound
+    data: 
+    objectReferenceParameter: {fileID: 8300000, guid: c0788f0ed9a0f044da8613359e89c890, type: 3}
     floatParameter: 0
     intParameter: 0
     messageOptions: 0

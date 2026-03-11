@@ -170,7 +170,19 @@ public class ZreyMovements : MonoBehaviour
     private readonly int rootDashBackwardLeftTriggerHash = Animator.StringToHash("rootDashBackwardLeft");
     private readonly int dashBackTriggerHash = Animator.StringToHash("dashback");
     private readonly int exitCombatTriggerHash = Animator.StringToHash("ExitCombat");
-
+    [Header("Sound Effects")]
+    [SerializeField] private AudioSource sfxSource;
+    [Range(0f, 1f)][SerializeField] private float jumpSoundVolume = 1f;
+    [Range(0f, 1f)][SerializeField] private float landSoundVolume = 1f;
+    [Range(0f, 1f)][SerializeField] private float groundDashSoundVolume = 1f;
+    [Range(0f, 1f)][SerializeField] private float airDashSoundVolume = 1f;
+    [Range(0f, 1f)][SerializeField] private float footstepVolume = 1f;
+    [SerializeField] private AudioClip jumpClip;
+    [SerializeField] private AudioClip landClip;
+    [SerializeField] private AudioClip groundDashClip;
+    [SerializeField] private AudioClip airDashClip;
+    [SerializeField] private AudioSource footstepSource; // Separate looping source
+    [SerializeField] private AudioClip footstepClip;
     void Awake()
     {
 
@@ -206,6 +218,19 @@ public class ZreyMovements : MonoBehaviour
         if (playerAttacks == null) playerAttacks = GetComponent<ZreyAttacks>();
         playerHealth = GetComponent<PlayerHealth>();
         if (playerGrapple == null) playerGrapple = GetComponentInParent<PlayerGrapple>();
+        if (sfxSource == null)
+        {
+            sfxSource = gameObject.AddComponent<AudioSource>();
+            sfxSource.playOnAwake = false;
+            sfxSource.spatialBlend = 0f; // 2D sound
+        }
+        if (footstepSource == null)
+        {
+            footstepSource = gameObject.AddComponent<AudioSource>();
+            footstepSource.playOnAwake = false;
+            footstepSource.loop = true;
+            footstepSource.spatialBlend = 0f; // 2D sound
+        }
     }
     public static void NukeInputSystem()
     {
@@ -334,6 +359,7 @@ public class ZreyMovements : MonoBehaviour
         HandleAirborneAnimation();
         if (!wasGrounded && isGrounded)
         {
+            if (landClip != null) sfxSource.PlayOneShot(landClip, landSoundVolume); // ADD THIS
             if (playerAttacks != null)
             {
                 playerAttacks.OnPlayerLanded(); // We will create this new public method.
@@ -589,11 +615,13 @@ public class ZreyMovements : MonoBehaviour
                 if (isFacingRight)
                 {
                     // Facing right, but moving left -> Play the backward dash that moves left
+                    if (groundDashClip != null) sfxSource.PlayOneShot(groundDashClip, groundDashSoundVolume);
                     InitiateRootMotion(rootDashBackwardLeftTriggerHash, 0.3f);
                 }
                 else
                 {
                     // Facing left, but moving right -> Play the backward dash that moves right
+                    if (groundDashClip != null) sfxSource.PlayOneShot(groundDashClip, groundDashSoundVolume);
                     InitiateRootMotion(rootDashBackwardTriggerHash, 0.3f);
                 }
             }
@@ -605,10 +633,12 @@ public class ZreyMovements : MonoBehaviour
                 animator.SetTrigger(dashTriggerHash);
                 if (isFacingRight)
                 {
+                    if (groundDashClip != null) sfxSource.PlayOneShot(groundDashClip, groundDashSoundVolume);
                     InitiateRootMotion(rootDashTriggerHash, 0.3f);
                 }
                 else
                 {
+                    if (groundDashClip != null) sfxSource.PlayOneShot(groundDashClip, groundDashSoundVolume);
                     InitiateRootMotion(rootDashLeftTriggerHash, 0.3f);
                 }
             }
@@ -727,6 +757,7 @@ public class ZreyMovements : MonoBehaviour
     {
         // --- 1. SETUP PHASE ---
         isDashing = true; // Use the existing master dash flag
+        if (airDashClip != null) sfxSource.PlayOneShot(airDashClip, airDashSoundVolume);
         float dashDuration;
         Vector2 dashVelocity;
         if (playerTrail != null)
@@ -785,7 +816,23 @@ public class ZreyMovements : MonoBehaviour
         Debug.Log("<color=cyan>--- GRAVITY SCALE: 0 (Set by Animation Event) ---</color>");
         rb.gravityScale = 0f;
     }
+    private void StartFootsteps()
+    {
+        if (footstepSource == null || footstepClip == null) return;
+        if (!footstepSource.isPlaying)
+        {
+            footstepSource.clip = footstepClip;
+            footstepSource.loop = true;
+            footstepSource.volume = footstepVolume;
+            footstepSource.Play();
+        }
+    }
 
+    private void StopFootsteps()
+    {
+        if (footstepSource != null && footstepSource.isPlaying)
+            footstepSource.Stop();
+    }
     /// <summary>
     /// Called by an Animation Event to restore the player's original gravity scale.
     /// </summary>
@@ -809,14 +856,15 @@ public class ZreyMovements : MonoBehaviour
     }
     private void PerformJump()
     {
-        if (isDashing)
-        {
-            DisableDash(); // Call the same function our animation event does!
-        }
+        if (isDashing) { DisableDash(); }
 
         rb.linearVelocity = new Vector2(rb.linearVelocity.x, jumpForce);
         animator.SetTrigger(jumpTriggerHash);
         jumpBufferCounter = 0f;
+
+        // SOUNDS
+        StopFootsteps();
+        if (jumpClip != null) sfxSource.PlayOneShot(jumpClip, jumpSoundVolume);
     }
     private void PerformWallJump()
     {
@@ -955,7 +1003,14 @@ public class ZreyMovements : MonoBehaviour
     }
     private void HandleMovementAnimation()
     {
-        animator.SetBool(isRunningHash, moveInput.x != 0 && !isInCombatMode);
+        bool shouldRun = moveInput.x != 0 && !isInCombatMode;
+        animator.SetBool(isRunningHash, shouldRun);
+
+        // FOOTSTEP LOOP
+        if (shouldRun && isGrounded && !isDashing)
+            StartFootsteps();
+        else
+            StopFootsteps();
     }
     private void HandleCombatAndAnimation()
     {
@@ -1204,6 +1259,18 @@ public class ZreyMovements : MonoBehaviour
 
         // Stop any lingering coroutines in this script
         StopAllCoroutines();
+    }
+    public void UpdateVolume(float masterVolume)
+    {
+        jumpSoundVolume = masterVolume;
+        landSoundVolume = masterVolume;
+        groundDashSoundVolume = masterVolume;
+        airDashSoundVolume = masterVolume;
+        footstepVolume = masterVolume;
+
+        // Also update the footstep source live if it's currently playing
+        if (footstepSource != null)
+            footstepSource.volume = footstepVolume;
     }
     private void OnDrawGizmosSelected()
     {
