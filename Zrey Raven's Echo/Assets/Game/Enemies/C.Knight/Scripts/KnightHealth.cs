@@ -190,6 +190,7 @@ private int blocksNeededForNextCounter = 0;
     [Header("Hit Sounds")]
     [Range(0f, 1f)][SerializeField] private float hitSfxVolume = 1f;
     [SerializeField] private AudioClip[] hitSoundClips;
+    [SerializeField] private AudioClip[] blockSoundClips;
     private AudioSource hitSfxSource;
     void Awake()
     {
@@ -293,7 +294,12 @@ private int blocksNeededForNextCounter = 0;
         AudioClip clip = hitSoundClips[Random.Range(0, hitSoundClips.Length)];
         if (clip != null) hitSfxSource.PlayOneShot(clip, hitSfxVolume);
     }
-
+    private void PlayRandomBlockSound()
+    {
+        if (blockSoundClips == null || blockSoundClips.Length == 0 || hitSfxSource == null) return;
+        AudioClip clip = blockSoundClips[Random.Range(0, blockSoundClips.Length)];
+        if (clip != null) hitSfxSource.PlayOneShot(clip, hitSfxVolume);
+    }
     public void UpdateVolume(float masterVolume)
     {
         hitSfxVolume = masterVolume;
@@ -508,6 +514,7 @@ private int blocksNeededForNextCounter = 0;
             {
                 Instantiate(blockSparksPrefab, blockSparksPoint.position, blockSparksPoint.rotation);
             }
+            PlayRandomBlockSound(); // ADD THIS
             CameraShakerHandler.Shake(CameraShakeParry);
             if (knockbackCoroutine != null) StopCoroutine(knockbackCoroutine);
             knockbackCoroutine = StartCoroutine(KnockbackRoutine(attacker, blockRecoilDistance, blockRecoilDuration, 0, 0));
@@ -1128,6 +1135,7 @@ private int blocksNeededForNextCounter = 0;
             {
                 Instantiate(blockSparksPrefab, blockSparksPoint.position, blockSparksPoint.rotation);
             }
+            PlayRandomBlockSound(); // ADD THIS
             CameraShakerHandler.Shake(CameraShakeParry);
             blocksSinceLastCounter++;
             if (blocksSinceLastCounter >= blocksNeededForNextCounter)

@@ -79,6 +79,11 @@ public class SpearAttack : MonoBehaviour
 
     private readonly int backstepTriggerHash = Animator.StringToHash("backstep");
     private SpearAI spearAI;
+    [Header("Attack Sounds")]
+    [Range(0f, 1f)][SerializeField] private float attackSfxVolume = 1f;
+    [SerializeField] private AudioClip[] randomAttackClips;
+    [Range(0.1f, 3f)][SerializeField] private float attackSfxPitch = 1f;
+    private AudioSource attackSfxSource;
     void Awake()
     {
         animator = GetComponent<Animator>();
@@ -87,6 +92,9 @@ public class SpearAttack : MonoBehaviour
         followAI = GetComponent<SpearFollow>();
         health = GetComponent<SpearHealth>();
         spearAI = GetComponent<SpearAI>();
+        attackSfxSource = gameObject.AddComponent<AudioSource>();
+        attackSfxSource.playOnAwake = false;
+        attackSfxSource.spatialBlend = 0f;
     }
 
     void Update()
@@ -120,7 +128,27 @@ public class SpearAttack : MonoBehaviour
         
         isDamageWindowOpen = true;
     }
+    public void PlayRandomAttackSound()
+    {
+        if (randomAttackClips == null || randomAttackClips.Length == 0 || attackSfxSource == null) return;
+        AudioClip clip = randomAttackClips[Random.Range(0, randomAttackClips.Length)];
+        if (clip != null)
+        {
+            attackSfxSource.pitch = attackSfxPitch; // ADD THIS
+            attackSfxSource.PlayOneShot(clip, attackSfxVolume);
+        }
+    }
 
+    public void PlaySpecificAttackSound(AudioClip clip)
+    {
+        if (clip == null || attackSfxSource == null) return;
+        attackSfxSource.PlayOneShot(clip, attackSfxVolume);
+    }
+
+    public void UpdateVolume(float masterVolume)
+    {
+        attackSfxVolume = masterVolume;
+    }
     /// <summary>
     /// Called by an Animation Event to CLOSE the damage window.
     /// </summary>

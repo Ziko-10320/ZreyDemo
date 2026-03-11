@@ -51,5 +51,10 @@ public class VolumeManager : MonoBehaviour
         if (playerHealth != null) playerHealth.UpdateVolume(masterSfxVolume);
         foreach (KnightHealth knight in FindObjectsOfType<KnightHealth>())
             knight.UpdateVolume(masterSfxVolume);
+        foreach (KnightAttack knight in FindObjectsOfType<KnightAttack>())
+            knight.UpdateVolume(masterSfxVolume);
+        foreach (KnightHealth k in FindObjectsOfType<KnightHealth>()) k.UpdateVolume(masterSfxVolume);
+        foreach (SpearHealth s in FindObjectsOfType<SpearHealth>()) s.UpdateVolume(masterSfxVolume);
+        foreach (SpearAttack s in FindObjectsOfType<SpearAttack>()) s.UpdateVolume(masterSfxVolume);
     }
 }

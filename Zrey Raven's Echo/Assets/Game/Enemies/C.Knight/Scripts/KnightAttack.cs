@@ -92,6 +92,10 @@ public class KnightAttack : MonoBehaviour
     private readonly int grabStabTriggerHash = Animator.StringToHash("GrabStab");
 
     private bool isGrabWindowOpen = false;
+    [Header("Attack Sounds")]
+    [Range(0f, 1f)][SerializeField] private float attackSfxVolume = 1f;
+    [SerializeField] private AudioClip[] randomAttackClips; // pool of random sounds
+    private AudioSource attackSfxSource;
     void Awake() 
     {
         animator = GetComponent<Animator>();
@@ -100,6 +104,9 @@ public class KnightAttack : MonoBehaviour
         followAI = GetComponent<KnightFollow>();
         health = GetComponent<KnightHealth>();
         knightAI = GetComponent<KnightAI>();
+        attackSfxSource = gameObject.AddComponent<AudioSource>();
+        attackSfxSource.playOnAwake = false;
+        attackSfxSource.spatialBlend = 0f;
     }
 
     void Update()
@@ -161,6 +168,24 @@ public class KnightAttack : MonoBehaviour
                 }
             }
         }
+    }
+    public void PlayRandomAttackSound()
+    {
+        if (randomAttackClips == null || randomAttackClips.Length == 0 || attackSfxSource == null) return;
+        AudioClip clip = randomAttackClips[Random.Range(0, randomAttackClips.Length)];
+        if (clip != null) attackSfxSource.PlayOneShot(clip, attackSfxVolume);
+    }
+
+    // Animation event: plays a specific clip you assign directly in the event slot
+    public void PlaySpecificAttackSound(AudioClip clip)
+    {
+        if (clip == null || attackSfxSource == null) return;
+        attackSfxSource.PlayOneShot(clip, attackSfxVolume);
+    }
+
+    public void UpdateVolume(float masterVolume)
+    {
+        attackSfxVolume = masterVolume;
     }
     public void StopAllMovement()
     {

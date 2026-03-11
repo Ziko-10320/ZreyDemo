@@ -214,6 +214,11 @@ public class SpearHealth : MonoBehaviour
     private readonly int landHitTriggerHash = Animator.StringToHash("LandHit");
     private bool isDying = false;
     private readonly int finishableStateTriggerHash = Animator.StringToHash("FinishableState");
+    [Header("Hit Sounds")]
+    [Range(0f, 1f)][SerializeField] private float hitSfxVolume = 1f;
+    [SerializeField] private AudioClip[] hitSoundClips;
+    [SerializeField] private AudioClip[] blockSoundClips;
+    private AudioSource hitSfxSource;
     void Awake()
     {
         currentHealth = maxHealth;
@@ -276,6 +281,9 @@ public class SpearHealth : MonoBehaviour
         }
         UpdateHealthUI();
         UpdatePostureUI();
+        hitSfxSource = gameObject.AddComponent<AudioSource>();
+        hitSfxSource.playOnAwake = false;
+        hitSfxSource.spatialBlend = 0f;
     }
     void LateUpdate()
     {
@@ -455,6 +463,24 @@ public class SpearHealth : MonoBehaviour
         }
      
     }
+    private void PlayRandomHitSound()
+    {
+        if (hitSoundClips == null || hitSoundClips.Length == 0 || hitSfxSource == null) return;
+        AudioClip clip = hitSoundClips[Random.Range(0, hitSoundClips.Length)];
+        if (clip != null) hitSfxSource.PlayOneShot(clip, hitSfxVolume);
+    }
+
+    private void PlayRandomBlockSound()
+    {
+        if (blockSoundClips == null || blockSoundClips.Length == 0 || hitSfxSource == null) return;
+        AudioClip clip = blockSoundClips[Random.Range(0, blockSoundClips.Length)];
+        if (clip != null) hitSfxSource.PlayOneShot(clip, hitSfxVolume);
+    }
+
+    public void UpdateVolume(float masterVolume)
+    {
+        hitSfxVolume = masterVolume;
+    }
     public void KillAllMomentum()
     {
         // Failsafe: If there is no Rigidbody, do nothing.
@@ -500,6 +526,8 @@ public class SpearHealth : MonoBehaviour
             currentHealth -= damage;
             Debug.Log("<color=red>GUARD BROKEN! Dealt " + damage + " direct damage.</color>");
             SpawnBloodVFX();
+            PlayRandomHitSound();
+            PlayRandomHitSound();
             // Apply the normal hit knockback
             if (knockbackCoroutine != null) StopCoroutine(knockbackCoroutine);
             knockbackCoroutine = StartCoroutine(KnockbackRoutine(attacker, knockbackDistance, knockbackDuration, 0, 0));
@@ -517,6 +545,7 @@ public class SpearHealth : MonoBehaviour
             {
                 Instantiate(blockSparksPrefab, blockSparksPoint.position, blockSparksPoint.rotation);
             }
+            PlayRandomBlockSound();
             CameraShakerHandler.Shake(CameraShakeParry);
             if (knockbackCoroutine != null) StopCoroutine(knockbackCoroutine);
             knockbackCoroutine = StartCoroutine(KnockbackRoutine(attacker, blockRecoilDistance, blockRecoilDuration, 0, 0));
@@ -551,6 +580,7 @@ public class SpearHealth : MonoBehaviour
         PlayHitReaction(hitType);
         currentHealth -= damage;
         SpawnBloodVFX();
+        PlayRandomHitSound();
         Debug.Log(transform.name + " took " + damage + " damage. Health is now: " + currentHealth);
 
         // --- KNOCKBACK LOGIC ---
@@ -1024,6 +1054,7 @@ public class SpearHealth : MonoBehaviour
             currentHealth -= damage;
             TriggerHealthUpdate();
             SpawnBloodVFX();
+            PlayRandomHitSound();
             SpawnWoundEffect();
             if (flashCoroutine != null) StopCoroutine(flashCoroutine);
             flashCoroutine = StartCoroutine(FlashDamageEffect());
@@ -1055,6 +1086,7 @@ public class SpearHealth : MonoBehaviour
             {
                 Instantiate(blockSparksPrefab, blockSparksPoint.position, blockSparksPoint.rotation);
             }
+            PlayRandomBlockSound();
             CameraShakerHandler.Shake(CameraShakeParry);
             blocksSinceLastCounter++;
             if (blocksSinceLastCounter >= blocksNeededForNextCounter)
@@ -1072,6 +1104,7 @@ public class SpearHealth : MonoBehaviour
         PlayHitReaction(hitType);
         currentHealth -= damage;
         SpawnBloodVFX();
+        PlayRandomHitSound();
         SpawnWoundEffect();
         if (flashCoroutine != null) StopCoroutine(flashCoroutine);
         flashCoroutine = StartCoroutine(FlashDamageEffect());
@@ -1219,6 +1252,7 @@ public class SpearHealth : MonoBehaviour
             PlayHitReaction(attackData.hitType); // This will be "Up"
             currentHealth -= attackData.damage;
             SpawnBloodVFX();
+            PlayRandomHitSound();
             if (flashCoroutine != null) StopCoroutine(flashCoroutine);
             flashCoroutine = StartCoroutine(FlashDamageEffect());
 
