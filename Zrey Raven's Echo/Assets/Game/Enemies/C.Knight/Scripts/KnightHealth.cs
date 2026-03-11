@@ -542,6 +542,7 @@ private int blocksNeededForNextCounter = 0;
         PlayHitReaction(hitType);
         currentHealth -= damage;
         SpawnBloodVFX();
+        PlayRandomHitSound();
         Debug.Log(transform.name + " took " + damage + " damage. Health is now: " + currentHealth);
 
         // --- KNOCKBACK LOGIC ---
@@ -1144,6 +1145,7 @@ private int blocksNeededForNextCounter = 0;
         PlayHitReaction(hitType);
         currentHealth -= damage;
         SpawnBloodVFX();
+        PlayRandomHitSound();
         SpawnWoundEffect();
         if (flashCoroutine != null) StopCoroutine(flashCoroutine);
         flashCoroutine = StartCoroutine(FlashDamageEffect());
