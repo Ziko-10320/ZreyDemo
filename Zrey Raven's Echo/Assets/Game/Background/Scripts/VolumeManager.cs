@@ -49,5 +49,7 @@ public class VolumeManager : MonoBehaviour
         if (audioManager != null) audioManager.UpdateVolume(masterSfxVolume);
         PlayerHealth playerHealth = FindObjectOfType<PlayerHealth>();
         if (playerHealth != null) playerHealth.UpdateVolume(masterSfxVolume);
+        foreach (KnightHealth knight in FindObjectsOfType<KnightHealth>())
+            knight.UpdateVolume(masterSfxVolume);
     }
 }

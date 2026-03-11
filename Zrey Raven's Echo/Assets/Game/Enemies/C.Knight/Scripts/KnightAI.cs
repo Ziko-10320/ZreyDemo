@@ -276,6 +276,7 @@ public class KnightAI : MonoBehaviour
         if (playerAttacks != null)
         {
             // We call the method with NO parameters.
+            playerAttacks.PlayRandomCounterSound();
             playerAttacks.StartKnightCounter();
         }
         // 5. Wait for the sequence to end before unlocking the brain.
@@ -383,7 +384,10 @@ public class KnightAI : MonoBehaviour
         }
         return false;
     }
-
+    public void PlayRandomCounterSound()
+{
+   
+}
 
     // --- ADD THIS NEW COROUTINE ---
     private IEnumerator ExecuteGrabCounterSequence(ZreyAttacks player)
@@ -443,6 +447,7 @@ public class KnightAI : MonoBehaviour
         animator.SetTrigger(getCounteredTriggerHash);
 
         float counterDuration = player.grabCounterStunDuration;
+        player.PlayRandomCounterSound();
         player.ExecuteVagabondCounter(counterDuration);
 
         // --- 6. STUN SELF ---

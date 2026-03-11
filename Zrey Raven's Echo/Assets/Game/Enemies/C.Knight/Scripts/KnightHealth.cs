@@ -187,6 +187,10 @@ private int blocksNeededForNextCounter = 0;
     private readonly int getFinishedTriggerHash = Animator.StringToHash("GetFinished");
     private bool isDying = false;
     private readonly int finishableStateTriggerHash = Animator.StringToHash("FinishableState");
+    [Header("Hit Sounds")]
+    [Range(0f, 1f)][SerializeField] private float hitSfxVolume = 1f;
+    [SerializeField] private AudioClip[] hitSoundClips;
+    private AudioSource hitSfxSource;
     void Awake()
     {
         currentHealth = maxHealth;
@@ -240,6 +244,9 @@ private int blocksNeededForNextCounter = 0;
         TriggerHealthUpdate();
         TriggerPostureUpdate();
         SetNewCounterThreshold();
+        hitSfxSource = gameObject.AddComponent<AudioSource>();
+        hitSfxSource.playOnAwake = false;
+        hitSfxSource.spatialBlend = 0f;
     }
     private void UpdateHealthUI()
     {
@@ -279,6 +286,17 @@ private int blocksNeededForNextCounter = 0;
 
         // --- NEW LOGIC: Hide the fill if posture is zero ---
         if (postureSlider == null) return;
+    }
+    private void PlayRandomHitSound()
+    {
+        if (hitSoundClips == null || hitSoundClips.Length == 0 || hitSfxSource == null) return;
+        AudioClip clip = hitSoundClips[Random.Range(0, hitSoundClips.Length)];
+        if (clip != null) hitSfxSource.PlayOneShot(clip, hitSfxVolume);
+    }
+
+    public void UpdateVolume(float masterVolume)
+    {
+        hitSfxVolume = masterVolume;
     }
     void Update()
     {
@@ -472,6 +490,7 @@ private int blocksNeededForNextCounter = 0;
             currentHealth -= damage;
             Debug.Log("<color=red>GUARD BROKEN! Dealt " + damage + " direct damage.</color>");
             SpawnBloodVFX();
+            PlayRandomHitSound();
             // Apply the normal hit knockback
             if (knockbackCoroutine != null) StopCoroutine(knockbackCoroutine);
             knockbackCoroutine = StartCoroutine(KnockbackRoutine(attacker, knockbackDistance, knockbackDuration, 0, 0));
@@ -595,6 +614,7 @@ private int blocksNeededForNextCounter = 0;
             PlayHitReaction(attackData.hitType); // This will be "Up"
             currentHealth -= attackData.damage;
             SpawnBloodVFX();
+            PlayRandomHitSound();
             if (flashCoroutine != null) StopCoroutine(flashCoroutine);
             flashCoroutine = StartCoroutine(FlashDamageEffect());
             TriggerPostureUpdate();
@@ -1075,6 +1095,7 @@ private int blocksNeededForNextCounter = 0;
             PlayHitReaction(hitType);
             currentHealth -= damage;
             SpawnBloodVFX();
+            PlayRandomHitSound();
             SpawnWoundEffect();
             if (flashCoroutine != null) StopCoroutine(flashCoroutine);
             flashCoroutine = StartCoroutine(FlashDamageEffect());

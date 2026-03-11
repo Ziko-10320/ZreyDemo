@@ -6,6 +6,7 @@ using UnityEngine.InputSystem;
 [RequireComponent(typeof(Animator))]
 public class ZreyAttacks : MonoBehaviour
 {
+    [SerializeField] private AudioClip[] counterClips;
     [Header("Components")]
     [SerializeField] private Animator animator;
     // We need a reference to the movement script to check its state.
@@ -640,10 +641,20 @@ public class ZreyAttacks : MonoBehaviour
         }
         // --- END OF FIX ---
     }
+    public void PlayRandomCounterSound()
+    {
+        PlayRandomAttackSound(counterClips);
+    }
     public void PlayAttackSound(AudioClip clip)
     {
         if (clip == null || attackSfxSource == null) return;
         attackSfxSource.PlayOneShot(clip, attackSfxVolume);
+    }
+    public void PlayRandomAttackSound(AudioClip[] clips)
+    {
+        if (clips == null || clips.Length == 0 || attackSfxSource == null) return;
+        AudioClip clip = clips[UnityEngine.Random.Range(0, clips.Length)];
+        if (clip != null) attackSfxSource.PlayOneShot(clip, attackSfxVolume);
     }
     public bool IsAttacking()
     {
@@ -967,6 +978,7 @@ public class ZreyAttacks : MonoBehaviour
     public void StartKnightCounter()
     {
         isCountering = true;
+        PlayRandomAttackSound(counterClips); // counter sound
         IsInCinematicState = true;
         if (playerTrail != null)
         {
@@ -1047,7 +1059,7 @@ public class ZreyAttacks : MonoBehaviour
         // Start the new zoom-in coroutine.
         cameraZoomCoroutine = StartCoroutine(ZoomCamera(mainCamera.orthographicSize, zoomInSize, zoomDuration));
     }
-
+   
     /// <summary>
     /// Called by an Animation Event to start the smooth zoom-out effect.
     /// </summary>
