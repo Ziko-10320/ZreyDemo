@@ -289,6 +289,19 @@ public class PlayerHealth : MonoBehaviour
                 }
                 else Debug.Log("<color=yellow>Parried a normal attack. Knight is knocked back but not stunned.</color>");
             }
+
+            ReaperAttack RAttack = attacker.GetComponent<ReaperAttack>();
+            ReaperHealth RHealth = attacker.GetComponent<ReaperHealth> ();
+            if (RHealth != null)
+            {
+                RHealth.TakePostureDamageOnParry();
+                if (RAttack != null && RAttack.IsFinalComboAttack())
+                {
+                    Debug.Log("<color=lime>PARRIED THE FINAL ATTACK! Stunning the knight!</color>");
+                    RHealth.GetParried(transform);
+                }
+                else Debug.Log("<color=yellow>Parried a normal attack. Knight is knocked back but not stunned.</color>");
+            }
             return;
         }
 

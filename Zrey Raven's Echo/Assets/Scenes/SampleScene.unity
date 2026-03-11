@@ -7444,23 +7444,28 @@ MonoBehaviour:
   blockRecoilDuration: 0.15
   isBlocking: 0
   CameraShakeParry: {fileID: 11400000, guid: fdf86c26fd619bd45830cd0305c66c36, type: 2}
-  maxGuard: 150
+  maxGuard: 50
   guardDamagePerBlock: 7
   guardBrokenStunDuration: 8
   guardRecoveryDelay: 4
   guardRecoveryRate: 15
   guardDamageOnParried: 30
   timeSinceLastBlock: 0
-  bloodVFXPrefabs: []
-  bloodSpawnPoint: {fileID: 0}
-  woundEffectPrefab: {fileID: 0}
-  woundSpawnPoint: {fileID: 0}
-  playerTarget: {fileID: 0}
-  knightMeshRenderer: {fileID: 0}
-  flashMaterial: {fileID: 0}
+  bloodVFXPrefabs:
+  - {fileID: 2680149006326086416, guid: 7add2bee101534b4e9d6b42c61e9469a, type: 3}
+  - {fileID: 3823058769349986001, guid: 7d5aa9c68ac15fb4bab4bafeaa278621, type: 3}
+  - {fileID: 1213034877491462056, guid: bb7681cfd64a8f444a498a44c5d37edc, type: 3}
+  - {fileID: 8750959267433680331, guid: dc55edf88e5a534478912fea477470a3, type: 3}
+  - {fileID: 439832784341202620, guid: b7c409bab0b33b047a70cdb40e9265e2, type: 3}
+  bloodSpawnPoint: {fileID: 1542775139}
+  woundEffectPrefab: {fileID: 7967229399387410317, guid: f9cde738f4b0e3041a2b3feeef7b8f2a, type: 3}
+  woundSpawnPoint: {fileID: 1542775139}
+  playerTarget: {fileID: 3392201208323644467}
+  knightMeshRenderer: {fileID: 759248878}
+  flashMaterial: {fileID: 2100000, guid: 37c2831260039964c9188b13e5325d41, type: 2}
   flashDuration: 0.2
-  minBlocksToCounter: 5
-  maxBlocksToCounter: 10
+  minBlocksToCounter: 20
+  maxBlocksToCounter: 30
   isUnbreakable: 0
   counterStunDuration: 1.5
   guardCrushStunDuration: 1
@@ -7473,7 +7478,7 @@ MonoBehaviour:
   groundCheckRadius: 0.2
   groundLayer:
     serializedVersion: 2
-    m_Bits: 0
+    m_Bits: 64
 --- !u!114 &290238481
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -8923,6 +8928,11 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1917970973}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!137 &759248878 stripped
+SkinnedMeshRenderer:
+  m_CorrespondingSourceObject: {fileID: 523531870135419022, guid: 99a71b153be5c4d46a1ea43cce8d71e1, type: 3}
+  m_PrefabInstance: {fileID: 290238472}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &793677941
 GameObject:
   m_ObjectHideFlags: 0
@@ -9262,6 +9272,7 @@ Transform:
   m_Children:
   - {fileID: 827203542}
   - {fileID: 1329890669}
+  - {fileID: 1542775139}
   m_Father: {fileID: 290238479}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &917980037
@@ -10386,6 +10397,37 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 05338e00b98b1ce4b9b16b219d792410, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::KnightAI
+--- !u!1 &1542775138
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1542775139}
+  m_Layer: 8
+  m_Name: SpawnBloodPoint
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1542775139
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1542775138}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0.6870308, y: 0.05437296, z: 0.60912347, w: 0.39242944}
+  m_LocalPosition: {x: 0.01, y: 0.69, z: -0.01}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 902778950}
+  m_LocalEulerAnglesHint: {x: -37.262, y: -86.393, z: 149.548}
 --- !u!1001 &1638124163
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -10408,7 +10450,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3950796727645695665, guid: 6dca67278431fa1499679f260bca6dd5, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -4.3
+      value: -33.49
       objectReference: {fileID: 0}
     - target: {fileID: 3950796727645695665, guid: 6dca67278431fa1499679f260bca6dd5, type: 3}
       propertyPath: m_LocalPosition.y
