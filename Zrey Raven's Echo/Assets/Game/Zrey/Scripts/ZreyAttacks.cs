@@ -168,6 +168,11 @@ public class ZreyAttacks : MonoBehaviour
     private int lastAttackJumpVariant = -1; // -1 = none played yet
     private int sameAttackJumpCount = 0;
     private bool isAttackJumping = false;
+
+    private readonly int reaperFinisherTriggerHash = Animator.StringToHash("ReaperFinisher");
+
+    [Tooltip("The offset from the player to snap the REAPER to before the Reaper Finisher.")]
+    [SerializeField] private Vector3 reaperFinisherSnapOffset = new Vector3(1.5f, 0, 0);
     private void OnEnable()
     {
         InputManager.OnInteractPressed += HandleInteractionInput;
@@ -238,6 +243,7 @@ public class ZreyAttacks : MonoBehaviour
             // Grounded Tap Logic (Normal Combo or Block Attack)
             if (attackReleased && !isChargeAttackPrimed && !playerMovement.IsDashing())
             {
+                if (AttemptFinisher()) return;
                 HandleAttack(); // This method already handles the block-attack check.
             }
         }
@@ -1107,8 +1113,7 @@ public class ZreyAttacks : MonoBehaviour
         if (playerHealth != null && playerHealth.IsGrabbed) return;
         if (isAttacking || IsInCinematicState) return;
 
-        // PRIORITY 1: Finisher
-        if (AttemptFinisher()) return;
+      
 
         // PRIORITY 2: Vagabond Counter — Knight enemies ONLY via direct call
         if (BroadcastVagabondCounter()) return;
@@ -1199,7 +1204,10 @@ public class ZreyAttacks : MonoBehaviour
         {
             return false;
         }
-
+        if (!playerMovement.IsGrounded())
+        {
+            return false;
+        }
         Collider2D[] nearbyEnemies = Physics2D.OverlapCircleAll(transform.position, finisherRange, enemyLayer);
 
         foreach (Collider2D enemyCollider in nearbyEnemies)
@@ -1220,6 +1228,14 @@ public class ZreyAttacks : MonoBehaviour
             {
                 Debug.LogError("--- SUCCESS! Found finishable Knight Enemy. ---");
                 StartCoroutine(ExecuteVagabondFinisherSequence(knightHealth));
+                return true;
+            }
+
+            ReaperHealth reaperHealth = enemyCollider.GetComponent<ReaperHealth>();
+            if (reaperHealth != null && reaperHealth.isFinishable)
+            {
+                Debug.LogError("--- SUCCESS! Found finishable Reaper Enemy. ---");
+                StartCoroutine(ExecuteReaperFinisherSequence(reaperHealth));
                 return true;
             }
         }
@@ -1311,6 +1327,43 @@ public class ZreyAttacks : MonoBehaviour
         animator.SetTrigger(spearFinisherTriggerHash);
 
         yield return null;
+    }
+    private IEnumerator ExecuteReaperFinisherSequence(ReaperHealth targetReaper)
+    {
+        // --- 1. LOCK EVERYTHING ---
+        IsInCinematicState = true;
+        if (playerMovement != null) playerMovement.CanMove = false;
+        if (rb != null) rb.linearVelocity = Vector2.zero;
+
+        // --- 2. ALIGN THE REAPER TO THE PLAYER ---
+        ReaperFollow reaperFollow = targetReaper.GetComponent<ReaperFollow>();
+
+        // A. Force the Reaper to face the player before the snap.
+        if (reaperFollow != null) reaperFollow.FacePlayer();
+
+        // B. Make the player face the Reaper.
+        playerMovement.ForceFaceDirection(targetReaper.transform.position.x > transform.position.x);
+
+        // C. Snap the Reaper to the fixed offset from the player.
+        float direction = playerMovement.IsFacingRight() ? 1f : -1f;
+        Vector3 snapPosition = transform.position + new Vector3(
+            reaperFinisherSnapOffset.x * direction,
+            reaperFinisherSnapOffset.y,
+            reaperFinisherSnapOffset.z
+        );
+        targetReaper.transform.position = snapPosition;
+
+        // D. Re-face guarantee after snap.
+        if (reaperFollow != null) reaperFollow.FacePlayer();
+        playerMovement.ForceFaceDirection(targetReaper.transform.position.x > transform.position.x);
+
+        yield return null;
+
+        // --- 3. PLAY ANIMATIONS ---
+        targetReaper.ExecuteFinisher();          // Reaper plays "TakeFinisher"
+        animator.SetTrigger(reaperFinisherTriggerHash); // Player plays "ReaperFinisher"
+
+        // Cleanup is handled by FinishFinisherSequence() called from animation event.
     }
     public void FinishFinisherSequence()
     {

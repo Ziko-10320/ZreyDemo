@@ -416,31 +416,42 @@ public class KnightAI : MonoBehaviour
         // --- 2. CALCULATE ALIGNMENT ---
         // The knight snaps to a fixed offset from the PLAYER'S current position
         // We determine which side based on where the knight currently is
-        float directionFromPlayerToKnight = Mathf.Sign(transform.position.x - player.transform.position.x);
-
-        // How far the knight should stand from the player — tune this in Inspector
-        float snapDistance = counterSuccessOffsetX;
-
-        Vector3 knightSnapPosition = new Vector3(
-            player.transform.position.x + (snapDistance * directionFromPlayerToKnight),
-            transform.position.y,
-            transform.position.z
-        );
-
-        // --- 3. SNAP KNIGHT TO ALIGNED POSITION ---
-        transform.position = knightSnapPosition;
-
-        // --- 4. FORCE BOTH TO FACE EACH OTHER ---
         if (follow != null) follow.FacePlayer();
 
-        // Force player to face the knight
+        // Step B: Make the player face the knight
         ZreyMovements playerMovement = player.GetComponent<ZreyMovements>();
         if (playerMovement != null)
         {
             playerMovement.ForceFaceDirection(transform.position.x > player.transform.position.x);
         }
 
-        // Wait one more frame to guarantee facing is applied before animations start
+        // Step C: Calculate snap position using PLAYER as the anchor, just like the finisher
+        // The knight stands at counterSuccessOffsetX away from the player,
+        // on whichever side the player is currently facing toward
+        float directionKnightIsFromPlayer = Mathf.Sign(transform.position.x - player.transform.position.x);
+
+        // If knight is exactly on top of player (edge case), default to player's facing
+        if (directionKnightIsFromPlayer == 0)
+            directionKnightIsFromPlayer = playerMovement != null && playerMovement.IsFacingRight() ? 1f : -1f;
+
+        // Step D: Snap knight to FIXED offset from player — same result every time no matter the input distance
+        Vector3 knightSnapPosition = new Vector3(
+      player.transform.position.x + (counterSuccessOffsetX * directionKnightIsFromPlayer),
+      transform.position.y, // Keep knight's own Y
+      transform.position.z
+  );
+
+        transform.position = knightSnapPosition;
+
+        // Step E: Now that positions are final, force correct facing on both
+        if (follow != null) follow.FacePlayer();
+        if (playerMovement != null)
+        {
+            // Player faces toward the knight's final snapped position
+            playerMovement.ForceFaceDirection(transform.position.x > player.transform.position.x);
+        }
+
+        // Wait one frame to guarantee facing is fully applied before animations fire
         yield return null;
 
         // --- 5. PLAY ANIMATIONS ---

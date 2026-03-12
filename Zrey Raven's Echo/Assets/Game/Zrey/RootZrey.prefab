@@ -897,6 +897,7 @@ GameObject:
   - component: {fileID: 1945500180882962016}
   - component: {fileID: 7017852586144169606}
   - component: {fileID: 6288839200539902672}
+  - component: {fileID: 5395051391877158441}
   m_Layer: 9
   m_Name: SlashYellow (1)
   m_TagString: Untagged
@@ -976,6 +977,52 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!61 &5395051391877158441
+BoxCollider2D:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1397445574399865366}
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Density: 1
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_ForceSendLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ForceReceiveLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ContactCaptureLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_CallbackLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_IsTrigger: 0
+  m_UsedByEffector: 0
+  m_CompositeOperation: 0
+  m_CompositeOrder: 0
+  m_Offset: {x: -0.00000035768522, y: -0.0000007152273}
+  m_SpriteTilingProperty:
+    border: {x: 0, y: 0, z: 0, w: 0}
+    pivot: {x: 0, y: 0}
+    oldSize: {x: 0, y: 0}
+    newSize: {x: 0, y: 0}
+    adaptiveTilingThreshold: 0
+    drawMode: 0
+    adaptiveTiling: 0
+  m_AutoTiling: 0
+  m_Size: {x: 5.8000736, y: 5.800073}
+  m_EdgeRadius: 0
 --- !u!1 &1681119300339348658
 GameObject:
   m_ObjectHideFlags: 0
@@ -6874,6 +6921,18 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 256
   combatRunSpeed: 10
+  sfxSource: {fileID: 0}
+  jumpSoundVolume: 1
+  landSoundVolume: 1
+  groundDashSoundVolume: 1
+  airDashSoundVolume: 1
+  footstepVolume: 1
+  jumpClip: {fileID: 0}
+  landClip: {fileID: 0}
+  groundDashClip: {fileID: 0}
+  airDashClip: {fileID: 0}
+  footstepSource: {fileID: 0}
+  footstepClip: {fileID: 0}
 --- !u!114 &9211028478507294103
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -6886,6 +6945,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 85ff7b79f83b90b4ab9b0411cb7b9301, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ZreyAttacks
+  counterClips: []
   animator: {fileID: 1545531222286908949}
   playerMovement: {fileID: 8807312983284681274}
   comboResetTime: 0.25
@@ -6903,6 +6963,8 @@ MonoBehaviour:
   playerLayerValue: 9
   enemyLayerValue: 8
   attackTimeout: 1.4
+  attackSfxSource: {fileID: 0}
+  attackSfxVolume: 1
   downSlamForce: 60
   downSlamAttackData: {fileID: 11400000, guid: 3d94b97d723228b4c9df12f45eda9aef, type: 2}
   rootZreyAnimator: {fileID: 5652802613542675953}
@@ -6921,6 +6983,8 @@ MonoBehaviour:
   counterBroadcastRange: 12
   grabCounterStunDuration: 2.5
   vagabondFinisherSnapOffset: {x: 4, y: 0, z: 0}
+  maxSameAttackJumpInRow: 2
+  reaperFinisherSnapOffset: {x: 5.5, y: 0.5, z: 0}
 --- !u!114 &7602604384865269816
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -6965,6 +7029,11 @@ MonoBehaviour:
   isStunned: 0
   stabBloodVFX: {fileID: 3847687157921618248, guid: 91b235d6f88eb624a8429f4453ebf875, type: 3}
   stabBloodSpawnPoint: {fileID: 5075840690354734784}
+  defenseSfxSource: {fileID: 0}
+  defenseSfxVolume: 1
+  blockStartClip: {fileID: 0}
+  blockHitClips: []
+  parryClips: []
 --- !u!114 &116713965202477242
 MonoBehaviour:
   m_ObjectHideFlags: 0
