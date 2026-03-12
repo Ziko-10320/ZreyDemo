@@ -103,6 +103,8 @@ public class PlayerHealth : MonoBehaviour
     [SerializeField] private AudioClip blockStartClip;        // plays when entering block stance
     [SerializeField] private AudioClip[] blockHitClips;       // random pick when blocking an attack
     [SerializeField] private AudioClip[] parryClips;
+    [SerializeField] private AudioClip[] bloodHitClips;
+    [SerializeField] private Vector2 blockStartPitchRange = new Vector2(0.9f, 1.1f);
     void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
@@ -367,7 +369,9 @@ public class PlayerHealth : MonoBehaviour
     private void PlayDefenseSound(AudioClip clip)
     {
         if (clip == null || defenseSfxSource == null) return;
+        defenseSfxSource.pitch = Random.Range(blockStartPitchRange.x, blockStartPitchRange.y);
         defenseSfxSource.PlayOneShot(clip, defenseSfxVolume);
+        defenseSfxSource.pitch = 1f; // reset after so other sounds aren't affected
     }
 
     private void PlayRandomDefenseSound(AudioClip[] clips)
@@ -376,7 +380,12 @@ public class PlayerHealth : MonoBehaviour
         AudioClip clip = clips[Random.Range(0, clips.Length)];
         if (clip != null) defenseSfxSource.PlayOneShot(clip, defenseSfxVolume);
     }
-
+    private void PlayRandomBloodSound()
+    {
+        if (bloodHitClips == null || bloodHitClips.Length == 0 || defenseSfxSource == null) return;
+        AudioClip clip = bloodHitClips[Random.Range(0, bloodHitClips.Length)];
+        if (clip != null) defenseSfxSource.PlayOneShot(clip, defenseSfxVolume);
+    }
     public void UpdateVolume(float masterVolume)
     {
         defenseSfxVolume = masterVolume;
@@ -514,6 +523,7 @@ public class PlayerHealth : MonoBehaviour
     {
         if (bloodVFX != null && bloodSpawnPoint != null)
             Instantiate(bloodVFX, bloodSpawnPoint.position, bloodVFX.transform.rotation);
+        PlayRandomBloodSound();
     }
 
     private void StartBlocking()

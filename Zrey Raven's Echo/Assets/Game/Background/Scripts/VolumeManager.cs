@@ -56,5 +56,6 @@ public class VolumeManager : MonoBehaviour
         foreach (KnightHealth k in FindObjectsOfType<KnightHealth>()) k.UpdateVolume(masterSfxVolume);
         foreach (SpearHealth s in FindObjectsOfType<SpearHealth>()) s.UpdateVolume(masterSfxVolume);
         foreach (SpearAttack s in FindObjectsOfType<SpearAttack>()) s.UpdateVolume(masterSfxVolume);
+        foreach (ReaperHealth r in FindObjectsOfType<ReaperHealth>()) r.UpdateVolume(masterSfxVolume);
     }
 }

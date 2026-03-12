@@ -214,6 +214,11 @@ public class ReaperHealth : MonoBehaviour
     private readonly int landHitTriggerHash = Animator.StringToHash("LandHit");
     private bool isDying = false;
     private readonly int finishableStateTriggerHash = Animator.StringToHash("FinishableState");
+    [Header("Hit Sounds")]
+    [Range(0f, 1f)][SerializeField] private float hitSfxVolume = 1f;
+    [SerializeField] private AudioClip[] hitSoundClips;
+    [SerializeField] private AudioClip[] blockSoundClips;
+    private AudioSource hitSfxSource;
     void Awake()
     {
         currentHealth = maxHealth;
@@ -276,6 +281,9 @@ public class ReaperHealth : MonoBehaviour
         }
         UpdateHealthUI();
         UpdatePostureUI();
+        hitSfxSource = gameObject.AddComponent<AudioSource>();
+        hitSfxSource.playOnAwake = false;
+        hitSfxSource.spatialBlend = 0f;
     }
     void LateUpdate()
     {
@@ -455,6 +463,24 @@ public class ReaperHealth : MonoBehaviour
         }
 
     }
+    private void PlayRandomHitSound()
+    {
+        if (hitSoundClips == null || hitSoundClips.Length == 0 || hitSfxSource == null) return;
+        AudioClip clip = hitSoundClips[Random.Range(0, hitSoundClips.Length)];
+        if (clip != null) hitSfxSource.PlayOneShot(clip, hitSfxVolume);
+    }
+
+    private void PlayRandomBlockSound()
+    {
+        if (blockSoundClips == null || blockSoundClips.Length == 0 || hitSfxSource == null) return;
+        AudioClip clip = blockSoundClips[Random.Range(0, blockSoundClips.Length)];
+        if (clip != null) hitSfxSource.PlayOneShot(clip, hitSfxVolume);
+    }
+
+    public void UpdateVolume(float masterVolume)
+    {
+        hitSfxVolume = masterVolume;
+    }
     public void KillAllMomentum()
     {
         // Failsafe: If there is no Rigidbody, do nothing.
@@ -500,6 +526,7 @@ public class ReaperHealth : MonoBehaviour
             currentHealth -= damage;
             Debug.Log("<color=red>GUARD BROKEN! Dealt " + damage + " direct damage.</color>");
             SpawnBloodVFX();
+            PlayRandomHitSound();
             // Apply the normal hit knockback
             if (knockbackCoroutine != null) StopCoroutine(knockbackCoroutine);
             knockbackCoroutine = StartCoroutine(KnockbackRoutine(attacker, knockbackDistance, knockbackDuration, 0, 0));
@@ -517,6 +544,7 @@ public class ReaperHealth : MonoBehaviour
             {
                 Instantiate(blockSparksPrefab, blockSparksPoint.position, blockSparksPoint.rotation);
             }
+            PlayRandomBlockSound();
             CameraShakerHandler.Shake(CameraShakeParry);
             if (knockbackCoroutine != null) StopCoroutine(knockbackCoroutine);
             knockbackCoroutine = StartCoroutine(KnockbackRoutine(attacker, blockRecoilDistance, blockRecoilDuration, 0, 0));
@@ -551,6 +579,7 @@ public class ReaperHealth : MonoBehaviour
         PlayHitReaction(hitType);
         currentHealth -= damage;
         SpawnBloodVFX();
+        PlayRandomHitSound();
         Debug.Log(transform.name + " took " + damage + " damage. Health is now: " + currentHealth);
 
         // --- KNOCKBACK LOGIC ---
@@ -1024,6 +1053,7 @@ public class ReaperHealth : MonoBehaviour
             currentHealth -= damage;
             TriggerHealthUpdate();
             SpawnBloodVFX();
+            PlayRandomHitSound();
             SpawnWoundEffect();
             if (flashCoroutine != null) StopCoroutine(flashCoroutine);
             flashCoroutine = StartCoroutine(FlashDamageEffect());
@@ -1055,6 +1085,7 @@ public class ReaperHealth : MonoBehaviour
             {
                 Instantiate(blockSparksPrefab, blockSparksPoint.position, blockSparksPoint.rotation);
             }
+            PlayRandomBlockSound();
             CameraShakerHandler.Shake(CameraShakeParry);
             blocksSinceLastCounter++;
             if (blocksSinceLastCounter >= blocksNeededForNextCounter)
@@ -1072,6 +1103,7 @@ public class ReaperHealth : MonoBehaviour
         PlayHitReaction(hitType);
         currentHealth -= damage;
         SpawnBloodVFX();
+        PlayRandomHitSound();
         SpawnWoundEffect();
         if (flashCoroutine != null) StopCoroutine(flashCoroutine);
         flashCoroutine = StartCoroutine(FlashDamageEffect());
@@ -1219,6 +1251,7 @@ public class ReaperHealth : MonoBehaviour
             PlayHitReaction(attackData.hitType); // This will be "Up"
             currentHealth -= attackData.damage;
             SpawnBloodVFX();
+            PlayRandomHitSound();
             if (flashCoroutine != null) StopCoroutine(flashCoroutine);
             flashCoroutine = StartCoroutine(FlashDamageEffect());
 
@@ -1281,6 +1314,7 @@ public class ReaperHealth : MonoBehaviour
 
         // --- 2. SPAWN THE NEW HEAD PREFAB ---
         GameObject newHead = Instantiate(headPrefab, headSpawnPoint.position, headSpawnPoint.rotation);
+       
 
         // --- 3. APPLY THE FORCE ---
         Rigidbody2D headRb = newHead.GetComponent<Rigidbody2D>();
