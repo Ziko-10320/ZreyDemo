@@ -11,10 +11,10 @@ public class CheckpointManager : MonoBehaviour
     // These will store the positions of the last activated checkpoints.
     private Vector3 lastMiniCheckpointPos;
     private Vector3 lastMajorCheckpointPos;
-
+    private PlayerHealth playerHealth;
     void Start()
     {
-        // Safety check
+        playerHealth = player.GetComponent<PlayerHealth>();
         if (player == null)
         {
             Debug.LogError("Player has not been assigned in the CheckpointManager Inspector!");
@@ -64,6 +64,7 @@ public class CheckpointManager : MonoBehaviour
             }
             lastMiniCheckpointScript = checkpointScript; // The major checkpoint is now also the active mini one.
             Debug.Log($"New MAJOR checkpoint set at: {newPosition}. Mini checkpoint also updated.");
+            if (playerHealth != null) playerHealth.RestoreFullHealth();
         }
     }
 

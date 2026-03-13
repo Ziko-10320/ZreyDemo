@@ -1,15 +1,15 @@
 fileFormatVersion: 2
-guid: 8a14d3a881330a64db61c0c521b323c5
+guid: a1c29984936bc9c4aa6cda8eccfdc4b3
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -4407826037089448972
-    second: spyea_0
+      213: 6554736390298987251
+    second: cursor_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
     mipMapMode: 0
-    enableMipMap: 0
+    enableMipMap: 1
     sRGBTexture: 1
     linearTexture: 0
     fadeOut: 0
@@ -57,7 +57,7 @@ TextureImporter:
   alphaUsage: 1
   alphaIsTransparency: 1
   spriteTessellationDetail: -1
-  textureType: 7
+  textureType: 0
   textureShape: 1
   singleChannelComponent: 0
   flipbookRows: 1
@@ -72,7 +72,7 @@ TextureImporter:
   platformSettings:
   - serializedVersion: 4
     buildTarget: DefaultTexturePlatform
-    maxTextureSize: 2048
+    maxTextureSize: 512
     resizeAlgorithm: 0
     textureFormat: -1
     textureCompression: 1
@@ -113,23 +113,23 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: spyea_0
+      name: cursor_0
       rect:
         serializedVersion: 2
-        x: 56
-        y: 0
-        width: 34
-        height: 283
-      alignment: 9
-      pivot: {x: 0.5916885, y: 0.009803272}
+        x: 109
+        y: 105
+        width: 432
+        height: 487
+      alignment: 0
+      pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
       customData: 
       outline: []
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 4fbc09ba29144d2c0800000000000000
-      internalID: -4407826037089448972
+      spriteID: 3fae81cb40a17fa50800000000000000
+      internalID: 6554736390298987251
       vertices: []
       indices: 
       edges: []
@@ -138,7 +138,7 @@ TextureImporter:
     customData: 
     physicsShape: []
     bones: []
-    spriteID: 42dfcc80ceee4ad4bbc7c76d94492a73
+    spriteID: 
     internalID: 0
     vertices: []
     indices: 
@@ -148,7 +148,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      spyea_0: -4407826037089448972
+      cursor_0: 6554736390298987251
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

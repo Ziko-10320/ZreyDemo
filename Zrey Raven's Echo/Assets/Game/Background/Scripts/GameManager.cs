@@ -8,7 +8,7 @@ public class GameManager : MonoBehaviour
 {
     [Header("Pause Panel UI")]
     public GameObject pausePanel;
-
+    [SerializeField] private Image deathFadeImage;
     [Header("Animation Settings")]
     public float animationDuration = 0.3f;
     public float startScale = 0.8f;
@@ -70,7 +70,7 @@ public class GameManager : MonoBehaviour
         // --- ADD THIS LINE ---
         if (audioManager != null) audioManager.MuffleMusic();
         // --- END OF ADDED LINE ---
-
+        if (CursorManager.Instance != null) CursorManager.Instance.RequestShowCursor();
         if (pausePanel == null) return;
         StartCoroutine(AnimatePanel(true));
         Time.timeScale = 0f;
@@ -85,7 +85,7 @@ public class GameManager : MonoBehaviour
         // --- ADD THIS LINE ---
         if (audioManager != null) audioManager.UnmuffleMusic();
         // --- END OF ADDED LINE ---
-
+        if (CursorManager.Instance != null) CursorManager.Instance.ForceHide();
         if (pausePanel == null) return;
         StartCoroutine(AnimatePanel(false));
         Time.timeScale = 1f;
@@ -120,69 +120,49 @@ public class GameManager : MonoBehaviour
     // --- MODIFIED: RestartLevel now calls the fade coroutine ---
     public void RestartLevel()
     {
-        // We still have to un-pause time.
+        
         Time.timeScale = 1f;
-        AudioListener.pause = false;
-
-        // Before we leave, we call the kill switch.
         ZreyMovements.NukeInputSystem();
-
-        // --- THIS IS THE FIX ---
-        // Start the coroutine and let IT handle the scene loading.
         StartCoroutine(FadeAndLoadScene(SceneManager.GetActiveScene().name));
-
-        // --- DELETE THIS LINE ---
-        // string currentSceneName = SceneManager.GetActiveScene().name; // (optional to delete, but redundant)
-        // SceneManager.LoadScene(currentSceneName); // <-- THIS IS THE PROBLEM LINE. DELETE IT.
     }
 
     public void LoadMainMenu()
     {
-        // We still have to un-pause time.
+       
         Time.timeScale = 1f;
-        AudioListener.pause = false;
-
-        // Before we leave, we call the kill switch.
         ZreyMovements.NukeInputSystem();
-
-        // --- THIS IS THE FIX ---
-        // Start the coroutine and let IT handle the scene loading.
         StartCoroutine(FadeAndLoadScene("MainMenu"));
-
-        // --- DELETE THIS LINE ---
-        // SceneManager.LoadScene("MainMenu"); // <-- THIS IS THE PROBLEM LINE. DELETE IT.
     }
-
     // --- NEW: The Coroutine that handles fading and loading a scene ---
     private IEnumerator FadeAndLoadScene(string sceneName)
     {
-        // First, make sure the game is unpaused so the fade works correctly.
         Time.timeScale = 1f;
-        AudioListener.pause = false;
         isPaused = false;
+        // AudioListener.pause stays true here so sounds remain stopped during fade
 
-        if (sceneFadeImage == null)
+        if (deathFadeImage == null)
         {
-            Debug.LogError("Scene Fade Image is not assigned! Loading scene immediately.");
+            AudioListener.pause = false;
             SceneManager.LoadScene(sceneName);
             yield break;
         }
 
-        // --- Fade Logic ---
+        deathFadeImage.gameObject.SetActive(true);
         float timer = 0f;
-        Color originalColor = sceneFadeImage.color;
+        Color c = deathFadeImage.color;
+        c.a = 0f;
+        deathFadeImage.color = c;
 
         while (timer < sceneFadeDuration)
         {
-            // We use Time.deltaTime here because we already resumed the game.
             timer += Time.deltaTime;
-            float alpha = Mathf.Clamp01(timer / sceneFadeDuration);
-            sceneFadeImage.color = new Color(originalColor.r, originalColor.g, originalColor.b, alpha);
+            c.a = Mathf.Clamp01(timer / sceneFadeDuration);
+            deathFadeImage.color = c;
             yield return null;
         }
 
-        // After the fade is complete, load the requested scene.
-        Debug.Log($"Faded out. Loading scene: {sceneName}");
+        // Only unpause audio right before loading so sounds stay dead during the fade
+        AudioListener.pause = false;
         SceneManager.LoadScene(sceneName);
     }
 }

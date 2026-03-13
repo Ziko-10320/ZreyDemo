@@ -69,6 +69,7 @@ public class EndLevelManager : MonoBehaviour
             mainMenuButton.onClick.AddListener(GoToMainMenu);
         }
         if (audioManager != null) audioManager.StartFadeOut();
+        if (CursorManager.Instance != null) CursorManager.Instance.ForceHide();
         StartCoroutine(ChainedFadeInSequence());
     }
 

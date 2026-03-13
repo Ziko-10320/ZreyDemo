@@ -649,7 +649,7 @@ public class ZreyAttacks : MonoBehaviour
                 // Optional: Add a special camera shake or blood effect here for the counter.
                 // CameraShakerHandler.Shake(counterShakeData);
                 // Instantiate(counterBloodEffect, ...);
-
+                if (playerHealth != null) playerHealth.HealFromCounter(counterDamage);
                 // We only want to hit one enemy, so we break the loop.
                 break;
             }
@@ -839,7 +839,6 @@ public class ZreyAttacks : MonoBehaviour
     }
     public void AttackEnemy(AttackData attackData)
     {
-        // Find all enemies in the attack box.
         Collider2D[] enemiesHit = Physics2D.OverlapBoxAll(attackPoint.position, attackAreaSize, 0f, enemyLayer);
 
         foreach (Collider2D enemy in enemiesHit)
@@ -847,23 +846,23 @@ public class ZreyAttacks : MonoBehaviour
             KnightHealth enemyHealth = enemy.GetComponent<KnightHealth>();
             if (enemyHealth != null)
             {
-                // Call the new, all-in-one function on the knight, passing the data container.
                 enemyHealth.ApplyDamageAndKnockback(attackData);
-                break; // Hit one enemy and stop.
+                if (playerHealth != null) playerHealth.HealFromLifeSteal(attackData.damage); // ADD THIS
+                break;
             }
             SpearHealth spearHealth = enemy.GetComponent<SpearHealth>();
             if (spearHealth != null)
             {
-                // Call the new, all-in-one function on the knight, passing the data container.
                 spearHealth.ApplyDamageAndKnockback(attackData);
-                break; // Hit one enemy and stop.
+                if (playerHealth != null) playerHealth.HealFromLifeSteal(attackData.damage); // ADD THIS
+                break;
             }
             ReaperHealth reaperHealth = enemy.GetComponent<ReaperHealth>();
             if (reaperHealth != null)
             {
-                // Call the new, all-in-one function on the knight, passing the data container.
                 reaperHealth.ApplyDamageAndKnockback(attackData);
-                break; // Hit one enemy and stop.
+                if (playerHealth != null) playerHealth.HealFromLifeSteal(attackData.damage); // ADD THIS
+                break;
             }
         }
     }

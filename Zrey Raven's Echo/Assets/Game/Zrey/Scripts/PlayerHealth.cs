@@ -7,9 +7,17 @@ using UnityEngine.UI;
 
 public class PlayerHealth : MonoBehaviour
 {
+    [Header("Hazard Hit")]
+    [SerializeField] private float hazardRespawnDelay = 2f;
+    [SerializeField] private GameObject hazardHitVFX;
+    [SerializeField] private Transform hazardVFXSpawnPoint;
     [Header("Health & UI")]
     [SerializeField] private int maxHealth = 100;
     [SerializeField] private GameObject deathPanel;
+    [Range(0f, 1f)]
+    [SerializeField] private float lifeStealPercent = 0.2f;
+    [Range(0f, 1f)]
+    [SerializeField] private float counterLifeStealPercent = 0.4f;
     private int currentHealth;
     [Header("UI Sliders")]
     [SerializeField] private Slider healthSlider;
@@ -159,8 +167,14 @@ public class PlayerHealth : MonoBehaviour
         inputActions.Player.Block.canceled += HandleBlockInput;
     }
 
-   
 
+    public void HealFromCounter(int damageDealt)
+    {
+        if (currentHealth <= 0) return;
+        int healAmount = Mathf.RoundToInt(damageDealt * counterLifeStealPercent);
+        if (healAmount <= 0) return;
+        StartCoroutine(SmoothHeal(healAmount));
+    }
     private void OnDisable()
     {
         inputActions.Player.Block.started -= HandleBlockInput;
@@ -423,15 +437,70 @@ public class PlayerHealth : MonoBehaviour
         currentHealth -= damageAmount;
         healthDamageTimer = 0f;
         currentHealth = Mathf.Max(0, currentHealth);
-        
+
+        // Spawn the hazard hit VFX
+        if (hazardHitVFX != null && hazardVFXSpawnPoint != null)
+            Instantiate(hazardHitVFX, hazardVFXSpawnPoint.position, hazardHitVFX.transform.rotation);
 
         if (currentHealth <= 0)
             Die(null);
         else
+            StartCoroutine(HazardRespawnRoutine());
+    }
+    public void RestoreFullHealth()
+    {
+        StartCoroutine(SmoothHealthRestore());
+    }
+
+    private IEnumerator SmoothHealthRestore()
+    {
+        Debug.Log("<color=green>Restoring health smoothly...</color>");
+        while (currentHealth < maxHealth)
         {
-            Debug.Log("Player is hurt by hazard. Respawning at MINI checkpoint.");
-            if (checkpointManager != null) checkpointManager.RespawnAtMiniCheckpoint();
+            currentHealth = Mathf.Min(currentHealth + Mathf.CeilToInt(maxHealth * 0.5f * Time.deltaTime), maxHealth);
+            healthDamageTimer = 0f; // keep delayed slider in sync
+            yield return null;
         }
+        currentHealth = maxHealth;
+        Debug.Log("<color=green>Health fully restored!</color>");
+    }
+    private IEnumerator HazardRespawnRoutine()
+    {
+        Debug.Log($"<color=orange>Hazard hit! Respawning in {hazardRespawnDelay} seconds...</color>");
+
+        // Freeze absolutely everything including gravity
+        isStunned = true;
+        isBeingKnockedBack = true;
+        if (playerMovements != null) playerMovements.CanMove = false;
+        if (playerAttacks != null) playerAttacks.CancelAttack();
+        if (playerAttacks != null) playerAttacks.IsInCinematicState_ForceSet(true);
+        if (rb != null)
+        {
+            rb.linearVelocity = Vector2.zero;
+            rb.gravityScale = 0f;
+            rb.bodyType = RigidbodyType2D.Kinematic; // fully stops all physics
+        }
+
+        float timer = 0f;
+        while (timer < hazardRespawnDelay)
+        {
+            if (rb != null) rb.linearVelocity = Vector2.zero; // force zero every frame
+            timer += Time.deltaTime;
+            yield return null;
+        }
+
+        // Restore everything
+        isStunned = false;
+        isBeingKnockedBack = false;
+        if (rb != null)
+        {
+            rb.bodyType = RigidbodyType2D.Dynamic;
+            rb.gravityScale = 1f;
+        }
+        if (playerMovements != null) playerMovements.CanMove = true;
+        if (playerAttacks != null) playerAttacks.IsInCinematicState_ForceSet(false);
+
+        if (checkpointManager != null) checkpointManager.RespawnAtMiniCheckpoint();
     }
 
     private IEnumerator ParryKnockbackRoutine(Transform attacker, ImpactData impact)
@@ -451,7 +520,23 @@ public class PlayerHealth : MonoBehaviour
         if (rb != null) rb.linearVelocity = new Vector2(0, rb.linearVelocity.y);
         isBeingKnockedBack = false;
     }
+    public void HealFromLifeSteal(int damageDealt)
+    {
+        if (currentHealth <= 0) return;
+        int healAmount = Mathf.RoundToInt(damageDealt * lifeStealPercent);
+        if (healAmount <= 0) return;
+        StartCoroutine(SmoothHeal(healAmount));
+    }
 
+    private IEnumerator SmoothHeal(int amount)
+    {
+        int targetHealth = Mathf.Min(currentHealth + amount, maxHealth);
+        while (currentHealth < targetHealth)
+        {
+            currentHealth = Mathf.Min(currentHealth + Mathf.CeilToInt(maxHealth * 0.5f * Time.deltaTime), targetHealth);
+            yield return null;
+        }
+    }
     private IEnumerator HitReactionRoutine(Transform attacker, ImpactData impact)
     {
         if (playerAttacks != null) playerAttacks.CancelAttack();
@@ -705,11 +790,9 @@ public class PlayerHealth : MonoBehaviour
     private void Die(Transform killer)
     {
         Debug.Log("<color=black>PLAYER IS DEAD.</color>");
-        if (checkpointManager != null) checkpointManager.RespawnAtMajorCheckpoint();
+        // REMOVE the RespawnAtMajorCheckpoint line entirely
 
         currentHealth = maxHealth;
-
-
         animator.SetTrigger(deathTriggerHash);
         playerAttacks.enabled = false;
         GetComponent<ZreyMovements>().enabled = false;
@@ -792,7 +875,26 @@ public class PlayerHealth : MonoBehaviour
     private IEnumerator DeathSequence()
     {
         yield return new WaitForSeconds(1.5f);
-        if (deathPanel != null) deathPanel.SetActive(true);
+
+        if (deathPanel != null)
+        {
+            deathPanel.SetActive(true);
+            // Fade the panel in
+            CanvasGroup deathCanvasGroup = deathPanel.GetComponent<CanvasGroup>();
+            if (deathCanvasGroup != null)
+            {
+                deathCanvasGroup.alpha = 0f;
+                while (deathCanvasGroup.alpha < 1f)
+                {
+                    deathCanvasGroup.alpha += Time.unscaledDeltaTime * 2f; // 2f = fade speed
+                    yield return null;
+                }
+                deathCanvasGroup.alpha = 1f;
+            }
+        }
+
+        // Stop all sounds after fade completes
+        AudioListener.pause = true;
         Time.timeScale = 0f;
     }
 }

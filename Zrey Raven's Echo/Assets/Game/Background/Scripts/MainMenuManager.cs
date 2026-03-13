@@ -26,11 +26,13 @@ public class MainMenuManager : MonoBehaviour
     {
         // Start the coroutine that handles the fade and scene loading sequence.
         StartCoroutine(FadeAndLoadScene());
+       
     }
 
     // This coroutine will handle the entire fade process from start to finish.
     private IEnumerator FadeAndLoadScene()
     {
+        if (CursorManager.Instance != null) CursorManager.Instance.ForceHide();
         if (effectsToHide != null)
         {
             Debug.Log($"Hiding {effectsToHide.Count} scene effects.");
