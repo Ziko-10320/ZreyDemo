@@ -84,6 +84,20 @@ public class SpearAttack : MonoBehaviour
     [SerializeField] private AudioClip[] randomAttackClips;
     [Range(0.1f, 3f)][SerializeField] private float attackSfxPitch = 1f;
     private AudioSource attackSfxSource;
+    private void OnEnable()
+    {
+        ZreyAttacks.OnPlayerCinematicStarted += OnCinematicStarted;
+    }
+
+    private void OnDisable()
+    {
+        ZreyAttacks.OnPlayerCinematicStarted -= OnCinematicStarted;
+    }
+
+    private void OnCinematicStarted(Transform excludedTarget)
+    {
+        CancelAllAttacks(excludedTarget);
+    }
     void Awake()
     {
         animator = GetComponent<Animator>();
@@ -99,6 +113,11 @@ public class SpearAttack : MonoBehaviour
 
     void Update()
     {
+        if (ZreyAttacks.PlayerInCinematic)
+        {
+            isDamageWindowOpen = false;
+            return;
+        }
         if (isDamageWindowOpen)
         {
             Collider2D[] hitPlayers = Physics2D.OverlapBoxAll(attackPoint.position, attackAreaSize, 0f, playerLayer);
@@ -238,12 +257,10 @@ public class SpearAttack : MonoBehaviour
     // **MODIFIED:** This is now a public method that the KnightAI script will call.
     public void StartCombo()
     {
+        if (ZreyAttacks.PlayerInCinematic) return; // Never start a new combo during cinematics
         if (health != null && !health.IsGrounded()) return;
         if (health != null && health.IsStunned())
         {
-            // 2. If we ARE stunned, do NOTHING.
-            //    Exit the Update loop immediately. No decisions will be made.
-            //    The AI brain is effectively "paused".
             return;
         }
         // If we are already attacking OR if it hasn't been long enough since the last combo...
@@ -387,10 +404,8 @@ public class SpearAttack : MonoBehaviour
 
     public void StartCounterAttack()
     {
-        // --- THIS IS THE FIX ---
-        // 1. COMMAND the health script to become unbreakable.
+        if (ZreyAttacks.PlayerInCinematic) return;
         if (health != null) health.isUnbreakable = true;
-        // --- END OF FIX ---
 
         isAttacking = true;
         animator.SetTrigger(counterAttackTriggerHash);
@@ -398,17 +413,16 @@ public class SpearAttack : MonoBehaviour
 
     public void StartSpecialAttack()
     {
-        // We don't need many checks here because the AI brain has already decided.
-        // We can cancel a normal combo if needed.
+        if (ZreyAttacks.PlayerInCinematic) return;
         if (isAttacking)
         {
-            FinishCombo(); // Cleanly end the normal combo state.
+            FinishCombo();
         }
 
-        isAttacking = true; // The knight is now busy with the special attack.
+        isAttacking = true;
         animator.SetTrigger(specialAttackTriggerHash);
     }
-    public void CancelAllAttacks()
+    public void CancelAllAttacks(Transform excludedTarget = null)
     {
         CancelLunge();
         // Stop the DOT coroutine if it's running.
@@ -437,6 +451,11 @@ public class SpearAttack : MonoBehaviour
         if (rb != null)
         {
             rb.linearVelocity = Vector2.zero;
+        }
+        if (ZreyAttacks.PlayerInCinematic && excludedTarget != transform)
+        {
+            animator.Play("Idle", 0, 0f);
+            Debug.Log("<color=cyan>KnightAttack: Forced to Idle — player cinematic active.</color>");
         }
     }
     public void CancelLunge()

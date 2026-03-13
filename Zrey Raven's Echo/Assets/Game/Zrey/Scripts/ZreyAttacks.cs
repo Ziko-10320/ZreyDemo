@@ -90,6 +90,7 @@ public class ZreyAttacks : MonoBehaviour
     [Tooltip("The amount of pure damage the knight counter deals, with no knockback.")]
     [SerializeField] private int counterDamage = 50;
     public bool IsInCinematicState { get; private set; } = false;
+    public static bool PlayerInCinematic { get; private set; } = false;
     [SerializeField] private PlayerHealth playerHealth;
     private readonly int specialAttackBlockTriggerHash = Animator.StringToHash("specialAttackBlock");
     [SerializeField] private float guardCrushStunDuration = 1.0f;
@@ -127,6 +128,7 @@ public class ZreyAttacks : MonoBehaviour
 
     private readonly int spearFinisherTriggerHash = Animator.StringToHash("SpearFinisher");
     public static event Action OnPlayerCounterAttempt;
+    public static event Action<Transform> OnPlayerCinematicStarted;
     [Header("Aerial Combo Settings")]
     [Tooltip("The maximum number of attacks in the aerial combo chain.")]
     [SerializeField] private int maxAerialComboSteps = 3;
@@ -418,7 +420,7 @@ public class ZreyAttacks : MonoBehaviour
         if (isAttacking)
         {
             isAttacking = false;
-            IsInCinematicState = false;
+            SetCinematicState(false);
             isChargeAttackPrimed = false;
             comboStep = 0;
 
@@ -529,6 +531,13 @@ public class ZreyAttacks : MonoBehaviour
             {
                 // Call the new, specialized method.
                 knightHealth.TakeUpperAttack(upperAttackData);
+                break; // Hit one enemy and stop.
+            }
+            ReaperHealth ReaperHealth = enemy.GetComponent<ReaperHealth>();
+            if (ReaperHealth != null)
+            {
+                // Call the new, specialized method.
+                ReaperHealth.TakeUpperAttack(upperAttackData);
                 break; // Hit one enemy and stop.
             }
         }
@@ -686,7 +695,7 @@ public class ZreyAttacks : MonoBehaviour
 
         // --- Unlock all state flags ---
         isAttacking = false;
-        IsInCinematicState = false;
+        SetCinematicState(false);
         isDownSlamming = false;
         isCountering = false;
         isChargeAttackPrimed = false;
@@ -981,11 +990,11 @@ public class ZreyAttacks : MonoBehaviour
         animator.ResetTrigger(upperAttackTriggerHash);
         animator.ResetTrigger(specialAttackBlockTriggerHash);
     }
-    public void StartKnightCounter()
+    public void StartKnightCounter(Transform counterTarget = null)
     {
         isCountering = true;
-        PlayRandomAttackSound(counterClips); // counter sound
-        IsInCinematicState = true;
+        PlayRandomAttackSound(counterClips);
+        SetCinematicState(true, counterTarget);
         if (playerTrail != null)
         {
             playerTrail.StartTrail();
@@ -1039,7 +1048,7 @@ public class ZreyAttacks : MonoBehaviour
     public void FinishKnightCounter()
     {
         isCountering = false;
-        IsInCinematicState = false;
+        SetCinematicState(false);
         if (playerMovement != null)
         {
             playerMovement.CanMove = true;
@@ -1174,15 +1183,15 @@ public class ZreyAttacks : MonoBehaviour
         }
         Debug.Log("<color=grey>Spear counter broadcast: no spear enemy nearby.</color>");
     }
-    public void ExecuteVagabondCounter(float sequenceDuration)
+    public void ExecuteVagabondCounter(float sequenceDuration, Transform counterTarget = null)
     {
-        StartCoroutine(VagabondCounterSequence(sequenceDuration));
+        StartCoroutine(VagabondCounterSequence(sequenceDuration, counterTarget));
     }
 
-    private IEnumerator VagabondCounterSequence(float duration)
+    private IEnumerator VagabondCounterSequence(float duration, Transform counterTarget = null)
     {
         // --- 1. LOCK PLAYER ---
-        IsInCinematicState = true;
+        SetCinematicState(true, counterTarget);
         playerMovement.CanMove = false;
         rb.linearVelocity = Vector2.zero;
 
@@ -1246,7 +1255,7 @@ public class ZreyAttacks : MonoBehaviour
     private IEnumerator ExecuteVagabondFinisherSequence(KnightHealth targetKnight)
     {
         // --- 1. LOCK EVERYTHING ---
-        IsInCinematicState = true;
+        SetCinematicState(true, targetKnight.transform);
         if (playerMovement != null) playerMovement.CanMove = false;
         if (rb != null) rb.linearVelocity = Vector2.zero;
         if (targetKnight.GetComponent<KnightAI>().finisherPromptUI != null)
@@ -1286,7 +1295,7 @@ public class ZreyAttacks : MonoBehaviour
     private IEnumerator ExecuteFinisherSequence(SpearHealth target) // Or SpearHealth, if you reverted
     {
         // --- 1. LOCK EVERYTHING (This is correct) ---
-        IsInCinematicState = true;
+        SetCinematicState(true, target.transform);
         if (playerMovement != null) playerMovement.CanMove = false;
         if (rb != null) rb.linearVelocity = Vector2.zero;
 
@@ -1331,7 +1340,7 @@ public class ZreyAttacks : MonoBehaviour
     private IEnumerator ExecuteReaperFinisherSequence(ReaperHealth targetReaper)
     {
         // --- 1. LOCK EVERYTHING ---
-        IsInCinematicState = true;
+        SetCinematicState(true, targetReaper.transform);
         if (playerMovement != null) playerMovement.CanMove = false;
         if (rb != null) rb.linearVelocity = Vector2.zero;
 
@@ -1370,7 +1379,7 @@ public class ZreyAttacks : MonoBehaviour
         Debug.Log("<color=green>--- Finisher Sequence Finished. Player control restored. ---</color>");
 
         // Give control back to the player.
-        IsInCinematicState = false;
+        SetCinematicState(false);
         if (playerMovement != null)
         {
             playerMovement.CanMove = true;
@@ -1401,6 +1410,23 @@ public class ZreyAttacks : MonoBehaviour
     public void IsInCinematicState_ForceSet(bool value)
     {
         IsInCinematicState = value;
+        PlayerInCinematic = value;
+    }
+
+    private void SetCinematicState(bool value, Transform cinematicTarget = null)
+    {
+        IsInCinematicState = value;
+        PlayerInCinematic = value;
+
+        if (value)
+        {
+            playerHealth?.MakeInvincible();
+            OnPlayerCinematicStarted?.Invoke(cinematicTarget);
+        }
+        else
+        {
+            playerHealth?.MakeVulnerable();
+        }
     }
     private void OnDrawGizmosSelected()
     {

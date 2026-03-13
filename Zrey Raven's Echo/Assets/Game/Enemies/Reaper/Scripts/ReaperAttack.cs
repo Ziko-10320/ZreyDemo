@@ -79,6 +79,20 @@ public class ReaperAttack : MonoBehaviour
 
     private readonly int backstepTriggerHash = Animator.StringToHash("backstep");
     private ReaperAI ReaperAI;
+    private void OnEnable()
+    {
+        ZreyAttacks.OnPlayerCinematicStarted += OnCinematicStarted;
+    }
+
+    private void OnDisable()
+    {
+        ZreyAttacks.OnPlayerCinematicStarted -= OnCinematicStarted;
+    }
+
+    private void OnCinematicStarted(Transform excludedTarget)
+    {
+        CancelAllAttacks(excludedTarget);
+    }
     void Awake()
     {
         animator = GetComponent<Animator>();
@@ -91,6 +105,11 @@ public class ReaperAttack : MonoBehaviour
 
     void Update()
     {
+        if (ZreyAttacks.PlayerInCinematic)
+        {
+            isDamageWindowOpen = false;
+            return;
+        }
         if (isDamageWindowOpen)
         {
             Collider2D[] hitPlayers = Physics2D.OverlapBoxAll(attackPoint.position, attackAreaSize, 0f, playerLayer);
@@ -210,6 +229,7 @@ public class ReaperAttack : MonoBehaviour
     // **MODIFIED:** This is now a public method that the KnightAI script will call.
     public void StartCombo()
     {
+        if (ZreyAttacks.PlayerInCinematic) return;
         if (health != null && !health.IsGrounded()) return;
         if (health != null && health.IsStunned())
         {
@@ -380,7 +400,7 @@ public class ReaperAttack : MonoBehaviour
         isAttacking = true; // The knight is now busy with the special attack.
         animator.SetTrigger(specialAttackTriggerHash);
     }
-    public void CancelAllAttacks()
+    public void CancelAllAttacks(Transform excludedTarget = null)
     {
         CancelLunge();
         // Stop the DOT coroutine if it's running.
@@ -409,6 +429,11 @@ public class ReaperAttack : MonoBehaviour
         if (rb != null)
         {
             rb.linearVelocity = Vector2.zero;
+        }
+        if (ZreyAttacks.PlayerInCinematic && excludedTarget != transform)
+        {
+            animator.Play("Idle", 0, 0f);
+            Debug.Log("<color=cyan>KnightAttack: Forced to Idle — player cinematic active.</color>");
         }
     }
     public void CancelLunge()

@@ -96,6 +96,20 @@ public class KnightAttack : MonoBehaviour
     [Range(0f, 1f)][SerializeField] private float attackSfxVolume = 1f;
     [SerializeField] private AudioClip[] randomAttackClips; // pool of random sounds
     private AudioSource attackSfxSource;
+    private void OnEnable()
+    {
+        ZreyAttacks.OnPlayerCinematicStarted += OnCinematicStarted;
+    }
+
+    private void OnDisable()
+    {
+        ZreyAttacks.OnPlayerCinematicStarted -= OnCinematicStarted;
+    }
+
+    private void OnCinematicStarted(Transform excludedTarget)
+    {
+        CancelAllAttacks(excludedTarget);
+    }
     void Awake() 
     {
         animator = GetComponent<Animator>();
@@ -111,6 +125,12 @@ public class KnightAttack : MonoBehaviour
 
     void Update()
     {
+        if (ZreyAttacks.PlayerInCinematic)
+        {
+            isDamageWindowOpen = false;
+            isGrabWindowOpen = false;
+            return;
+        }
         if (isDamageWindowOpen)
         {
             Collider2D[] hitPlayers = Physics2D.OverlapBoxAll(attackPoint.position, attackAreaSize, 0f, playerLayer);
@@ -323,6 +343,7 @@ public class KnightAttack : MonoBehaviour
     // **MODIFIED:** This is now a public method that the KnightAI script will call.
     public void StartCombo()
     {
+        if (ZreyAttacks.PlayerInCinematic) return;
         if (health != null && !health.IsGrounded()) return;
         if (health != null && health.IsStunned())
         {
@@ -518,6 +539,7 @@ public class KnightAttack : MonoBehaviour
 
     public void StartCounterAttack()
     {
+        if (ZreyAttacks.PlayerInCinematic) return;
         // --- THIS IS THE FIX ---
         // 1. COMMAND the health script to become unbreakable.
         if (health != null) health.isUnbreakable = true;
@@ -529,6 +551,7 @@ public class KnightAttack : MonoBehaviour
 
     public void StartSpecialAttack()
     {
+        if (ZreyAttacks.PlayerInCinematic) return;
         // We don't need many checks here because the AI brain has already decided.
         // We can cancel a normal combo if needed.
         if (isAttacking)
@@ -539,7 +562,7 @@ public class KnightAttack : MonoBehaviour
         isAttacking = true; // The knight is now busy with the special attack.
         animator.SetTrigger(specialAttackTriggerHash);
     }
-    public void CancelAllAttacks()
+    public void CancelAllAttacks(Transform excludedTarget = null)
     {
         CancelLunge();
         // Stop the DOT coroutine if it's running.
@@ -568,6 +591,11 @@ public class KnightAttack : MonoBehaviour
         if (rb != null)
         {
             rb.linearVelocity = Vector2.zero;
+        }
+        if (ZreyAttacks.PlayerInCinematic && excludedTarget != transform)
+        {
+            animator.Play("Idle", 0, 0f);
+            Debug.Log("<color=cyan>KnightAttack: Forced to Idle — player cinematic active.</color>");
         }
     }
     public void CancelLunge()

@@ -129,6 +129,7 @@ public class SpearAI : MonoBehaviour
 
     void Update()
     {
+        if (ZreyAttacks.PlayerInCinematic) return;
         if (health != null && !health.IsGrounded())
         {
             // If we are NOT on the ground, do NOTHING.
@@ -356,7 +357,7 @@ public class SpearAI : MonoBehaviour
         if (playerAttacks != null)
         {
             // We call the method with NO parameters.
-            playerAttacks.StartKnightCounter();
+            playerAttacks.StartKnightCounter(transform);
         }
         // 5. Wait for the sequence to end before unlocking the brain.
         yield return new WaitForSeconds(3.0f); // Adjust to your counter sequence length.

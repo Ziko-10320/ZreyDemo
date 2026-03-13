@@ -117,6 +117,7 @@ public class KnightAI : MonoBehaviour
 
     void Update()
     {
+        if (ZreyAttacks.PlayerInCinematic) return;
         if (health != null && health.isFinishable)
         {
             // Check the distance to the player.

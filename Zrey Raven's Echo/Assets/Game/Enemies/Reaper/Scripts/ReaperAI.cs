@@ -129,6 +129,7 @@ public class ReaperAI : MonoBehaviour
 
     void Update()
     {
+        if (ZreyAttacks.PlayerInCinematic) return;
         if (health != null && !health.IsGrounded())
         {
             // If we are NOT on the ground, do NOTHING.

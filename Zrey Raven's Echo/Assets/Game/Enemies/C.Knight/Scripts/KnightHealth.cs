@@ -1299,7 +1299,7 @@ private int blocksNeededForNextCounter = 0;
         Debug.LogError("--- KNIGHT: ExecuteFinisher command received! ---");
         isFinishable = false; // No longer finishable
         animator.SetTrigger(getFinishedTriggerHash);
-        Destroy(gameObject, 3.7f);
+        Destroy(gameObject, 7f);
     }
     public bool IsStunned()
     {
