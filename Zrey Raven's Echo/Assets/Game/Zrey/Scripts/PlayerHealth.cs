@@ -441,6 +441,7 @@ public class PlayerHealth : MonoBehaviour
         // Spawn the hazard hit VFX
         if (hazardHitVFX != null && hazardVFXSpawnPoint != null)
             Instantiate(hazardHitVFX, hazardVFXSpawnPoint.position, hazardHitVFX.transform.rotation);
+        animator.SetTrigger("HasardHit");
 
         if (currentHealth <= 0)
             Die(null);
@@ -791,7 +792,8 @@ public class PlayerHealth : MonoBehaviour
     {
         Debug.Log("<color=black>PLAYER IS DEAD.</color>");
         // REMOVE the RespawnAtMajorCheckpoint line entirely
-
+        IsInvincible = true; // Prevent any further damage or interactions
+        rb .linearVelocity = Vector2.zero;
         currentHealth = maxHealth;
         animator.SetTrigger(deathTriggerHash);
         playerAttacks.enabled = false;

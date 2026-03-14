@@ -58,14 +58,20 @@ public class ZreyMovements : MonoBehaviour
     [SerializeField] private float dashDistance = 5f;
 
     [Tooltip("The total duration of the dash in seconds.")]
-    [SerializeField] private float dashDuration = 0.5f;
+    [SerializeField] private float dashDuration = 0.3f;
 
     [Tooltip("The speed curve of the dash. X-axis is time (0 to 1), Y-axis is speed multiplier (0 to 1).")]
     [SerializeField] private AnimationCurve dashSpeedCurve;
 
+    [Tooltip("The speed of the ground backward dash in combat mode.")]
+    [SerializeField] private float groundBackwardDashSpeed = 14f;
+
+    [Tooltip("The duration of the ground backward dash.")]
+    [SerializeField] private float groundBackwardDashDuration = 0.25f;
 
     private float dashTimer;
     private float dashDirection;
+    private Coroutine groundDashCoroutine = null;
 
 
     [Header("Air Dash Settings")]
@@ -607,42 +613,28 @@ public class ZreyMovements : MonoBehaviour
             // 2. We are in combat mode AND the player wants to move backward.
             if (isInCombatMode && wantsToMoveBackward)
             {
-                Debug.Log("<color=orange>--- Performing GROUND BACKWARD Dash ---</color>");
-                // Play the generic dash animation for the player model
-                animator.SetTrigger(dashBackTriggerHash); // You can create a new "dashBackward" trigger if you have a different visual animation
+                Debug.Log("<color=orange>--- Performing GROUND BACKWARD Dash (Physics) ---</color>");
+                animator.SetTrigger(dashBackTriggerHash);
                 animator.SetBool(isMovingBackwardHash, false);
-                // Trigger the correct ROOT MOTION animation based on facing direction
-                if (isFacingRight)
-                {
-                    // Facing right, but moving left -> Play the backward dash that moves left
-                    if (groundDashClip != null) sfxSource.PlayOneShot(groundDashClip, groundDashSoundVolume);
-                    InitiateRootMotion(rootDashBackwardLeftTriggerHash, 0.3f);
-                }
-                else
-                {
-                    // Facing left, but moving right -> Play the backward dash that moves right
-                    if (groundDashClip != null) sfxSource.PlayOneShot(groundDashClip, groundDashSoundVolume);
-                    InitiateRootMotion(rootDashBackwardTriggerHash, 0.3f);
-                }
+                if (groundDashClip != null) sfxSource.PlayOneShot(groundDashClip, groundDashSoundVolume);
+
+                // Direction is OPPOSITE to facing
+                float backwardDir = isFacingRight ? -1f : 1f;
+                if (groundDashCoroutine != null) StopCoroutine(groundDashCoroutine);
+                groundDashCoroutine = StartCoroutine(GroundDashRoutine(backwardDir, groundBackwardDashSpeed, groundBackwardDashDuration));
             }
-            // 3. Default Case: Forward Dash
             else
             {
-                Debug.Log("<color=green>--- Performing GROUND FORWARD Dash ---</color>");
-                // This is your existing, correct forward dash logic.
+                Debug.Log("<color=green>--- Performing GROUND FORWARD Dash (Physics) ---</color>");
                 animator.SetTrigger(dashTriggerHash);
-                if (isFacingRight)
-                {
-                    if (groundDashClip != null) sfxSource.PlayOneShot(groundDashClip, groundDashSoundVolume);
-                    InitiateRootMotion(rootDashTriggerHash, 0.3f);
-                }
-                else
-                {
-                    if (groundDashClip != null) sfxSource.PlayOneShot(groundDashClip, groundDashSoundVolume);
-                    InitiateRootMotion(rootDashLeftTriggerHash, 0.3f);
-                }
+                if (groundDashClip != null) sfxSource.PlayOneShot(groundDashClip, groundDashSoundVolume);
+
+                // Direction is the same as facing
+                float forwardDir = isFacingRight ? 1f : -1f;
+                float forwardSpeed = dashDistance / dashDuration;
+                if (groundDashCoroutine != null) StopCoroutine(groundDashCoroutine);
+                groundDashCoroutine = StartCoroutine(GroundDashRoutine(forwardDir, forwardSpeed, dashDuration));
             }
-            // --- END OF THE GUARANTEED FIX ---
         }
         else
         {
@@ -652,6 +644,44 @@ public class ZreyMovements : MonoBehaviour
                 PerformAirDash();
             }
         }
+    }
+    private IEnumerator GroundDashRoutine(float direction, float speed, float duration)
+    {
+        isDashing = true;
+        CanMove = false;
+
+        if (playerTrail != null) playerTrail.StartTrail();
+
+        // Freeze vertical velocity so we don't fall mid-dash
+        rb.gravityScale = 0f;
+        rb.linearVelocity = Vector2.zero;
+
+        float timer = 0f;
+        while (timer < duration)
+        {
+            // Wall collision check — stop the dash early if we hit something
+            if (Physics2D.OverlapCircle(wallCheck.position, wallCheckRadius, wallLayer))
+            {
+                Debug.Log("<color=orange>Ground dash stopped by wall.</color>");
+                break;
+            }
+
+            rb.linearVelocity = new Vector2(direction * speed, 0f);
+            timer += Time.deltaTime;
+            yield return null;
+        }
+
+        // Cleanup
+        rb.linearVelocity = Vector2.zero;
+        rb.gravityScale = originalGravityScale;
+        isDashing = false;
+        CanMove = true;
+        groundDashCoroutine = null;
+
+        // Notify attack script that dash is done
+        if (playerAttacks != null) playerAttacks.EVENT_OnDashComplete();
+
+        Debug.Log("<color=lime>Ground dash complete.</color>");
     }
     private IEnumerator SynchronizeToRootMotion(float duration)
     {
