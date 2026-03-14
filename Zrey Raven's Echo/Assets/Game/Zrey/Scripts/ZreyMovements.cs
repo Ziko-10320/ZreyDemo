@@ -178,11 +178,17 @@ public class ZreyMovements : MonoBehaviour
     private readonly int exitCombatTriggerHash = Animator.StringToHash("ExitCombat");
     [Header("Sound Effects")]
     [SerializeField] private AudioSource sfxSource;
+    [SerializeField] private AudioSource combatRunSource;
     [Range(0f, 1f)][SerializeField] private float jumpSoundVolume = 1f;
     [Range(0f, 1f)][SerializeField] private float landSoundVolume = 1f;
     [Range(0f, 1f)][SerializeField] private float groundDashSoundVolume = 1f;
     [Range(0f, 1f)][SerializeField] private float airDashSoundVolume = 1f;
     [Range(0f, 1f)][SerializeField] private float footstepVolume = 1f;
+    [SerializeField] private AudioClip wallJumpClip;
+    [SerializeField] private AudioClip combatRunForwardClip;
+    [SerializeField] private AudioClip combatRunBackwardClip;
+    [Range(0f, 1f)][SerializeField] private float wallJumpSoundVolume = 1f;
+    [Range(0f, 1f)][SerializeField] private float combatRunSoundVolume = 1f;
     [SerializeField] private AudioClip jumpClip;
     [SerializeField] private AudioClip landClip;
     [SerializeField] private AudioClip groundDashClip;
@@ -191,7 +197,13 @@ public class ZreyMovements : MonoBehaviour
     [SerializeField] private AudioClip footstepClip;
     void Awake()
     {
-
+        if (combatRunSource == null)
+        {
+            combatRunSource = gameObject.AddComponent<AudioSource>();
+            combatRunSource.playOnAwake = false;
+            combatRunSource.loop = true;
+            combatRunSource.spatialBlend = 0f;
+        }
         // --- THIS IS THE KING'S DECREE ---
         // 1. If the one true input system does not exist yet, create it.
         //    This happens in Awake(), so it is GUARANTEED to run before any script's OnEnable().
@@ -926,6 +938,7 @@ public class ZreyMovements : MonoBehaviour
         Debug.Log($"Wall jump velocity applied: {rb.linearVelocity}");
 
         animator.SetTrigger(wallJumpTriggerHash);
+        if (wallJumpClip != null) sfxSource.PlayOneShot(wallJumpClip, wallJumpSoundVolume);
         Flip();
 
         wallJumpCoroutine = StartCoroutine(WallJumpInputLock());
@@ -1105,9 +1118,21 @@ public class ZreyMovements : MonoBehaviour
 
                 animator.SetBool(isMovingForwardHash, isMovingTowardsEnemy);
                 animator.SetBool(isMovingBackwardHash, !isMovingTowardsEnemy);
+                AudioClip desiredClip = isMovingTowardsEnemy ? combatRunForwardClip : combatRunBackwardClip;
+                if (desiredClip != null && isGrounded)
+                {
+                    if (combatRunSource.clip != desiredClip || !combatRunSource.isPlaying)
+                    {
+                        combatRunSource.Stop();
+                        combatRunSource.clip = desiredClip;
+                        combatRunSource.volume = combatRunSoundVolume;
+                        combatRunSource.Play();
+                    }
+                }
             }
             else
             {
+                combatRunSource.Stop();
                 // If not moving, both are false.
                 animator.SetBool(isMovingForwardHash, false);
                 animator.SetBool(isMovingBackwardHash, false);
@@ -1125,6 +1150,7 @@ public class ZreyMovements : MonoBehaviour
                 animator.SetBool(isMovingBackwardHash, false);
                 animator.SetBool(combatModeBoolHash, false);
                 animator.SetTrigger(exitCombatTriggerHash);
+                combatRunSource.Stop();
             }
 
             // Always force-clear these regardless, every frame, when no enemies exist
@@ -1135,7 +1161,7 @@ public class ZreyMovements : MonoBehaviour
             // Handle normal running animation ONLY when not in combat.
             animator.SetBool(isRunningHash, Mathf.Abs(moveInput.x) > 0.1f && isGrounded);
         }
-
+        
         // Handle airborne animation universally.
         animator.SetBool(isFallingHash, !isGrounded && rb.linearVelocity.y < 0);
     }

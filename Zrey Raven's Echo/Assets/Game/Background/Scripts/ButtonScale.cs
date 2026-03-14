@@ -13,7 +13,13 @@ public class ButtonScaler : MonoBehaviour, IPointerDownHandler, IPointerUpHandle
 
     [Tooltip("How fast the button scales down and back up.")]
     [SerializeField] private float scaleSpeed = 15f;
+    [Header("Sound Settings")]
+    [SerializeField] private AudioClip hoverSound;
+    [SerializeField] private AudioClip clickSound;
+    [Range(0f, 1f)]
+    [SerializeField] private float soundVolume = 0.75f;
 
+    private AudioSource audioSource;
     // --- Internal Variables ---
     private Vector3 initialScale;
     private Vector3 targetScale;
@@ -23,6 +29,12 @@ public class ButtonScaler : MonoBehaviour, IPointerDownHandler, IPointerUpHandle
     {
         initialScale = transform.localScale;
         targetScale = initialScale;
+
+        audioSource = gameObject.AddComponent<AudioSource>();
+        audioSource.playOnAwake = false;
+        audioSource.loop = false;
+        audioSource.spatialBlend = 0f; // Force fully 2D
+        audioSource.dopplerLevel = 0f;
     }
 
     private void Update()
@@ -34,8 +46,8 @@ public class ButtonScaler : MonoBehaviour, IPointerDownHandler, IPointerUpHandle
     // --- This function is automatically called when the mouse is PRESSED DOWN ---
     public void OnPointerDown(PointerEventData eventData)
     {
-        // When pressed, always scale down.
         targetScale = initialScale * pressedScale;
+        if (clickSound != null) audioSource.PlayOneShot(clickSound, soundVolume);
     }
 
     // --- This function is automatically called when the mouse is RELEASED ---
@@ -58,8 +70,8 @@ public class ButtonScaler : MonoBehaviour, IPointerDownHandler, IPointerUpHandle
     public void OnPointerEnter(PointerEventData eventData)
     {
         isPointerOver = true;
-        // Set the target to the larger hover scale.
         targetScale = initialScale * hoverScale;
+        if (hoverSound != null) audioSource.PlayOneShot(hoverSound, soundVolume);
     }
 
     // --- NEW: This function is automatically called when the mouse EXITS the button's area ---

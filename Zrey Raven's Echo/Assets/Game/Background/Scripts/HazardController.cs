@@ -255,6 +255,14 @@ public class HazardController : MonoBehaviour
     }
     // --- PROXIMITY TRIGGER LOGIC ---
     // This function only runs if this object has a trigger collider.
+    public void PlaySpecificSound(AudioClip clip)
+    {
+        if (clip != null && audioSource != null)
+        {
+            audioSource.PlayOneShot(clip);
+            Debug.Log($"Playing specific trap sound: {clip.name}");
+        }
+    }
     public void PlayTrapSound()
     {
         // 1. Check if the sound list is not null and has sounds in it.

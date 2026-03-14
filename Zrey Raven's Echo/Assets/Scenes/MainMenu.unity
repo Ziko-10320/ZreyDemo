@@ -592,6 +592,9 @@ MonoBehaviour:
   hoverScale: 1.1
   pressedScale: 0.9
   scaleSpeed: 15
+  hoverSound: {fileID: 8300000, guid: da772c7cdf561ad44a1f983364669895, type: 3}
+  clickSound: {fileID: 8300000, guid: 5d2a56f957112714494ed4f2d7b2a48e, type: 3}
+  soundVolume: 1
 --- !u!1 &417226114
 GameObject:
   m_ObjectHideFlags: 0
@@ -5741,6 +5744,9 @@ MonoBehaviour:
   hoverScale: 1.1
   pressedScale: 0.9
   scaleSpeed: 15
+  hoverSound: {fileID: 8300000, guid: da772c7cdf561ad44a1f983364669895, type: 3}
+  clickSound: {fileID: 8300000, guid: 5d2a56f957112714494ed4f2d7b2a48e, type: 3}
+  soundVolume: 1
 --- !u!1 &627380338
 GameObject:
   m_ObjectHideFlags: 0
