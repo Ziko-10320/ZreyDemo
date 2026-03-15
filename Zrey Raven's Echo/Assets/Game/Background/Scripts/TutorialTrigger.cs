@@ -10,7 +10,8 @@ public class TutorialTrigger : MonoBehaviour
     [Header("UI Elements")]
     [Tooltip("The parent Canvas that holds all the tutorial UI for this trigger.")]
     [SerializeField] private CanvasGroup tutorialCanvasGroup;
-
+    [Tooltip("How long to wait before the tutorial can trigger again. 0 = never repeats.")]
+    [SerializeField] private float repeatDelay = 10f;
     [Header("Timing Settings")]
     [Tooltip("How long it takes for the UI to fade in (in seconds).")]
     [SerializeField] private float fadeInDuration = 0.5f;
@@ -48,22 +49,12 @@ public class TutorialTrigger : MonoBehaviour
     // This function is called by Unity when another collider enters our trigger zone.
     private void OnTriggerEnter2D(Collider2D other)
     {
-        // Check if the object that entered is the player.
         if (other.CompareTag("Player"))
         {
-            // Check if this trigger has already been used (if it's a one-time trigger).
-            if (triggerOnlyOnce && hasBeenTriggered)
-            {
-                return; // Do nothing if it's a one-time trigger that has already run.
-            }
+            if (triggerOnlyOnce && hasBeenTriggered) return;
+            if (hasBeenTriggered) return; // Still in cooldown or running
 
-            // If there's another tutorial already showing, stop it.
-            if (activeCoroutine != null)
-            {
-                StopCoroutine(activeCoroutine);
-            }
-
-            // Start the new tutorial sequence.
+            if (activeCoroutine != null) StopCoroutine(activeCoroutine);
             activeCoroutine = StartCoroutine(ShowTutorialSequence());
         }
     }
@@ -74,7 +65,6 @@ public class TutorialTrigger : MonoBehaviour
         hasBeenTriggered = true;
 
         // --- FADE IN ---
-        // Make the UI interactable and visible
         tutorialCanvasGroup.interactable = true;
         tutorialCanvasGroup.blocksRaycasts = true;
         yield return StartCoroutine(FadeCanvasGroup(tutorialCanvasGroup, 0f, 1f, fadeInDuration));
@@ -83,12 +73,18 @@ public class TutorialTrigger : MonoBehaviour
         yield return new WaitForSeconds(displayDuration);
 
         // --- FADE OUT ---
-        // Make the UI non-interactable as it fades out
         tutorialCanvasGroup.interactable = false;
         tutorialCanvasGroup.blocksRaycasts = false;
         yield return StartCoroutine(FadeCanvasGroup(tutorialCanvasGroup, 1f, 0f, fadeOutDuration));
 
         activeCoroutine = null;
+
+        // --- REPEAT DELAY (only if not a one-time trigger) ---
+        if (!triggerOnlyOnce && repeatDelay > 0f)
+        {
+            yield return new WaitForSeconds(repeatDelay);
+            hasBeenTriggered = false; // Now it can trigger again
+        }
     }
 
     // A reusable coroutine to fade any CanvasGroup.

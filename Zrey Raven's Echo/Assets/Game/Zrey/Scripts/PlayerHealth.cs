@@ -38,7 +38,7 @@ public class PlayerHealth : MonoBehaviour
     [SerializeField] private float shieldRegenDelay = 2.5f;
     [SerializeField] private float shieldRegenRate = 20f;
     [SerializeField] private float guardBreakStunDuration = 3f;
-    [SerializeField]  private int parryShieldCost = 20;
+    [SerializeField] private int parryShieldCost = 20;
 
 
     [Header("Impact & VFX")]
@@ -126,7 +126,7 @@ public class PlayerHealth : MonoBehaviour
 
         inputActions = new InputSystem_Actions();
         if (checkpointManager == null) checkpointManager = FindFirstObjectByType<CheckpointManager>();
- 
+
         currentShieldHealth = maxShieldHealth;
         if (defenseSfxSource == null)
         {
@@ -200,7 +200,7 @@ public class PlayerHealth : MonoBehaviour
     void Start()
     {
         currentHealth = maxHealth;
-       
+
         if (deathPanel != null) deathPanel.SetActive(false);
     }
 
@@ -241,7 +241,7 @@ public class PlayerHealth : MonoBehaviour
     {
         if (IsInvincible) { Debug.Log("Damage ignored: Player is invincible."); return; }
         if (currentHealth <= 0) return;
-  
+
         if (isParryWindowActive)
         {
             Debug.Log("<color=lime>PARRY SUCCESSFUL!</color>");
@@ -307,7 +307,7 @@ public class PlayerHealth : MonoBehaviour
             }
 
             ReaperAttack RAttack = attacker.GetComponent<ReaperAttack>();
-            ReaperHealth RHealth = attacker.GetComponent<ReaperHealth> ();
+            ReaperHealth RHealth = attacker.GetComponent<ReaperHealth>();
             if (RHealth != null)
             {
                 RHealth.TakePostureDamageOnParry();
@@ -366,7 +366,7 @@ public class PlayerHealth : MonoBehaviour
         currentHealth -= damageAmount;
         healthDamageTimer = 0f;
         currentHealth = Mathf.Max(0, currentHealth);
-       
+
 
         if (impact == null) { Debug.LogWarning("TakeDamage was called with null ImpactData!"); return; }
         Debug.Log($"<color=red>PLAYER TOOK DAMAGE. Health: {currentHealth}/{maxHealth}</color>");
@@ -418,7 +418,7 @@ public class PlayerHealth : MonoBehaviour
         currentHealth -= damageAmount;
         healthDamageTimer = 0f;
         currentHealth = Mathf.Max(0, currentHealth);
-       
+
 
         if (currentHealth <= 0) { Die(attacker); return; }
 
@@ -614,7 +614,7 @@ public class PlayerHealth : MonoBehaviour
 
     private void StartBlocking()
     {
-        if (isShieldBroken ) { Debug.LogWarning("Block ignored: Shield broken or stunned."); return; }
+        if (isShieldBroken) { Debug.LogWarning("Block ignored: Shield broken or stunned."); return; }
         if (playerMovements != null && playerMovements.IsDashing()) { Debug.LogWarning("Block ignored: Currently dashing."); return; }
         if (IsGrabbed) { Debug.LogWarning("Block Input Ignored: Player is GRABBED."); return; }
         if (playerAttacks != null && playerAttacks.IsInCinematicState) { Debug.Log("Block Input Ignored: In Cinematic State."); return; }
@@ -793,7 +793,7 @@ public class PlayerHealth : MonoBehaviour
         Debug.Log("<color=black>PLAYER IS DEAD.</color>");
         // REMOVE the RespawnAtMajorCheckpoint line entirely
         IsInvincible = true; // Prevent any further damage or interactions
-        rb .linearVelocity = Vector2.zero;
+        rb.linearVelocity = Vector2.zero;
         currentHealth = maxHealth;
         animator.SetTrigger(deathTriggerHash);
         playerAttacks.enabled = false;

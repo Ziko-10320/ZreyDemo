@@ -39388,6 +39388,20 @@ AnimationClip:
   m_HasGenericRootTransform: 0
   m_HasMotionFloatCurves: 0
   m_Events:
+  - time: 0
+    functionName: PlayAttackSound
+    data: 
+    objectReferenceParameter: {fileID: 8300000, guid: 109029fb6af16a344b25a787961de11a, type: 3}
+    floatParameter: 0
+    intParameter: 0
+    messageOptions: 0
+  - time: 0
+    functionName: StartSpecialAttackCooldown
+    data: 
+    objectReferenceParameter: {fileID: 0}
+    floatParameter: 0
+    intParameter: 0
+    messageOptions: 0
   - time: 0.05
     functionName: LockFlip
     data: 
@@ -39406,6 +39420,13 @@ AnimationClip:
     functionName: CameraShakeheavy
     data: 
     objectReferenceParameter: {fileID: 0}
+    floatParameter: 0
+    intParameter: 0
+    messageOptions: 0
+  - time: 0.175
+    functionName: PlayAttackSound
+    data: 
+    objectReferenceParameter: {fileID: 8300000, guid: 671a928df791bd4478775e6829a8f497, type: 3}
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
@@ -39431,6 +39452,13 @@ AnimationClip:
     intParameter: 0
     messageOptions: 0
   - time: 0.3
+    functionName: PlayAttackSound
+    data: 
+    objectReferenceParameter: {fileID: 8300000, guid: 202ff592f4d2fa847ad4051a2193b32e, type: 3}
+    floatParameter: 0
+    intParameter: 0
+    messageOptions: 0
+  - time: 0.3
     functionName: AttackEnemy
     data: 
     objectReferenceParameter: {fileID: 11400000, guid: 8b23c304b7b08d9418c283efaad9c547, type: 2}
@@ -39445,6 +39473,13 @@ AnimationClip:
     intParameter: 0
     messageOptions: 0
   - time: 0.425
+    functionName: PlayAttackSound
+    data: 
+    objectReferenceParameter: {fileID: 8300000, guid: c0788f0ed9a0f044da8613359e89c890, type: 3}
+    floatParameter: 0
+    intParameter: 0
+    messageOptions: 0
+  - time: 0.425
     functionName: AttackEnemy
     data: 
     objectReferenceParameter: {fileID: 11400000, guid: e4e5cccdb53520548a91bb6a63155916, type: 2}
@@ -39455,6 +39490,13 @@ AnimationClip:
     functionName: AttackEnemy
     data: 
     objectReferenceParameter: {fileID: 11400000, guid: 8a2b07ed30574d64d855c6917b4bb7bb, type: 2}
+    floatParameter: 0
+    intParameter: 0
+    messageOptions: 0
+  - time: 0.55
+    functionName: PlayAttackSound
+    data: 
+    objectReferenceParameter: {fileID: 8300000, guid: bcc7477493907694eb5d829228d8f8ef, type: 3}
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
@@ -39476,6 +39518,13 @@ AnimationClip:
     functionName: AttackEnemy
     data: 
     objectReferenceParameter: {fileID: 11400000, guid: 8b23c304b7b08d9418c283efaad9c547, type: 2}
+    floatParameter: 0
+    intParameter: 0
+    messageOptions: 0
+  - time: 0.7
+    functionName: PlayAttackSound
+    data: 
+    objectReferenceParameter: {fileID: 8300000, guid: 103346eb6decd1b47bd4e794e698ce41, type: 3}
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
@@ -39507,6 +39556,13 @@ AnimationClip:
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
+  - time: 0.85
+    functionName: PlayAttackSound
+    data: 
+    objectReferenceParameter: {fileID: 8300000, guid: ea79a4619e28ab7459a5c2f580d18f3a, type: 3}
+    floatParameter: 0
+    intParameter: 0
+    messageOptions: 0
   - time: 0.9
     functionName: AttackEnemy
     data: 
@@ -39525,6 +39581,13 @@ AnimationClip:
     functionName: AttackEnemy
     data: 
     objectReferenceParameter: {fileID: 11400000, guid: e4e5cccdb53520548a91bb6a63155916, type: 2}
+    floatParameter: 0
+    intParameter: 0
+    messageOptions: 0
+  - time: 1.05
+    functionName: PlayAttackSound
+    data: 
+    objectReferenceParameter: {fileID: 8300000, guid: f94c4f53fb0a6574997bd8bfe90a4041, type: 3}
     floatParameter: 0
     intParameter: 0
     messageOptions: 0

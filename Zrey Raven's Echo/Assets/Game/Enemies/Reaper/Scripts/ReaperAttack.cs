@@ -6,6 +6,11 @@ using UnityEngine;
 [RequireComponent(typeof(Rigidbody2D))]
 public class ReaperAttack : MonoBehaviour
 {
+    [Header("Attack Sounds")]
+    [Range(0f, 1f)][SerializeField] private float attackSfxVolume = 1f;
+    [SerializeField] private AudioClip[] randomAttackClips;
+    [Range(0.1f, 3f)][SerializeField] private float attackSfxPitch = 1f;
+    private AudioSource attackSfxSource;
     [Header("References")]
     private Animator animator;
     private Rigidbody2D rb;
@@ -95,6 +100,9 @@ public class ReaperAttack : MonoBehaviour
     }
     void Awake()
     {
+        attackSfxSource = gameObject.AddComponent<AudioSource>();
+        attackSfxSource.playOnAwake = false;
+        attackSfxSource.spatialBlend = 0f;
         animator = GetComponent<Animator>();
         rb = GetComponent<Rigidbody2D>();
         Physics2D.IgnoreLayerCollision(playerLayerValue, enemyLayerValue, true);
@@ -158,6 +166,22 @@ public class ReaperAttack : MonoBehaviour
     public void StopCollisionWithPlayer()
     {
         Physics2D.IgnoreLayerCollision(playerLayerValue, enemyLayerValue, true);
+    }
+    public void PlayRandomAttackSound()
+    {
+        if (randomAttackClips == null || randomAttackClips.Length == 0 || attackSfxSource == null) return;
+        AudioClip clip = randomAttackClips[Random.Range(0, randomAttackClips.Length)];
+        if (clip != null)
+        {
+            attackSfxSource.pitch = attackSfxPitch;
+            attackSfxSource.PlayOneShot(clip, attackSfxVolume);
+        }
+    }
+
+    public void PlaySpecificAttackSound(AudioClip clip)
+    {
+        if (clip == null || attackSfxSource == null) return;
+        attackSfxSource.PlayOneShot(clip, attackSfxVolume);
     }
     public void StartSpecialDamage()
     {

@@ -14961,6 +14961,13 @@ AnimationClip:
   m_HasGenericRootTransform: 0
   m_HasMotionFloatCurves: 0
   m_Events:
+  - time: 0
+    functionName: PlaySpecificAttackSound
+    data: 
+    objectReferenceParameter: {fileID: 8300000, guid: 0513646e11b0638459b59a24a46bfac7, type: 3}
+    floatParameter: 0
+    intParameter: 0
+    messageOptions: 0
   - time: 0.45
     functionName: OpenCounterWindow
     data: 
@@ -14972,6 +14979,13 @@ AnimationClip:
     functionName: Lunge
     data: 
     objectReferenceParameter: {fileID: 0}
+    floatParameter: 0
+    intParameter: 0
+    messageOptions: 0
+  - time: 0.625
+    functionName: PlaySpecificAttackSound
+    data: 
+    objectReferenceParameter: {fileID: 8300000, guid: 923c1652077c2474bb0876f7f0d92eff, type: 3}
     floatParameter: 0
     intParameter: 0
     messageOptions: 0

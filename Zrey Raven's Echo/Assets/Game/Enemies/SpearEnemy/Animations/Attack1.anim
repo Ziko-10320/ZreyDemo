@@ -49513,9 +49513,9 @@ AnimationClip:
     intParameter: 0
     messageOptions: 0
   - time: 0.3962264
-    functionName: CameraShakeMiid
+    functionName: PlaySpecificAttackSound
     data: 
-    objectReferenceParameter: {fileID: 0}
+    objectReferenceParameter: {fileID: 8300000, guid: 9b557a02d4003e9498098b283667a6d1, type: 3}
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
@@ -49543,7 +49543,7 @@ AnimationClip:
   - time: 0.8867925
     functionName: PlaySpecificAttackSound
     data: 
-    objectReferenceParameter: {fileID: 8300000, guid: 082984ccebcff1e47803337fd2e2aff1, type: 3}
+    objectReferenceParameter: {fileID: 8300000, guid: a428a2ca905f1c247b2339f08d5b2f12, type: 3}
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
@@ -49575,10 +49575,10 @@ AnimationClip:
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
-  - time: 1.6792452
+  - time: 1.3584906
     functionName: PlaySpecificAttackSound
     data: 
-    objectReferenceParameter: {fileID: 8300000, guid: 082984ccebcff1e47803337fd2e2aff1, type: 3}
+    objectReferenceParameter: {fileID: 8300000, guid: ab89a2f2a12f3f942b41e277ffb023e0, type: 3}
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
@@ -49618,9 +49618,9 @@ AnimationClip:
     intParameter: 0
     messageOptions: 0
   - time: 2.3773584
-    functionName: PlayRandomAttackSound
+    functionName: PlaySpecificAttackSound
     data: 
-    objectReferenceParameter: {fileID: 8300000, guid: 082984ccebcff1e47803337fd2e2aff1, type: 3}
+    objectReferenceParameter: {fileID: 8300000, guid: 2b8b66c0a98ca594e97349836043c3a9, type: 3}
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
@@ -49677,6 +49677,13 @@ AnimationClip:
     functionName: CameraShake
     data: 
     objectReferenceParameter: {fileID: 0}
+    floatParameter: 0
+    intParameter: 0
+    messageOptions: 0
+  - time: 2.8113208
+    functionName: PlaySpecificAttackSound
+    data: 
+    objectReferenceParameter: {fileID: 8300000, guid: ea7f524051d3a2a458e9861cfd542815, type: 3}
     floatParameter: 0
     intParameter: 0
     messageOptions: 0

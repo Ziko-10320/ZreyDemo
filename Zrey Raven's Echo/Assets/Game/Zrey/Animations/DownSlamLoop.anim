@@ -7897,10 +7897,24 @@ AnimationClip:
   m_HasGenericRootTransform: 0
   m_HasMotionFloatCurves: 0
   m_Events:
+  - time: 0
+    functionName: PlayAttackSound
+    data: 
+    objectReferenceParameter: {fileID: 8300000, guid: c70f0c18292ea28488bceccd03041188, type: 3}
+    floatParameter: 0
+    intParameter: 0
+    messageOptions: 0
   - time: 0.028571429
     functionName: AttackEnemy
     data: 
     objectReferenceParameter: {fileID: 11400000, guid: 3d94b97d723228b4c9df12f45eda9aef, type: 2}
+    floatParameter: 0
+    intParameter: 0
+    messageOptions: 0
+  - time: 0.035714287
+    functionName: EVENT_DownSlamBreakWall
+    data: 
+    objectReferenceParameter: {fileID: 0}
     floatParameter: 0
     intParameter: 0
     messageOptions: 0

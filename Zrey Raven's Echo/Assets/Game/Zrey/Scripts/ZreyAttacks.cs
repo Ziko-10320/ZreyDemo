@@ -8,6 +8,27 @@ using UnityEngine.Rendering.Universal;
 [RequireComponent(typeof(Animator))]
 public class ZreyAttacks : MonoBehaviour
 {
+    [Header("Special Attack Cooldown UI")]
+    [SerializeField] private float specialAttackCooldown = 15f;
+    [SerializeField] private TMPro.TextMeshProUGUI cooldownText15;
+    [SerializeField] private TMPro.TextMeshProUGUI cooldownText10;
+    [SerializeField] private TMPro.TextMeshProUGUI cooldownText5;
+    [SerializeField] private UnityEngine.UI.Image readyImage;
+
+    [SerializeField] private Color inactiveColor = new Color(0.2f, 0.2f, 0.2f, 1f);
+    [SerializeField] private Color inactiveImageColor = new Color(0.2f, 0.2f, 0.2f, 1f);
+    [SerializeField] private Color activeColor = Color.yellow;
+    [SerializeField] private Color readyImageActiveColor = Color.white;
+    [SerializeField] private float colorTransitionSpeed = 3f;
+
+    private float specialAttackCooldownTimer = 0f;
+    private bool isSpecialAttackOnCooldown = false;
+
+    // Target colors we lerp towards
+    private Color target15Color;
+    private Color target10Color;
+    private Color target5Color;
+    private Color targetImageColor;
     [SerializeField] private AudioClip[] counterClips;
     [Header("Components")]
     [SerializeField] private Animator animator;
@@ -22,7 +43,6 @@ public class ZreyAttacks : MonoBehaviour
     private int comboStep = 0;
     private bool isAttacking = false;
     private float lastAttackTime = 0f;
-    
 
     private readonly int attackStepHash = Animator.StringToHash("attackStep");
     private readonly int attackVariantHash = Animator.StringToHash("attackVariant");
@@ -65,6 +85,9 @@ public class ZreyAttacks : MonoBehaviour
     [Header("Attack Sounds")]
     [SerializeField] private AudioSource attackSfxSource;
     [Range(0f, 1f)][SerializeField] private float attackSfxVolume = 1f;
+    [SerializeField] private AudioClip downSlamLoopClip;
+    [Range(0f, 1f)][SerializeField] private float downSlamLoopVolume = 1f;
+    private AudioSource downSlamLoopSource;
     private Coroutine attackWatchdogCoroutine;
     [Header("Down Slam Settings")]
     [Tooltip("The downward force applied to the player during the down slam.")]
@@ -200,6 +223,20 @@ public class ZreyAttacks : MonoBehaviour
     }
     void Awake()
     {
+        target15Color = inactiveColor;
+        target10Color = inactiveColor;
+        target5Color = inactiveColor;
+        targetImageColor = inactiveImageColor;
+        isSpecialAttackOnCooldown = true;
+        specialAttackCooldownTimer = specialAttackCooldown;
+        if (cooldownText15 != null) cooldownText15.color = inactiveColor;
+        if (cooldownText10 != null) cooldownText10.color = inactiveColor;
+        if (cooldownText5 != null) cooldownText5.color = inactiveColor;
+        if (readyImage != null) readyImage.color = inactiveImageColor;
+        downSlamLoopSource = gameObject.AddComponent<AudioSource>();
+        downSlamLoopSource.playOnAwake = false;
+        downSlamLoopSource.loop = true;
+        downSlamLoopSource.spatialBlend = 0f;
         if (attackSfxSource == null)
         {
             attackSfxSource = gameObject.AddComponent<AudioSource>();
@@ -244,7 +281,41 @@ public class ZreyAttacks : MonoBehaviour
         {
             return;
         }
+        if (cooldownText15 != null) cooldownText15.color = Color.Lerp(cooldownText15.color, target15Color, colorTransitionSpeed * Time.deltaTime);
+        if (cooldownText10 != null) cooldownText10.color = Color.Lerp(cooldownText10.color, target10Color, colorTransitionSpeed * Time.deltaTime);
+        if (cooldownText5 != null) cooldownText5.color = Color.Lerp(cooldownText5.color, target5Color, colorTransitionSpeed * Time.deltaTime);
+        if (readyImage != null) readyImage.color = Color.Lerp(readyImage.color, targetImageColor, colorTransitionSpeed * Time.deltaTime);
 
+        if (isSpecialAttackOnCooldown)
+        {
+            specialAttackCooldownTimer -= Time.deltaTime;
+
+            // Light up text15 when countdown hits 15 (i.e. just started)
+            if (specialAttackCooldownTimer <= 15f)
+                target15Color = activeColor;
+
+            // Light up text10 when 10 seconds remain
+            if (specialAttackCooldownTimer <= 10f)
+                target10Color = activeColor;
+
+            // Light up text5 when 5 seconds remain
+            if (specialAttackCooldownTimer <= 5f)
+                target5Color = activeColor;
+
+            if (specialAttackCooldownTimer <= 0f)
+            {
+                isSpecialAttackOnCooldown = false;
+                specialAttackCooldownTimer = 0f;
+                // Light up the ready image
+                target15Color = inactiveColor;
+                target10Color = inactiveColor;
+                target5Color = inactiveColor;
+                targetImageColor = readyImageActiveColor;
+                target15Color = new Color(inactiveColor.r, inactiveColor.g, inactiveColor.b, 0f);
+                target10Color = new Color(inactiveColor.r, inactiveColor.g, inactiveColor.b, 0f);
+                target5Color = new Color(inactiveColor.r, inactiveColor.g, inactiveColor.b, 0f);
+            }
+        }
         // Read the raw input state from the InputManager.
         bool attackHeld = InputManager.Instance.isAttackButtonPressed;
         float heldTime = InputManager.Instance.attackButtonHeldTime;
@@ -351,15 +422,29 @@ public class ZreyAttacks : MonoBehaviour
             aerialComboStep = 0;
         }
     }
+    public void StartSpecialAttackCooldown()
+    {
+        isSpecialAttackOnCooldown = true;
+        specialAttackCooldownTimer = specialAttackCooldown;
+
+        // Reset everything back to inactive when skill is used
+        target15Color = inactiveColor;
+        target10Color = inactiveColor;
+        target5Color = inactiveColor;
+        targetImageColor = inactiveImageColor;
+    }
+
+    public bool IsSpecialAttackReady()
+    {
+        return !isSpecialAttackOnCooldown;
+    }
     private void HandleAttack()
     {
         if (playerMovement != null && playerMovement.IsDashing()) return;
         if (playerHealth != null && playerHealth.IsBlocking())
         {
-            // 2. If YES, perform the new Block Special Attack.
+            if (isSpecialAttackOnCooldown) return;
             Debug.Log("<color=lime>--- BLOCK SPECIAL ATTACK TRIGGERED ---</color>");
-
-            // Set the master attacking flag to true.
             isAttacking = true;
             if (attackWatchdogCoroutine != null) StopCoroutine(attackWatchdogCoroutine);
             attackWatchdogCoroutine = StartCoroutine(AttackWatchdogRoutine());
@@ -400,7 +485,13 @@ public class ZreyAttacks : MonoBehaviour
         animator.ResetTrigger(downSlamImpactTriggerHash);
         // Play the looping "falling" part of the slam.
         animator.SetTrigger(downSlamLoopTriggerHash);
-       
+        if (downSlamLoopClip != null)
+        {
+            downSlamLoopSource.clip = downSlamLoopClip;
+            downSlamLoopSource.volume = downSlamLoopVolume;
+            downSlamLoopSource.Play();
+        }
+
     }
 
     /// <summary>
@@ -414,7 +505,7 @@ public class ZreyAttacks : MonoBehaviour
             return;
         }
         if (!isDownSlamming) return; // Failsafe
-
+        downSlamLoopSource.Stop();
         Debug.Log("<color=magenta>DOWN SLAM IMPACT!</color>");
         isDownSlamming = false;
 
@@ -438,6 +529,18 @@ public class ZreyAttacks : MonoBehaviour
         yield return new WaitForSeconds(0.15f); // Adjust this delay as needed.
        
         playerMovement.CanMove = true;
+    }
+    public void EVENT_DownSlamBreakWall()
+    {
+        Collider2D[] hits = Physics2D.OverlapBoxAll(attackPoint.position, attackAreaSize, 0f);
+        foreach (Collider2D hit in hits)
+        {
+            BreakableWall wall = hit.GetComponent<BreakableWall>();
+            if (wall != null)
+            {
+                wall.TakeDownSlamDamage(999);
+            }
+        }
     }
     public bool IsDownSlamming()
     {
@@ -915,22 +1018,31 @@ public class ZreyAttacks : MonoBehaviour
             KnightHealth enemyHealth = enemy.GetComponent<KnightHealth>();
             if (enemyHealth != null)
             {
+                bool wasBlocking = enemyHealth.isBlocking;
                 enemyHealth.ApplyDamageAndKnockback(attackData);
-                if (playerHealth != null) playerHealth.HealFromLifeSteal(attackData.damage); // ADD THIS
+                if (playerHealth != null && !wasBlocking) playerHealth.HealFromLifeSteal(attackData.damage);
+                break;
+                if (playerHealth != null && !wasBlocking) playerHealth.HealFromLifeSteal(attackData.damage);
                 break;
             }
             SpearHealth spearHealth = enemy.GetComponent<SpearHealth>();
             if (spearHealth != null)
             {
+                bool wasBlocking = spearHealth.isBlocking;
                 spearHealth.ApplyDamageAndKnockback(attackData);
-                if (playerHealth != null) playerHealth.HealFromLifeSteal(attackData.damage); // ADD THIS
+                if (playerHealth != null && !wasBlocking) playerHealth.HealFromLifeSteal(attackData.damage);
                 break;
+                if (playerHealth != null && !wasBlocking) playerHealth.HealFromLifeSteal(attackData.damage);
+                break; 
             }
             ReaperHealth reaperHealth = enemy.GetComponent<ReaperHealth>();
             if (reaperHealth != null)
             {
+                bool wasBlocking = reaperHealth.isBlocking;
                 reaperHealth.ApplyDamageAndKnockback(attackData);
-                if (playerHealth != null) playerHealth.HealFromLifeSteal(attackData.damage); // ADD THIS
+                if (playerHealth != null && !wasBlocking) playerHealth.HealFromLifeSteal(attackData.damage);
+                break;
+                if (playerHealth != null && !wasBlocking) playerHealth.HealFromLifeSteal(attackData.damage);
                 break;
             }
         }
