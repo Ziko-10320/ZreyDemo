@@ -427,6 +427,7 @@ public class SpearAI : MonoBehaviour
     public void CloseCounterWindow()
     {
         isCounterWindowOpen = false;
+        if (counterPromptUI != null) counterPromptUI.SetActive(false);
         Debug.Log("<color=grey>--- COUNTER WINDOW: CLOSED ---</color>");
     }
     private void ResetSpecialAttackCooldown()

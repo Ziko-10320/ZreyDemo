@@ -3,6 +3,8 @@ using System.Collections;
 using UnityEngine;
 using System;
 using UnityEngine.InputSystem;
+using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 [RequireComponent(typeof(Animator))]
 public class ZreyAttacks : MonoBehaviour
 {
@@ -140,6 +142,7 @@ public class ZreyAttacks : MonoBehaviour
     private int aerialComboStep = 0;
     private bool isDownSlamPrimed = false;
     private float originalGravityScale;
+    private int aerialInputBuffer = 0;
     // --- New Animation Hashes ---
     private readonly int aerialAttackStepHash = Animator.StringToHash("aerialAttackStep");
 
@@ -175,6 +178,17 @@ public class ZreyAttacks : MonoBehaviour
 
     [Tooltip("The offset from the player to snap the REAPER to before the Reaper Finisher.")]
     [SerializeField] private Vector3 reaperFinisherSnapOffset = new Vector3(1.5f, 0, 0);
+
+    [Header("Finisher Vignette Settings")]
+    [Tooltip("The Global Volume that contains the Vignette override.")]
+    [SerializeField] private Volume globalVolume;
+    [Tooltip("The target vignette intensity during a finisher.")]
+    [SerializeField] private float vignetteTargetIntensity = 0.45f;
+    [Tooltip("How fast the vignette fades in and out.")]
+    [SerializeField] private float vignetteFadeSpeed = 3f;
+
+    private Vignette vignette;
+    private Coroutine vignetteCoroutine;
     private void OnEnable()
     {
         InputManager.OnInteractPressed += HandleInteractionInput;
@@ -210,6 +224,14 @@ public class ZreyAttacks : MonoBehaviour
             Debug.LogError("FATAL ERROR: No main camera found in the scene!", this);
         }
         originalGravityScale = rb.gravityScale;
+        if (globalVolume == null)
+            globalVolume = FindObjectOfType<Volume>();
+        if (globalVolume != null && globalVolume.profile.TryGet(out Vignette vig))
+        {
+            vignette = vig;
+            vignette.active = false;
+            vignette.intensity.value = 0f;
+        }
     }
     public void UpdateVolume(float masterVolume)
     {
@@ -265,7 +287,19 @@ public class ZreyAttacks : MonoBehaviour
             // Aerial Tap Logic (Aerial Combo)
             if (attackReleased && !isDownSlamPrimed && !playerMovement.IsDashing())
             {
-                PerformAerialAttack();
+                if (isAttacking)
+                {
+                    // Player tapped during uppercut — buffer it for when uppercut ends
+                    if (aerialInputBuffer < maxAerialComboSteps)
+                    {
+                        aerialInputBuffer++;
+                        Debug.Log($"<color=cyan>Aerial tap buffered during uppercut. Buffer: {aerialInputBuffer}</color>");
+                    }
+                }
+                else
+                {
+                    PerformAerialAttack();
+                }
             }
         }
 
@@ -816,6 +850,41 @@ public class ZreyAttacks : MonoBehaviour
         isChargeAttackPrimed = false;
         comboResetCoroutine = StartCoroutine(ComboResetRoutine());
         Debug.Log($"Attack {comboStep} finished. Combo reset timer started.");
+
+        // Drain aerial buffer — if the player spammed attack during uppercut and is airborne, fire them now
+        if (aerialInputBuffer > 0 && !playerMovement.IsGrounded() && !isDownSlamming)
+        {
+            Debug.Log($"<color=cyan>Draining aerial buffer: {aerialInputBuffer} tap(s) queued.</color>");
+            int taps = aerialInputBuffer;
+            aerialInputBuffer = 0;
+            StartCoroutine(DrainAerialBuffer(taps));
+        }
+        else
+        {
+            aerialInputBuffer = 0; // Clear stale buffer if grounded
+        }
+    }
+
+    private IEnumerator DrainAerialBuffer(int taps)
+    {
+        for (int i = 0; i < taps; i++)
+        {
+            // Wait one frame so the state has fully reset before firing the next attack
+            yield return null;
+
+            // Safety checks — if something changed between taps, stop draining
+            if (isAttacking || isDownSlamming || IsInCinematicState || playerMovement.IsGrounded())
+            {
+                Debug.Log("<color=orange>Aerial buffer drain stopped early — state changed.</color>");
+                aerialInputBuffer = 0;
+                yield break;
+            }
+
+            PerformAerialAttack();
+
+            // Wait for this attack to finish before firing the next buffered tap
+            yield return new WaitUntil(() => !isAttacking);
+        }
     }
     public void StopLunge()
     {
@@ -1191,6 +1260,7 @@ public class ZreyAttacks : MonoBehaviour
     {
         // --- 1. LOCK PLAYER ---
         SetCinematicState(true, counterTarget);
+        StartFinisherVignette();
         playerMovement.CanMove = false;
         rb.linearVelocity = Vector2.zero;
 
@@ -1255,6 +1325,7 @@ public class ZreyAttacks : MonoBehaviour
     {
         // --- 1. LOCK EVERYTHING ---
         SetCinematicState(true, targetKnight.transform);
+        StartFinisherVignette();
         if (playerMovement != null) playerMovement.CanMove = false;
         if (rb != null) rb.linearVelocity = Vector2.zero;
         if (targetKnight.GetComponent<KnightAI>().finisherPromptUI != null)
@@ -1295,6 +1366,7 @@ public class ZreyAttacks : MonoBehaviour
     {
         // --- 1. LOCK EVERYTHING (This is correct) ---
         SetCinematicState(true, target.transform);
+        StartFinisherVignette();
         if (playerMovement != null) playerMovement.CanMove = false;
         if (rb != null) rb.linearVelocity = Vector2.zero;
 
@@ -1340,6 +1412,7 @@ public class ZreyAttacks : MonoBehaviour
     {
         // --- 1. LOCK EVERYTHING ---
         SetCinematicState(true, targetReaper.transform);
+        StartFinisherVignette();
         if (playerMovement != null) playerMovement.CanMove = false;
         if (rb != null) rb.linearVelocity = Vector2.zero;
 
@@ -1373,6 +1446,41 @@ public class ZreyAttacks : MonoBehaviour
 
         // Cleanup is handled by FinishFinisherSequence() called from animation event.
     }
+    private void StartFinisherVignette()
+    {
+        if (vignette == null) return;
+        if (vignetteCoroutine != null) StopCoroutine(vignetteCoroutine);
+        vignetteCoroutine = StartCoroutine(FadeVignette(vignetteTargetIntensity));
+    }
+
+    private void StopFinisherVignette()
+    {
+        if (vignette == null) return;
+        if (vignetteCoroutine != null) StopCoroutine(vignetteCoroutine);
+        vignetteCoroutine = StartCoroutine(FadeVignette(0f, disableOnComplete: true));
+    }
+
+    private IEnumerator FadeVignette(float targetIntensity, bool disableOnComplete = false)
+    {
+        vignette.active = true;
+        float start = vignette.intensity.value;
+
+        while (!Mathf.Approximately(vignette.intensity.value, targetIntensity))
+        {
+            vignette.intensity.value = Mathf.MoveTowards(
+                vignette.intensity.value, targetIntensity, vignetteFadeSpeed * Time.deltaTime);
+            yield return null;
+        }
+
+        vignette.intensity.value = targetIntensity;
+
+        if (disableOnComplete)
+        {
+            vignette.active = false;
+        }
+
+        vignetteCoroutine = null;
+    }
     public void FinishFinisherSequence()
     {
         Debug.Log("<color=green>--- Finisher Sequence Finished. Player control restored. ---</color>");
@@ -1383,6 +1491,7 @@ public class ZreyAttacks : MonoBehaviour
         {
             playerMovement.CanMove = true;
         }
+        StopFinisherVignette();
     }
     public void SetGravityToZero()
     {

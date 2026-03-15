@@ -3291,6 +3291,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 05338e00b98b1ce4b9b16b219d792410, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::KnightAI
+--- !u!114 &1630863569 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 6708403327660714446, guid: 4777ed2223763e04bb2a08e144efef56, type: 3}
+  m_PrefabInstance: {fileID: 5681548328830035600}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 172515602e62fb746b5d573b38a5fe58, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.RenderPipelines.Core.Runtime::UnityEngine.Rendering.Volume
 --- !u!1001 &1638124163
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -4107,6 +4118,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 9211028478507294103, guid: 901e76773e0373943b1ffb363577cd0b, type: 3}
+      propertyPath: globalVolume
+      value: 
+      objectReference: {fileID: 1630863569}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -4344,7 +4359,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1977999703048618747, guid: c60d43daa6ef4e145be0f5d0bff9790d, type: 3}
       propertyPath: m_IsActive
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 2516431134507744554, guid: c60d43daa6ef4e145be0f5d0bff9790d, type: 3}
       propertyPath: playerTarget

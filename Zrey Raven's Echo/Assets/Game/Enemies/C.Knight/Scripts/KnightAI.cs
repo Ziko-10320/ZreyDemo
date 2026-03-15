@@ -142,10 +142,12 @@ public class KnightAI : MonoBehaviour
         {
             Collider2D playerCollider = Physics2D.OverlapBox(counterCheckPoint.position, counterCheckAreaSize, 0f, playerLayer);
             isPlayerInCounterBox = (playerCollider != null);
+            if (counterPromptUI != null) counterPromptUI.SetActive(isPlayerInCounterBox);
         }
         else
         {
             isPlayerInCounterBox = false;
+            if (counterPromptUI != null) counterPromptUI.SetActive(false);
         }
         // --- THIS IS THE NEW, SIMPLIFIED GRAB LOGIC ---
         // 1. Check if we can even attempt a grab.
@@ -363,6 +365,7 @@ public class KnightAI : MonoBehaviour
     public void CloseCounterWindow()
     {
         isCounterWindowOpen = false;
+        if (counterPromptUI != null) counterPromptUI.SetActive(false);
         Debug.Log("<color=grey>--- COUNTER WINDOW: CLOSED ---</color>");
     }
     private void ResetSpecialAttackCooldown()
@@ -399,6 +402,7 @@ public class KnightAI : MonoBehaviour
             yield break;
         }
         isCounterBeingExecuted = true;
+        if (counterPromptUI != null) counterPromptUI.SetActive(false);
         // --- 1. FREEZE BOTH INSTANTLY ---
         // Stop the knight dead
         if (attack != null)
