@@ -69,7 +69,7 @@ public class EndLevelManager : MonoBehaviour
             mainMenuButton.onClick.AddListener(GoToMainMenu);
         }
         if (audioManager != null) audioManager.StartFadeOut();
-        if (CursorManager.Instance != null) CursorManager.Instance.ForceHide();
+        if (CursorManager.Instance != null) CursorManager.Instance.RequestShowCursor();
         StartCoroutine(ChainedFadeInSequence());
     }
 
@@ -79,7 +79,7 @@ public class EndLevelManager : MonoBehaviour
         Debug.Log("Fading in background...");
         yield return StartCoroutine(FadeImage(backgroundImage, 0f, 1f, fadeInDuration));
         Debug.Log("Background fade complete.");
-
+        if (CursorManager.Instance != null) CursorManager.Instance.RequestShowCursor();
         // --- SEQUENCE 2: FADE IN TEXT AND ITS IMAGE ---
         Debug.Log("Fading in text and its background...");
         // Start both fades at the same time

@@ -21353,13 +21353,13 @@ RectTransform:
   - {fileID: 268079586}
   - {fileID: 1568163227}
   - {fileID: 1376624217}
-  - {fileID: 855821264}
-  - {fileID: 1374819673}
-  - {fileID: 71591170}
   - {fileID: 1598720136}
   - {fileID: 1381926512}
   - {fileID: 811036489}
   - {fileID: 871223846}
+  - {fileID: 855821264}
+  - {fileID: 1374819673}
+  - {fileID: 71591170}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
@@ -21717,7 +21717,7 @@ GameObject:
   - component: {fileID: 183626817}
   - component: {fileID: 183626820}
   m_Layer: 8
-  m_Name: HealthBarCanvas
+  m_Name: VHealthBarCanvas
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -33500,7 +33500,7 @@ RectTransform:
   m_Father: {fileID: 521423108}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 0, y: 0}
+  m_AnchorMax: {x: 1, y: 1}
   m_AnchoredPosition: {x: -0.44000244, y: 0}
   m_SizeDelta: {x: 9.08, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
@@ -37703,7 +37703,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &362534301
 RectTransform:
   m_ObjectHideFlags: 0
@@ -40269,7 +40269,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1977999703048618747, guid: c60d43daa6ef4e145be0f5d0bff9790d, type: 3}
       propertyPath: m_IsActive
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 2516431134507744554, guid: c60d43daa6ef4e145be0f5d0bff9790d, type: 3}
       propertyPath: maxGuard
@@ -44510,7 +44510,7 @@ BoxCollider2D:
   m_UsedByEffector: 0
   m_CompositeOperation: 0
   m_CompositeOrder: 0
-  m_Offset: {x: 0, y: 0}
+  m_Offset: {x: 0, y: 0.08487612}
   m_SpriteTilingProperty:
     border: {x: 0, y: 0, z: 0, w: 0}
     pivot: {x: 0.5, y: 0.5}
@@ -44520,7 +44520,7 @@ BoxCollider2D:
     drawMode: 0
     adaptiveTiling: 0
   m_AutoTiling: 0
-  m_Size: {x: 1, y: 1}
+  m_Size: {x: 1, y: 0.83024776}
   m_EdgeRadius: 0
 --- !u!212 &441233064
 SpriteRenderer:
@@ -49761,7 +49761,7 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 1688633498}
         m_TargetAssemblyTypeName: GameManager, Assembly-CSharp
-        m_MethodName: RestartLevel
+        m_MethodName: RestartLevelFromDeath
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -68958,7 +68958,7 @@ BoxCollider2D:
   m_UsedByEffector: 0
   m_CompositeOperation: 0
   m_CompositeOrder: 0
-  m_Offset: {x: -0.21408653, y: 0}
+  m_Offset: {x: -0.21142828, y: 0}
   m_SpriteTilingProperty:
     border: {x: 0, y: 0, z: 0, w: 0}
     pivot: {x: 0.5, y: 0.5}
@@ -68968,7 +68968,7 @@ BoxCollider2D:
     drawMode: 0
     adaptiveTiling: 0
   m_AutoTiling: 0
-  m_Size: {x: 1.3618269, y: 5.32}
+  m_Size: {x: 1.3671429, y: 5.32}
   m_EdgeRadius: 0
 --- !u!114 &690324104
 MonoBehaviour:
@@ -80037,7 +80037,7 @@ RectTransform:
   m_Father: {fileID: 824884670}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 1, y: 1}
+  m_AnchorMax: {x: 0, y: 0}
   m_AnchoredPosition: {x: -0.44000244, y: 0.05000019}
   m_SizeDelta: {x: 9.08, y: -2.83}
   m_Pivot: {x: 0.5, y: 0.5}
@@ -90381,7 +90381,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!225 &943482427
 CanvasGroup:
   m_ObjectHideFlags: 0
@@ -107631,7 +107631,7 @@ RectTransform:
   m_Father: {fileID: 142643306}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 0, y: 0}
+  m_AnchorMax: {x: 1, y: 1}
   m_AnchoredPosition: {x: -0.44000244, y: 0}
   m_SizeDelta: {x: 9.08, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
@@ -109380,7 +109380,7 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 1688633498}
         m_TargetAssemblyTypeName: GameManager, Assembly-CSharp
-        m_MethodName: LoadMainMenu
+        m_MethodName: LoadMainMenuFromDeath
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -112652,7 +112652,7 @@ RectTransform:
   m_Father: {fileID: 1531162248}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 1, y: 1}
+  m_AnchorMax: {x: 0, y: 0}
   m_AnchoredPosition: {x: -0.44000244, y: 0}
   m_SizeDelta: {x: 9.08, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
@@ -120821,7 +120821,7 @@ RectTransform:
   m_Father: {fileID: 106503287}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 0, y: 0}
+  m_AnchorMax: {x: 1, y: 1}
   m_AnchoredPosition: {x: -0.44000244, y: 0.05000019}
   m_SizeDelta: {x: 9.08, y: -2.83}
   m_Pivot: {x: 0.5, y: 0.5}
@@ -131970,7 +131970,7 @@ BoxCollider2D:
   m_UsedByEffector: 0
   m_CompositeOperation: 0
   m_CompositeOrder: 0
-  m_Offset: {x: -2.4537354, y: -18.873749}
+  m_Offset: {x: -10.205597, y: -18.873749}
   m_SpriteTilingProperty:
     border: {x: 0, y: 0, z: 0, w: 0}
     pivot: {x: 0, y: 0}
@@ -131980,7 +131980,7 @@ BoxCollider2D:
     drawMode: 0
     adaptiveTiling: 0
   m_AutoTiling: 0
-  m_Size: {x: 23.30664, y: 22.26715}
+  m_Size: {x: 38.810364, y: 22.26715}
   m_EdgeRadius: 0
 --- !u!95 &1479147980
 Animator:
@@ -144107,7 +144107,7 @@ RectTransform:
   m_Father: {fileID: 212381631}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 0, y: 0}
+  m_AnchorMax: {x: 1, y: 1}
   m_AnchoredPosition: {x: -1.5800018, y: 0}
   m_SizeDelta: {x: 6.74, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
@@ -159742,7 +159742,7 @@ RectTransform:
   m_Father: {fileID: 712925125}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 1, y: 1}
+  m_AnchorMax: {x: 0, y: 0}
   m_AnchoredPosition: {x: -1.5800018, y: 0}
   m_SizeDelta: {x: 6.74, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
@@ -164286,7 +164286,7 @@ RectTransform:
   m_Father: {fileID: 297988604}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 1, y: 1}
+  m_AnchorMax: {x: 0, y: 0}
   m_AnchoredPosition: {x: -0.44000244, y: 0}
   m_SizeDelta: {x: 9.08, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
@@ -189720,7 +189720,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6942971654524180201, guid: 99a71b153be5c4d46a1ea43cce8d71e1, type: 3}
       propertyPath: m_IsActive
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 7763546074271271566, guid: 99a71b153be5c4d46a1ea43cce8d71e1, type: 3}
       propertyPath: animator

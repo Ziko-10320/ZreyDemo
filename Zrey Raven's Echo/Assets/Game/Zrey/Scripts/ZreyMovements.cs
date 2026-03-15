@@ -1057,7 +1057,8 @@ public class ZreyMovements : MonoBehaviour
     }
     private void HandleCombatAndAnimation()
     {
-        // --- Master shield for attacks is correct ---
+        if (!isGrounded && combatRunSource.isPlaying)
+            combatRunSource.Stop();
         if (isAttackLocked)
         {
             // If we are attacking, we must ensure all movement booleans are OFF.
@@ -1323,10 +1324,13 @@ public class ZreyMovements : MonoBehaviour
         groundDashSoundVolume = masterVolume;
         airDashSoundVolume = masterVolume;
         footstepVolume = masterVolume;
-
+        wallJumpSoundVolume = masterVolume;      // ? add this
+        combatRunSoundVolume = masterVolume;
         // Also update the footstep source live if it's currently playing
         if (footstepSource != null)
             footstepSource.volume = footstepVolume;
+        if (combatRunSource != null)
+            combatRunSource.volume = combatRunSoundVolume;
     }
     private void OnDrawGizmosSelected()
     {

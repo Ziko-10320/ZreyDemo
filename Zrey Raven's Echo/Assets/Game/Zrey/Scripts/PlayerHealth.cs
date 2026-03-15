@@ -881,7 +881,7 @@ public class PlayerHealth : MonoBehaviour
         if (deathPanel != null)
         {
             deathPanel.SetActive(true);
-            // Fade the panel in
+            if (CursorManager.Instance != null) CursorManager.Instance.RequestShowCursor(); // ? add this
             CanvasGroup deathCanvasGroup = deathPanel.GetComponent<CanvasGroup>();
             if (deathCanvasGroup != null)
             {

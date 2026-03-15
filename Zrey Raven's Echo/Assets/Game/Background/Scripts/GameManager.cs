@@ -120,48 +120,58 @@ public class GameManager : MonoBehaviour
     // --- MODIFIED: RestartLevel now calls the fade coroutine ---
     public void RestartLevel()
     {
-        
         Time.timeScale = 1f;
         ZreyMovements.NukeInputSystem();
-        StartCoroutine(FadeAndLoadScene(SceneManager.GetActiveScene().name));
+        StartCoroutine(FadeAndLoadScene(SceneManager.GetActiveScene().name, sceneFadeImage));
+    }
+    public void RestartLevelFromDeath()
+    {
+        AudioListener.pause = false;
+        Time.timeScale = 1f;
+        ZreyMovements.NukeInputSystem();
+        StartCoroutine(FadeAndLoadScene(SceneManager.GetActiveScene().name, deathFadeImage));
     }
 
-    public void LoadMainMenu()
+    public void LoadMainMenuFromDeath()
     {
-       
+        AudioListener.pause = false;
         Time.timeScale = 1f;
         ZreyMovements.NukeInputSystem();
-        StartCoroutine(FadeAndLoadScene("MainMenu"));
+        StartCoroutine(FadeAndLoadScene("MainMenu", deathFadeImage));
+    }
+    public void LoadMainMenu()
+    {
+        Time.timeScale = 1f;
+        ZreyMovements.NukeInputSystem();
+        StartCoroutine(FadeAndLoadScene("MainMenu", sceneFadeImage));
     }
     // --- NEW: The Coroutine that handles fading and loading a scene ---
-    private IEnumerator FadeAndLoadScene(string sceneName)
+    private IEnumerator FadeAndLoadScene(string sceneName, Image fadeImage)
     {
         Time.timeScale = 1f;
         isPaused = false;
-        // AudioListener.pause stays true here so sounds remain stopped during fade
 
-        if (deathFadeImage == null)
+        if (fadeImage == null)
         {
             AudioListener.pause = false;
             SceneManager.LoadScene(sceneName);
             yield break;
         }
 
-        deathFadeImage.gameObject.SetActive(true);
+        fadeImage.gameObject.SetActive(true);
         float timer = 0f;
-        Color c = deathFadeImage.color;
+        Color c = fadeImage.color;
         c.a = 0f;
-        deathFadeImage.color = c;
+        fadeImage.color = c;
 
         while (timer < sceneFadeDuration)
         {
-            timer += Time.deltaTime;
+            timer += Time.unscaledDeltaTime;
             c.a = Mathf.Clamp01(timer / sceneFadeDuration);
-            deathFadeImage.color = c;
+            fadeImage.color = c;
             yield return null;
         }
 
-        // Only unpause audio right before loading so sounds stay dead during the fade
         AudioListener.pause = false;
         SceneManager.LoadScene(sceneName);
     }
