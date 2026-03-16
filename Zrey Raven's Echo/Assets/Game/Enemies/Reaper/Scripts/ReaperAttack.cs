@@ -84,6 +84,8 @@ public class ReaperAttack : MonoBehaviour
 
     private readonly int backstepTriggerHash = Animator.StringToHash("backstep");
     private ReaperAI ReaperAI;
+
+    private bool tutorialParryCompleted = false;
     private void OnEnable()
     {
         ZreyAttacks.OnPlayerCinematicStarted += OnCinematicStarted;
@@ -254,6 +256,17 @@ public class ReaperAttack : MonoBehaviour
     public void StartCombo()
     {
         if (ZreyAttacks.PlayerInCinematic) return;
+        if (TutorialManager.Instance != null && TutorialManager.Instance.InTutorialMode)
+        {
+            if (!tutorialParryCompleted)
+            {
+                // Check if player has learned parry yet
+                if (!TutorialManager.Instance.HasPlayerLearnedParry)
+                    return;
+                else
+                    tutorialParryCompleted = true; // Unlock combos permanently
+            }
+        }
         if (health != null && !health.IsGrounded()) return;
         if (health != null && health.IsStunned())
         {
@@ -513,6 +526,11 @@ public class ReaperAttack : MonoBehaviour
         {
             rb.linearVelocity = Vector2.zero;
         }
+    }
+    public void EVENT_TriggerTutorialParryWindow()
+    {
+        if (TutorialManager.Instance == null || !TutorialManager.Instance.InTutorialMode) return;
+        TutorialManager.Instance.TriggerParrySlowTime();
     }
     private void OnDrawGizmosSelected()
     {

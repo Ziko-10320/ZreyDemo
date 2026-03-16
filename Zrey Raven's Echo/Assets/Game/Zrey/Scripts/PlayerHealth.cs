@@ -65,6 +65,8 @@ public class PlayerHealth : MonoBehaviour
     [Range(0f, 1f)] public float damageReduction = 0.75f;
     [Tooltip("How long the parry window stays open after starting a block (in seconds).")]
     public float parryWindow = 0.15f;
+      [Tooltip("How long the parry window stays open during the tutorial slow-time (real seconds).")]
+    public float tutorialParryWindow = 2f;
     [Tooltip("How long the player is stunned and cannot move after taking a normal hit.")]
     public float hitStunDuration = 0.5f;
     [Tooltip("The VFX to spawn on a successful block.")]
@@ -239,15 +241,23 @@ public class PlayerHealth : MonoBehaviour
     }
     public void TakeDamage(int damageAmount, Transform attacker, ImpactData impact)
     {
+        Debug.Log($"<color=yellow>TakeDamage called. Invincible={IsInvincible} | isParryWindowActive={isParryWindowActive} | isBlocking={isBlocking} | TutorialWindowOpen={TutorialManager.Instance?.IsTutorialParryWindowOpen}</color>");
         if (IsInvincible) { Debug.Log("Damage ignored: Player is invincible."); return; }
         if (currentHealth <= 0) return;
-
+        if (TutorialManager.Instance != null
+          && TutorialManager.Instance.InTutorialMode
+          && TutorialManager.Instance.IsTutorialParryWindowOpen)
+        {
+            TutorialManager.Instance.QueueTutorialDamage(damageAmount, attacker, impact);
+            return; // Don't apply damage yet — wait for parry or timeout
+        }
         if (isParryWindowActive)
         {
             Debug.Log("<color=lime>PARRY SUCCESSFUL!</color>");
             CameraShakerHandler.Shake(CameraShakeParry);
             isBlocking = false;
-
+            if (TutorialManager.Instance != null)
+                TutorialManager.Instance.OnPlayerParriedSuccessfully();
             int parryAnim = Random.Range(0, 2);
             animator.SetTrigger(parryAnim == 0 ? parry1TriggerHash : parry2TriggerHash);
 
@@ -611,13 +621,109 @@ public class PlayerHealth : MonoBehaviour
             Instantiate(bloodVFX, bloodSpawnPoint.position, bloodVFX.transform.rotation);
         PlayRandomBloodSound();
     }
+    public void TriggerParrySuccess(Transform attacker, ImpactData impact)
+    {
+        Debug.Log("<color=lime>TUTORIAL PARRY SUCCESSFUL!</color>");
+        CameraShakerHandler.Shake(CameraShakeParry);
+        isBlocking = false;
+        isParryWindowActive = false;
+        animator.ResetTrigger(startBlockTriggerHash);
+        animator.SetTrigger(stopBlockTriggerHash); // Exit block stance in Animator
+        if (parryWindowCoroutine != null) { StopCoroutine(parryWindowCoroutine); parryWindowCoroutine = null; }
 
+        // Wait one frame then play parry anim so stopBlock transition clears first
+        StartCoroutine(PlayParryAnimNextFrame(attacker, impact));
+
+    }
+    private IEnumerator PlayParryAnimNextFrame(Transform attacker, ImpactData impact)
+    {
+        yield return null; // One frame for stopBlock to register in Animator
+
+        int parryAnim = Random.Range(0, 2);
+        animator.SetTrigger(parryAnim == 0 ? parry1TriggerHash : parry2TriggerHash);
+
+        if (parryVFX != null) Instantiate(parryVFX, defenseVFXSpawnPoint.position, Quaternion.identity);
+        PlayRandomDefenseSound(parryClips);
+        playerMovements.CanMove = true;
+
+        currentShieldHealth -= parryShieldCost;
+        currentShieldHealth = Mathf.Max(0, currentShieldHealth);
+        postureDamageTimer = 0f;
+
+        if (currentShieldHealth <= 0)
+        {
+            if (guardBreakCoroutine == null)
+                guardBreakCoroutine = StartCoroutine(GuardBreakRoutine());
+        }
+        else if (!isShieldBroken)
+        {
+            if (shieldRegenCoroutine != null) StopCoroutine(shieldRegenCoroutine);
+            shieldRegenCoroutine = StartCoroutine(ShieldRegenRoutine());
+        }
+
+        if (impact != null)
+        {
+            ImpactData parryRecoilImpact = ScriptableObject.CreateInstance<ImpactData>();
+            parryRecoilImpact.knockbackDistance = impact.parryKnockbackDistance;
+            parryRecoilImpact.knockbackDuration = impact.parryKnockbackDuration;
+            parryRecoilImpact.hitReactionType = "none";
+            if (knockbackCoroutine != null) StopCoroutine(knockbackCoroutine);
+            knockbackCoroutine = StartCoroutine(HitReactionRoutine(attacker, parryRecoilImpact));
+        }
+
+        ReaperAttack reaperAttack = attacker.GetComponent<ReaperAttack>();
+        ReaperHealth reaperHealth = attacker.GetComponent<ReaperHealth>();
+        if (reaperHealth != null)
+        {
+            reaperHealth.TakePostureDamageOnParry();
+            if (reaperAttack != null && reaperAttack.IsFinalComboAttack())
+                reaperHealth.GetParried(transform);
+        }
+    }
     private void StartBlocking()
     {
+        bool tutWindow = TutorialManager.Instance != null && TutorialManager.Instance.InTutorialMode && TutorialManager.Instance.IsTutorialParryWindowOpen;
+        Debug.Log($"<color=cyan>StartBlocking called. isBlocking={isBlocking} | isShieldBroken={isShieldBroken} | InCinematic={playerAttacks?.IsInCinematicState} | TutorialWindowOpen={tutWindow} | CanMove={playerMovements?.CanMove} | isStunned={isStunned}</color>");
         if (isShieldBroken) { Debug.LogWarning("Block ignored: Shield broken or stunned."); return; }
         if (playerMovements != null && playerMovements.IsDashing()) { Debug.LogWarning("Block ignored: Currently dashing."); return; }
         if (IsGrabbed) { Debug.LogWarning("Block Input Ignored: Player is GRABBED."); return; }
         if (playerAttacks != null && playerAttacks.IsInCinematicState) { Debug.Log("Block Input Ignored: In Cinematic State."); return; }
+
+        // During tutorial parry window — force the parry window open every time
+        // block is pressed, even if already blocking, so the player can actually parry
+        bool inTutorialParryWindow = TutorialManager.Instance != null
+            && TutorialManager.Instance.InTutorialMode
+            && TutorialManager.Instance.IsTutorialParryWindowOpen;
+
+        if (inTutorialParryWindow)
+        {
+            // Force block state and re-open parry window on every press
+            if (!isBlocking)
+            {
+                animator.ResetTrigger(stopBlockTriggerHash);
+                isBlocking = true;
+                PlayDefenseSound(blockStartClip);
+                animator.SetTrigger(startBlockTriggerHash);
+                playerMovements.CanMove = false;
+                if (rb != null) rb.linearVelocity = new Vector2(0, rb.linearVelocity.y);
+            }
+
+            // Force parry window open
+            if (parryWindowCoroutine != null) StopCoroutine(parryWindowCoroutine);
+            isParryWindowActive = true;
+            parryWindowCoroutine = StartCoroutine(ParryWindowCoroutine());
+            Debug.Log("<color=cyan>Tutorial: Parry window force-opened on block press.</color>");
+
+            // KEY FIX: If damage is already queued, process it as a parry RIGHT NOW
+            // The player pressed block — treat queued damage as the attack they're parrying
+            if (TutorialManager.Instance.HasQueuedDamage())
+            {
+                Debug.Log("<color=lime>Tutorial: Block pressed with queued damage — triggering parry immediately!</color>");
+                TutorialManager.Instance.ProcessQueuedDamageAsParry(this, transform);
+            }
+            return;
+        }
+
         if (playerAttacks != null) playerAttacks.CancelAttack();
         if (isBlocking) return;
 
@@ -644,7 +750,17 @@ public class PlayerHealth : MonoBehaviour
     private IEnumerator ParryWindowCoroutine()
     {
         isParryWindowActive = true;
-        yield return new WaitForSeconds(parryWindow);
+        if (TutorialManager.Instance != null
+           && TutorialManager.Instance.InTutorialMode
+           && TutorialManager.Instance.IsTutorialParryWindowOpen)
+        {
+            yield return new WaitForSecondsRealtime(tutorialParryWindow);
+        }
+        else
+        {
+            yield return new WaitForSeconds(parryWindow);
+        }
+
         isParryWindowActive = false;
     }
 
