@@ -19,7 +19,10 @@ public class BreakableWall : MonoBehaviour
             BreakWall();
         }
     }
-
+    public void UpdateVolume(float masterVolume)
+    {
+        breakSoundVolume = masterVolume;
+    }
     private void BreakWall()
     {
         if (breakEffectPrefab != null)

@@ -484,7 +484,10 @@ public class ReaperAttack : MonoBehaviour
         }
 
     }
-
+    public void UpdateVolume(float masterVolume)
+    {
+        attackSfxVolume = masterVolume;
+    }
     public float GetComboDuration() { return comboDuration; }
     public float GetCounterAttackDuration() { return counterAttackDuration; }
 

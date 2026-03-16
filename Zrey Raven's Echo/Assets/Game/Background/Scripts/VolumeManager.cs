@@ -57,5 +57,9 @@ public class VolumeManager : MonoBehaviour
         foreach (SpearHealth s in FindObjectsOfType<SpearHealth>()) s.UpdateVolume(masterSfxVolume);
         foreach (SpearAttack s in FindObjectsOfType<SpearAttack>()) s.UpdateVolume(masterSfxVolume);
         foreach (ReaperHealth r in FindObjectsOfType<ReaperHealth>()) r.UpdateVolume(masterSfxVolume);
+        foreach (BreakableWall wall in FindObjectsOfType<BreakableWall>())
+            wall.UpdateVolume(masterSfxVolume);
+        foreach (ReaperAttack r in FindObjectsOfType<ReaperAttack>())
+            r.UpdateVolume(masterSfxVolume);
     }
 }

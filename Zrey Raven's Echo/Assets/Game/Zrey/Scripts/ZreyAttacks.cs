@@ -273,6 +273,11 @@ public class ZreyAttacks : MonoBehaviour
     public void UpdateVolume(float masterVolume)
     {
         attackSfxVolume = masterVolume;
+        downSlamLoopVolume = masterVolume;          // ? add this
+
+        // Update live if currently playing
+        if (downSlamLoopSource != null)
+            downSlamLoopSource.volume = downSlamLoopVolume;
     }
     void Update()
     {
