@@ -192,6 +192,7 @@ private int blocksNeededForNextCounter = 0;
     [SerializeField] private AudioClip[] hitSoundClips;
     [SerializeField] private AudioClip[] blockSoundClips;
     private AudioSource hitSfxSource;
+
     void Awake()
     {
         currentHealth = maxHealth;

@@ -1592,6 +1592,9 @@ public class ZreyAttacks : MonoBehaviour
         playerHealth.ForceResetState();
     }
     // MODIFY AttemptFinisher to return a boolean.
+    private System.Collections.Generic.HashSet<GameObject> activeFinisherTargets
+        = new System.Collections.Generic.HashSet<GameObject>();
+
     public bool AttemptFinisher()
     {
         if (isAttacking || IsInCinematicState || (playerHealth != null && playerHealth.isStunned))
@@ -1606,21 +1609,23 @@ public class ZreyAttacks : MonoBehaviour
 
         foreach (Collider2D enemyCollider in nearbyEnemies)
         {
-            // --- CHECK #1: SPEAR ENEMY (Existing Logic) ---
+            // Skip enemies already being finished
+            if (activeFinisherTargets.Contains(enemyCollider.gameObject)) continue;
+
             SpearHealth spearHealth = enemyCollider.GetComponent<SpearHealth>();
             if (spearHealth != null && spearHealth.isFinishable)
             {
                 Debug.LogError("--- SUCCESS! Found finishable Spear Enemy. ---");
+                activeFinisherTargets.Add(enemyCollider.gameObject);
                 StartCoroutine(ExecuteFinisherSequence(spearHealth));
                 return true;
             }
-          
 
-            // --- CHECK #2: KNIGHT ENEMY (NEW LOGIC) ---
             KnightHealth knightHealth = enemyCollider.GetComponent<KnightHealth>();
             if (knightHealth != null && knightHealth.isFinishable)
             {
                 Debug.LogError("--- SUCCESS! Found finishable Knight Enemy. ---");
+                activeFinisherTargets.Add(enemyCollider.gameObject);
                 StartCoroutine(ExecuteVagabondFinisherSequence(knightHealth));
                 return true;
             }
@@ -1629,12 +1634,13 @@ public class ZreyAttacks : MonoBehaviour
             if (reaperHealth != null && reaperHealth.isFinishable)
             {
                 Debug.LogError("--- SUCCESS! Found finishable Reaper Enemy. ---");
+                activeFinisherTargets.Add(enemyCollider.gameObject);
                 StartCoroutine(ExecuteReaperFinisherSequence(reaperHealth));
                 return true;
             }
         }
 
-        return false; // No finishable enemies found
+        return false;
     }
     public void StartReaperCounter(Transform reaperTransform = null)
     {

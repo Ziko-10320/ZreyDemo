@@ -737,6 +737,8 @@ public class ReaperHealth : MonoBehaviour
         // Set the state flags.
         isFinishable = true;
         isDying = false; // The dying process is complete.
+        if (TutorialManager.Instance != null)
+            TutorialManager.Instance.TryTriggerFinisherCanvas();
         if (animator != null)
         {
             animator.SetTrigger(finishableStateTriggerHash);
@@ -766,7 +768,8 @@ public class ReaperHealth : MonoBehaviour
 
         Debug.LogError($"--- {transform.name} IS BEING FINISHED! ---");
 
-
+        if (TutorialManager.Instance != null)
+            TutorialManager.Instance.OnPlayerExecutedFinisher();
         // Play the "TakeFinisher" animation.
         animator.SetTrigger(takeFinisherTriggerHash);
 

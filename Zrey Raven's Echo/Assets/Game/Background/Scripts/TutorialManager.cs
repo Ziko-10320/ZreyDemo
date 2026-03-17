@@ -28,6 +28,7 @@ public class TutorialManager : MonoBehaviour
     public bool IsTutorialParryWindowOpen { get; private set; } = false;
     private bool hasPlayerLearnedParry = false;
     public bool HasPlayerLearnedParry => hasPlayerLearnedParry;
+    private bool hasPlayerLearnedCounter = false;
     // Stores pending damage to apply if player fails to parry
     private int pendingDamageAmount = 0;
     private Transform pendingDamageAttacker;
@@ -105,6 +106,31 @@ public class TutorialManager : MonoBehaviour
     [SerializeField] private float counterAttackDisplayTime = 3f;
     private bool hasShownCounterAttack = false;
     private Coroutine counterAttackCoroutine;
+    [Header("Jump Attack Canvas")]
+    [SerializeField] private CanvasGroup jumpAttackCanvasGroup;
+    [SerializeField] private float jumpAttackFadeInSpeed = 3f;
+    [SerializeField] private float jumpAttackFadeOutSpeed = 3f;
+    [SerializeField] private float jumpAttackDisplayTime = 3f;
+    [SerializeField] private float jumpAttackDelayAfterCounter = 2f;
+    private bool hasShownJumpAttack = false;
+    private Coroutine jumpAttackCoroutine;
+
+    [Header("Special Attack Canvas")]
+    [SerializeField] private CanvasGroup specialAttackCanvasGroup;
+    [SerializeField] private float specialAttackFadeInSpeed = 3f;
+    [SerializeField] private float specialAttackFadeOutSpeed = 3f;
+    [SerializeField] private float specialAttackDisplayTime = 3f;
+    [SerializeField] private float specialAttackDelayAfterJumpAttack = 2f;
+    private bool hasShownSpecialAttack = false;
+    private Coroutine specialAttackCoroutine;
+
+    [Header("Finisher Canvas")]
+    [SerializeField] private CanvasGroup finisherCanvasGroup;
+    [SerializeField] private float finisherFadeInSpeed = 3f;
+    [SerializeField] private float finisherFadeOutSpeed = 3f;
+    [SerializeField] private float finisherDisplayTime = 3f;
+    private bool hasShownFinisher = false;
+    private Coroutine finisherCoroutine;
     void Awake()
     {
         if (Instance != null && Instance != this) { Destroy(gameObject); return; }
@@ -142,7 +168,23 @@ public class TutorialManager : MonoBehaviour
             counterAttackCanvasGroup.alpha = 0f;
             counterAttackCanvasGroup.gameObject.SetActive(false);
         }
+        if (jumpAttackCanvasGroup != null)
+        {
+            jumpAttackCanvasGroup.alpha = 0f;
+            jumpAttackCanvasGroup.gameObject.SetActive(false);
+        }
 
+        if (specialAttackCanvasGroup != null)
+        {
+            specialAttackCanvasGroup.alpha = 0f;
+            specialAttackCanvasGroup.gameObject.SetActive(false);
+        }
+
+        if (finisherCanvasGroup != null)
+        {
+            finisherCanvasGroup.alpha = 0f;
+            finisherCanvasGroup.gameObject.SetActive(false);
+        }
         // Find ColorAdjustments override in the volume
         if (colorAdjustmentVolume == null)
             colorAdjustmentVolume = FindObjectOfType<Volume>();
@@ -339,13 +381,12 @@ public class TutorialManager : MonoBehaviour
     public void TriggerDirectComboCanvas()
     {
         if (!InTutorialMode) return;
-        if (isCounterSlowTimeActive) return;
-        if (!HasShownAllCanvases) return;
-        if (hasTriggeredCounterSlowTime) return; // Only fire once — player learns after first time
+        if (hasShownDirectCombo) return;
 
-        hasTriggeredCounterSlowTime = true;
-        if (counterSlowTimeCoroutine != null) StopCoroutine(counterSlowTimeCoroutine);
-        counterSlowTimeCoroutine = StartCoroutine(CounterSlowTimeSequence());
+        hasShownDirectCombo = true;
+
+        if (directComboCoroutine != null) StopCoroutine(directComboCoroutine);
+        directComboCoroutine = StartCoroutine(DirectComboSequence());
     }
 
     private IEnumerator DirectComboSequence()
@@ -542,7 +583,7 @@ public class TutorialManager : MonoBehaviour
             StartCoroutine(FadeCanvasThenDisable(
                 aerialComboCanvasGroup, aerialComboCanvasGroup.alpha, 0f, aerialComboFadeOutSpeed));
         }
-        if (colorAdjustments != null)
+          if (colorAdjustments != null)
         {
             if (saturationCoroutine != null) StopCoroutine(saturationCoroutine);
             colorAdjustments.saturation.value = 0f;
@@ -606,7 +647,8 @@ public class TutorialManager : MonoBehaviour
     {
         if (!InTutorialMode) return;
         if (isCounterSlowTimeActive) return;
-        if (!HasShownAllCanvases) return; // Only after all hints shown
+        if (!HasShownAllCanvases) return;
+        if (hasPlayerLearnedCounter) return; // Player already learned — no more slow time
 
         if (counterSlowTimeCoroutine != null) StopCoroutine(counterSlowTimeCoroutine);
         counterSlowTimeCoroutine = StartCoroutine(CounterSlowTimeSequence());
@@ -621,10 +663,79 @@ public class TutorialManager : MonoBehaviour
         pendingCounterDamageAttacker = null;
         pendingCounterDamageImpact = null;
 
+        hasPlayerLearnedCounter = true; // Never slow time again for counter
+        Debug.Log("<color=lime>Tutorial: Counter learned — slow time will not trigger again.</color>");
+
         RestoreCounterTime();
-        Debug.Log("<color=lime>Tutorial: Counter successful — time restored.</color>");
+
+        // After time restores, chain Jump Attack then Special Attack canvases
+        StartCoroutine(ChainPostCounterCanvases());
     }
 
+    private IEnumerator ChainPostCounterCanvases()
+    {
+        // Wait for time to fully restore before showing canvases
+        while (Time.timeScale < 1f)
+            yield return null;
+
+        // Delay before Jump Attack canvas
+        yield return new WaitForSecondsRealtime(jumpAttackDelayAfterCounter);
+        if (!hasShownJumpAttack && jumpAttackCanvasGroup != null)
+        {
+            hasShownJumpAttack = true;
+            jumpAttackCanvasGroup.gameObject.SetActive(true);
+            yield return StartCoroutine(FadeCanvas(jumpAttackCanvasGroup, 0f, 1f, jumpAttackFadeInSpeed));
+            yield return new WaitForSecondsRealtime(jumpAttackDisplayTime);
+            yield return StartCoroutine(FadeCanvasThenDisable(jumpAttackCanvasGroup, 1f, 0f, jumpAttackFadeOutSpeed));
+        }
+
+        // Delay before Special Attack canvas
+        yield return new WaitForSecondsRealtime(specialAttackDelayAfterJumpAttack);
+        if (!hasShownSpecialAttack && specialAttackCanvasGroup != null)
+        {
+            hasShownSpecialAttack = true;
+            specialAttackCanvasGroup.gameObject.SetActive(true);
+            yield return StartCoroutine(FadeCanvas(specialAttackCanvasGroup, 0f, 1f, specialAttackFadeInSpeed));
+            yield return new WaitForSecondsRealtime(specialAttackDisplayTime);
+            yield return StartCoroutine(FadeCanvasThenDisable(specialAttackCanvasGroup, 1f, 0f, specialAttackFadeOutSpeed));
+        }
+    }
+
+  
+    public void TryTriggerFinisherCanvas()
+    {
+        if (!InTutorialMode) return;
+        if (hasShownFinisher) return;
+        if (finisherCoroutine != null) StopCoroutine(finisherCoroutine);
+        finisherCoroutine = StartCoroutine(FinisherCanvasSequence());
+    }
+
+    // Called when player executes the finisher — cancels the canvas display
+    public void OnPlayerExecutedFinisher()
+    {
+        if (finisherCoroutine != null)
+        {
+            StopCoroutine(finisherCoroutine);
+            finisherCoroutine = null;
+        }
+        if (finisherCanvasGroup != null && finisherCanvasGroup.gameObject.activeSelf)
+            StartCoroutine(FadeCanvasThenDisable(finisherCanvasGroup,
+                finisherCanvasGroup.alpha, 0f, finisherFadeOutSpeed));
+    }
+
+    private IEnumerator FinisherCanvasSequence()
+    {
+        if (finisherCanvasGroup == null) yield break;
+        hasShownFinisher = true;
+
+        finisherCanvasGroup.gameObject.SetActive(true);
+        yield return StartCoroutine(FadeCanvas(finisherCanvasGroup, 0f, 1f, finisherFadeInSpeed));
+        yield return new WaitForSecondsRealtime(finisherDisplayTime);
+        yield return StartCoroutine(FadeCanvasThenDisable(finisherCanvasGroup,
+            1f, 0f, finisherFadeOutSpeed));
+
+        finisherCoroutine = null;
+    }
     // Called from ReaperAttack to queue special attack damage instead of applying it
     public void QueueCounterDamage(int damage, Transform attacker, ImpactData impact)
     {

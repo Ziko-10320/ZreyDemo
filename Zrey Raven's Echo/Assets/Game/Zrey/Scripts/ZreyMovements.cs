@@ -1093,25 +1093,48 @@ public class ZreyMovements : MonoBehaviour
         if (enemiesInRange.Length > 0)
         {
             // --- ENTER/UPDATE COMBAT MODE ---
-            if (!isInCombatMode)
-            {
-                isInCombatMode = true;
-                animator.SetBool(combatModeBoolHash, true);
-            }
-
-            // Find and lock on to the closest enemy.
-            Transform closestEnemy = null;
-            float minDistance = float.MaxValue;
+            int validEnemyCount = 0;
             foreach (Collider2D enemyCollider in enemiesInRange)
             {
-                float distance = Vector2.Distance(transform.position, enemyCollider.transform.position);
-                if (distance < minDistance)
-                {
-                    minDistance = distance;
-                    closestEnemy = enemyCollider.transform;
-                }
+                KnightHealth kh = enemyCollider.GetComponentInParent<KnightHealth>();
+                if (kh != null && kh.isFinishable) continue;
+                SpearHealth sh = enemyCollider.GetComponentInParent<SpearHealth>();
+                if (sh != null && sh.isFinishable) continue;
+                ReaperHealth rh = enemyCollider.GetComponentInParent<ReaperHealth>();
+                if (rh != null && rh.isFinishable) continue;
+                validEnemyCount++;
             }
-            lockedOnTarget = closestEnemy;
+
+            if (validEnemyCount > 0)
+            {
+                // --- ENTER/UPDATE COMBAT MODE ---
+                if (!isInCombatMode)
+                {
+                    isInCombatMode = true;
+                    animator.SetBool(combatModeBoolHash, true);
+                }
+
+                // Find and lock on to the closest NON-finishable enemy
+                Transform closestEnemy = null;
+                float minDistance = float.MaxValue;
+                foreach (Collider2D enemyCollider in enemiesInRange)
+                {
+                    KnightHealth kh = enemyCollider.GetComponentInParent<KnightHealth>();
+                    if (kh != null && kh.isFinishable) continue;
+                    SpearHealth sh = enemyCollider.GetComponentInParent<SpearHealth>();
+                    if (sh != null && sh.isFinishable) continue;
+                    ReaperHealth rh = enemyCollider.GetComponentInParent<ReaperHealth>();
+                    if (rh != null && rh.isFinishable) continue;
+
+                    float distance = Vector2.Distance(transform.position, enemyCollider.transform.position);
+                    if (distance < minDistance)
+                    {
+                        minDistance = distance;
+                        closestEnemy = enemyCollider.transform;
+                    }
+                }
+                lockedOnTarget = closestEnemy;
+            }
 
             // --- THIS IS THE FINAL, GUARANTEED ANIMATION FIX ---
             bool isMoving = Mathf.Abs(moveInput.x) > 0.1f;
@@ -1183,7 +1206,19 @@ public class ZreyMovements : MonoBehaviour
         // Handle airborne animation universally.
         animator.SetBool(isFallingHash, !isGrounded && rb.linearVelocity.y < 0);
     }
+    public void ForceExitCombatMode()
+    {
+        if (!isInCombatMode) return;
 
+        isInCombatMode = false;
+        lockedOnTarget = null;
+        animator.SetBool(combatModeBoolHash, false);
+        animator.SetBool(isMovingForwardHash, false);
+        animator.SetBool(isMovingBackwardHash, false);
+        animator.SetTrigger(exitCombatTriggerHash);
+        combatRunSource.Stop();
+        Debug.Log("<color=lime>Combat mode force-exited after finisher.</color>");
+    }
     // --- STEP 5: THE PUBLIC METHOD FOR THE ATTACK SCRIPT ---
     // Your ZreyAttacks script will call this.
     public void SetAttacking(bool attacking)
