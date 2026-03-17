@@ -86,6 +86,8 @@ public class ReaperAttack : MonoBehaviour
     private ReaperAI ReaperAI;
 
     private bool tutorialParryCompleted = false;
+
+    private bool isSpecialDamageWindowOpen = false;
     private void OnEnable()
     {
         ZreyAttacks.OnPlayerCinematicStarted += OnCinematicStarted;
@@ -118,11 +120,15 @@ public class ReaperAttack : MonoBehaviour
         if (ZreyAttacks.PlayerInCinematic)
         {
             isDamageWindowOpen = false;
+            isSpecialDamageWindowOpen = false;
             return;
         }
+
+        // Normal combo damage — parriable, blockable
         if (isDamageWindowOpen)
         {
-            Collider2D[] hitPlayers = Physics2D.OverlapBoxAll(attackPoint.position, attackAreaSize, 0f, playerLayer);
+            Collider2D[] hitPlayers = Physics2D.OverlapBoxAll(
+                attackPoint.position, attackAreaSize, 0f, playerLayer);
 
             foreach (Collider2D player in hitPlayers)
             {
@@ -130,8 +136,29 @@ public class ReaperAttack : MonoBehaviour
                 if (playerHealth != null)
                 {
                     isDamageWindowOpen = false;
+                    Debug.Log("<color=red>Reaper normal hit Player.</color>");
+                    playerHealth.TakeDamage(attackDamage, transform, currentImpactData);
+                    break;
+                }
+            }
+        }
 
-                    // Tutorial: queue damage instead of applying it during counter slow time
+        // Special attack damage — unblockable, must be countered
+        // Uses a separate flag so it never interferes with normal parry flow
+        if (isSpecialDamageWindowOpen)
+        {
+            Collider2D[] hitPlayers = Physics2D.OverlapBoxAll(
+                attackPoint.position, attackAreaSize, 0f, playerLayer);
+
+            foreach (Collider2D player in hitPlayers)
+            {
+                PlayerHealth playerHealth = player.GetComponent<PlayerHealth>();
+                if (playerHealth != null)
+                {
+                    isSpecialDamageWindowOpen = false;
+
+                    // Tutorial: slow time is already active by now (started in StartSpecialDamage)
+                    // Queue the damage so the player has a chance to counter
                     if (TutorialManager.Instance != null
                         && TutorialManager.Instance.InTutorialMode
                         && TutorialManager.Instance.IsCounterSlowTimeActive)
@@ -142,7 +169,6 @@ public class ReaperAttack : MonoBehaviour
                     }
                     else
                     {
-                        // Normal case — unblockable, cannot be parried, must be countered
                         Debug.Log("<color=red>Reaper special hit Player — unblockable!</color>");
                         playerHealth.TakeUnblockableDamage(attackDamage, transform, currentImpactData);
                     }
@@ -199,23 +225,24 @@ public class ReaperAttack : MonoBehaviour
     {
         if (ReaperAI != null) ReaperAI.OpenCounterWindow();
 
-        // Trigger tutorial counter slow time if applicable
+        // Trigger tutorial slow time FIRST — must be active before damage window opens
+        // so IsCounterSlowTimeActive is true by the time Update checks it
         if (TutorialManager.Instance != null)
             TutorialManager.Instance.TriggerCounterSlowTime();
 
         Physics2D.IgnoreLayerCollision(playerLayerValue, enemyLayerValue, false);
-        isDamageWindowOpen = true;
+
+        // Use dedicated special damage flag — never touches isDamageWindowOpen
+        // so normal parry flow is completely unaffected
+        isSpecialDamageWindowOpen = true;
     }
 
-    /// <summary>
-    /// Called by an Animation Event to STOP the unblockable Damage Over Time effect.
-    /// </summary>
     public void StopSpecialDamage()
     {
         Debug.Log("<color=grey>Special Damage Window CLOSED</color>");
         if (ReaperAI != null) ReaperAI.CloseCounterWindow();
         Physics2D.IgnoreLayerCollision(playerLayerValue, enemyLayerValue, true);
-        isDamageWindowOpen = false;
+        isSpecialDamageWindowOpen = false;
     }
     private IEnumerator SpecialDamageOverTimeRoutine()
     {

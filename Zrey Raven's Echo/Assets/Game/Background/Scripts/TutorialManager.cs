@@ -95,6 +95,16 @@ public class TutorialManager : MonoBehaviour
     // True once all tutorial hint canvases have been displayed at least once
     public bool HasShownAllCanvases =>
         hasShownDirectCombo && hasShownDashAttack && hasShownUpperCut && hasShownAerialCombo;
+
+    private bool hasTriggeredCounterSlowTime = false; // Only fires once
+
+    [Header("Counter Attack Canvas")]
+    [SerializeField] private CanvasGroup counterAttackCanvasGroup;
+    [SerializeField] private float counterAttackFadeInSpeed = 3f;
+    [SerializeField] private float counterAttackFadeOutSpeed = 3f;
+    [SerializeField] private float counterAttackDisplayTime = 3f;
+    private bool hasShownCounterAttack = false;
+    private Coroutine counterAttackCoroutine;
     void Awake()
     {
         if (Instance != null && Instance != this) { Destroy(gameObject); return; }
@@ -126,6 +136,11 @@ public class TutorialManager : MonoBehaviour
         {
             aerialComboCanvasGroup.alpha = 0f;
             aerialComboCanvasGroup.gameObject.SetActive(false);
+        }
+        if (counterAttackCanvasGroup != null)
+        {
+            counterAttackCanvasGroup.alpha = 0f;
+            counterAttackCanvasGroup.gameObject.SetActive(false);
         }
 
         // Find ColorAdjustments override in the volume
@@ -324,12 +339,13 @@ public class TutorialManager : MonoBehaviour
     public void TriggerDirectComboCanvas()
     {
         if (!InTutorialMode) return;
-        if (hasShownDirectCombo) return; // Only show once ever
+        if (isCounterSlowTimeActive) return;
+        if (!HasShownAllCanvases) return;
+        if (hasTriggeredCounterSlowTime) return; // Only fire once — player learns after first time
 
-        hasShownDirectCombo = true;
-
-        if (directComboCoroutine != null) StopCoroutine(directComboCoroutine);
-        directComboCoroutine = StartCoroutine(DirectComboSequence());
+        hasTriggeredCounterSlowTime = true;
+        if (counterSlowTimeCoroutine != null) StopCoroutine(counterSlowTimeCoroutine);
+        counterSlowTimeCoroutine = StartCoroutine(CounterSlowTimeSequence());
     }
 
     private IEnumerator DirectComboSequence()
@@ -392,6 +408,13 @@ public class TutorialManager : MonoBehaviour
 
     private IEnumerator RestoreAndTriggerUpperCut()
     {
+        if (colorAdjustments != null)
+        {
+            if (saturationCoroutine != null) StopCoroutine(saturationCoroutine);
+            colorAdjustments.saturation.value = 0f;
+            colorAdjustments.active = false;
+        }
+
         // Restore time first
         yield return StartCoroutine(RestoreDashAttackSlowTime());
 
@@ -405,7 +428,15 @@ public class TutorialManager : MonoBehaviour
     {
         if (dashAttackCanvasGroup == null) yield break;
 
-        // Slow time immediately when canvas triggers
+        // Greyscale
+        if (colorAdjustments != null)
+        {
+            colorAdjustments.active = true;
+            colorAdjustments.saturation.value = 0f;
+            if (saturationCoroutine != null) StopCoroutine(saturationCoroutine);
+            saturationCoroutine = StartCoroutine(FadeSaturation(0f, -100f, saturationFadeSpeed));
+        }
+
         Time.timeScale = dashAttackSlowTimeScale;
         Time.fixedDeltaTime = 0.02f * Time.timeScale;
 
@@ -420,6 +451,12 @@ public class TutorialManager : MonoBehaviour
         // Fade out
         yield return StartCoroutine(FadeCanvasThenDisable(dashAttackCanvasGroup, 1f, 0f, dashAttackFadeOutSpeed));
 
+        if (colorAdjustments != null)
+        {
+            if (saturationCoroutine != null) StopCoroutine(saturationCoroutine);
+            colorAdjustments.saturation.value = 0f;
+            colorAdjustments.active = false;
+        }
         // Restore time smoothly after canvas fades out
         yield return StartCoroutine(RestoreDashAttackSlowTime());
 
@@ -505,7 +542,12 @@ public class TutorialManager : MonoBehaviour
             StartCoroutine(FadeCanvasThenDisable(
                 aerialComboCanvasGroup, aerialComboCanvasGroup.alpha, 0f, aerialComboFadeOutSpeed));
         }
-
+        if (colorAdjustments != null)
+        {
+            if (saturationCoroutine != null) StopCoroutine(saturationCoroutine);
+            colorAdjustments.saturation.value = 0f;
+            colorAdjustments.active = false;
+        }
         // Restore time
         StartCoroutine(RestoreAerialComboSlowTime());
     }
@@ -514,7 +556,15 @@ public class TutorialManager : MonoBehaviour
     {
         if (aerialComboCanvasGroup == null) yield break;
 
-        // Slow time
+        // Greyscale
+        if (colorAdjustments != null)
+        {
+            colorAdjustments.active = true;
+            colorAdjustments.saturation.value = 0f;
+            if (saturationCoroutine != null) StopCoroutine(saturationCoroutine);
+            saturationCoroutine = StartCoroutine(FadeSaturation(0f, -100f, saturationFadeSpeed));
+        }
+
         Time.timeScale = aerialComboSlowTimeScale;
         Time.fixedDeltaTime = 0.02f * Time.timeScale;
 
@@ -526,6 +576,14 @@ public class TutorialManager : MonoBehaviour
 
         yield return StartCoroutine(FadeCanvasThenDisable(
             aerialComboCanvasGroup, 1f, 0f, aerialComboFadeOutSpeed));
+
+        // Restore greyscale before restoring time
+        if (colorAdjustments != null)
+        {
+            if (saturationCoroutine != null) StopCoroutine(saturationCoroutine);
+            colorAdjustments.saturation.value = 0f;
+            colorAdjustments.active = false;
+        }
 
         yield return StartCoroutine(RestoreAerialComboSlowTime());
 
@@ -595,6 +653,9 @@ public class TutorialManager : MonoBehaviour
         Time.timeScale = counterSlowTimeScale;
         Time.fixedDeltaTime = 0.02f * Time.timeScale;
 
+        // Show the counter attack canvas during the slow time window
+        TriggerCounterAttackCanvas();
+
         float elapsed = 0f;
         while (isCounterSlowTimeActive && elapsed < counterSlowTimeTimeout)
         {
@@ -608,6 +669,32 @@ public class TutorialManager : MonoBehaviour
             yield return new WaitForSecondsRealtime(0.1f);
             FlushCounterDamage();
         }
+    }
+
+    private void TriggerCounterAttackCanvas()
+    {
+        if (counterAttackCanvasGroup == null) return;
+        if (hasShownCounterAttack) return;
+
+        hasShownCounterAttack = true;
+        if (counterAttackCoroutine != null) StopCoroutine(counterAttackCoroutine);
+        counterAttackCoroutine = StartCoroutine(CounterAttackCanvasSequence());
+    }
+
+    private IEnumerator CounterAttackCanvasSequence()
+    {
+        if (counterAttackCanvasGroup == null) yield break;
+
+        counterAttackCanvasGroup.gameObject.SetActive(true);
+
+        yield return StartCoroutine(FadeCanvas(counterAttackCanvasGroup, 0f, 1f, counterAttackFadeInSpeed));
+
+        yield return new WaitForSecondsRealtime(counterAttackDisplayTime);
+
+        yield return StartCoroutine(FadeCanvasThenDisable(
+            counterAttackCanvasGroup, 1f, 0f, counterAttackFadeOutSpeed));
+
+        counterAttackCoroutine = null;
     }
 
     private void RestoreCounterTime()
