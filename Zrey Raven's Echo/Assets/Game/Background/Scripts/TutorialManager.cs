@@ -1,6 +1,8 @@
 using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 
 public class TutorialManager : MonoBehaviour
 {
@@ -31,6 +33,68 @@ public class TutorialManager : MonoBehaviour
     private Transform pendingDamageAttacker;
     private ImpactData pendingDamageImpact;
 
+    [Header("Direct Combo Canvas")]
+    [SerializeField] private CanvasGroup directComboCanvasGroup;
+    [SerializeField] private float directComboFadeInSpeed = 3f;
+    [SerializeField] private float directComboFadeOutSpeed = 3f;
+    [SerializeField] private float directComboDisplayTime = 3f;
+    private bool hasShownDirectCombo = false;
+    private Coroutine directComboCoroutine;
+
+    [Header("Dash Attack Canvas")]
+    [SerializeField] private CanvasGroup dashAttackCanvasGroup;
+    [SerializeField] private float dashAttackFadeInSpeed = 3f;
+    [SerializeField] private float dashAttackFadeOutSpeed = 3f;
+    [SerializeField] private float dashAttackDisplayTime = 3f;
+    [Tooltip("Minimum distance between player and Reaper to trigger the dash attack hint.")]
+    [SerializeField] private float dashAttackTriggerDistance = 5f;
+    private bool hasShownDashAttack = false;
+    private Coroutine dashAttackCoroutine;
+
+    [Header("Dash Attack Slow Time")]
+    [SerializeField] private float dashAttackSlowTimeScale = 0.3f;
+    [SerializeField] private float dashAttackSlowTimeRestoreSpeed = 3f;
+
+    [Header("UpperCut Canvas")]
+    [SerializeField] private CanvasGroup upperCutCanvasGroup;
+    [SerializeField] private float upperCutFadeInSpeed = 3f;
+    [SerializeField] private float upperCutFadeOutSpeed = 3f;
+    [SerializeField] private float upperCutDisplayTime = 3f;
+    private bool hasShownUpperCut = false;
+    private Coroutine upperCutCoroutine;
+    [Tooltip("Delay in real seconds between dash attack canvas finishing and uppercut canvas appearing.")]
+    [SerializeField] private float upperCutDelayAfterDashCanvas = 2f;
+    [Header("Aerial Combo Canvas")]
+    [SerializeField] private CanvasGroup aerialComboCanvasGroup;
+    [SerializeField] private float aerialComboFadeInSpeed = 3f;
+    [SerializeField] private float aerialComboFadeOutSpeed = 3f;
+    [SerializeField] private float aerialComboDisplayTime = 3f;
+    [SerializeField] private float aerialComboSlowTimeScale = 0.3f;
+    [SerializeField] private float aerialComboSlowTimeRestoreSpeed = 3f;
+    private bool hasShownAerialCombo = false;
+    private Coroutine aerialComboCoroutine;
+
+    [Header("Color Adjustment (Parry Greyscale)")]
+    [SerializeField] private Volume colorAdjustmentVolume;
+    [SerializeField] private float saturationFadeSpeed = 8f;
+    private ColorAdjustments colorAdjustments;
+    private Coroutine saturationCoroutine;
+
+    [Header("Counter Tutorial (Special Attack)")]
+    [SerializeField] private float counterSlowTimeScale = 0.2f;
+    [SerializeField] private float counterSlowTimeRestoreSpeed = 5f;
+    [SerializeField] private float counterSlowTimeTimeout = 4f;
+    private bool isCounterSlowTimeActive = false;
+    private Coroutine counterSlowTimeCoroutine;
+
+    // Pending special attack damage — held until counter resolves
+    private int pendingCounterDamageAmount = 0;
+    private Transform pendingCounterDamageAttacker;
+    private ImpactData pendingCounterDamageImpact;
+
+    // True once all tutorial hint canvases have been displayed at least once
+    public bool HasShownAllCanvases =>
+        hasShownDirectCombo && hasShownDashAttack && hasShownUpperCut && hasShownAerialCombo;
     void Awake()
     {
         if (Instance != null && Instance != this) { Destroy(gameObject); return; }
@@ -41,6 +105,40 @@ public class TutorialManager : MonoBehaviour
         {
             parryPromptCanvasGroup.alpha = 0f;
             parryPromptCanvasGroup.gameObject.SetActive(false);
+        }
+
+        if (directComboCanvasGroup != null)
+        {
+            directComboCanvasGroup.alpha = 0f;
+            directComboCanvasGroup.gameObject.SetActive(false);
+        }
+        if (dashAttackCanvasGroup != null)
+        {
+            dashAttackCanvasGroup.alpha = 0f;
+            dashAttackCanvasGroup.gameObject.SetActive(false);
+        }
+        if (upperCutCanvasGroup != null)
+        {
+            upperCutCanvasGroup.alpha = 0f;
+            upperCutCanvasGroup.gameObject.SetActive(false);
+        }
+        if (aerialComboCanvasGroup != null)
+        {
+            aerialComboCanvasGroup.alpha = 0f;
+            aerialComboCanvasGroup.gameObject.SetActive(false);
+        }
+
+        // Find ColorAdjustments override in the volume
+        if (colorAdjustmentVolume == null)
+            colorAdjustmentVolume = FindObjectOfType<Volume>();
+        if (colorAdjustmentVolume != null &&
+         colorAdjustmentVolume.profile.TryGet(out ColorAdjustments ca))
+        {
+            colorAdjustments = ca;
+            colorAdjustments.active = false;
+            // Must set overrideState = true or runtime value changes are ignored by URP
+            colorAdjustments.saturation.overrideState = true;
+            colorAdjustments.saturation.value = 0f;
         }
     }
 
@@ -126,6 +224,14 @@ public class TutorialManager : MonoBehaviour
         Time.timeScale = slowTimeScale;
         Time.fixedDeltaTime = 0.02f * Time.timeScale;
 
+        if (colorAdjustments != null)
+        {
+            colorAdjustments.active = true;
+            colorAdjustments.saturation.value = 0f;
+            if (saturationCoroutine != null) StopCoroutine(saturationCoroutine);
+            saturationCoroutine = StartCoroutine(FadeSaturation(0f, -100f, saturationFadeSpeed));
+        }
+
         // Fade in prompt AFTER slowing time (uses unscaled time so still works)
         if (parryPromptCanvasGroup != null)
         {
@@ -150,11 +256,29 @@ public class TutorialManager : MonoBehaviour
             FlushPendingDamage();
         }
     }
-
+    private IEnumerator FadeSaturation(float from, float to, float speed)
+    {
+        if (colorAdjustments == null) yield break;
+        colorAdjustments.saturation.value = from;
+        while (!Mathf.Approximately(colorAdjustments.saturation.value, to))
+        {
+            colorAdjustments.saturation.value = Mathf.MoveTowards(
+                colorAdjustments.saturation.value, to, speed * Time.unscaledDeltaTime);
+            yield return null;
+        }
+        colorAdjustments.saturation.value = to;
+        saturationCoroutine = null;
+    }
     private void RestoreTime()
     {
         isSlowTimeActive = false;
         IsTutorialParryWindowOpen = false;
+        if (colorAdjustments != null)
+        {
+            if (saturationCoroutine != null) StopCoroutine(saturationCoroutine);
+            colorAdjustments.saturation.value = 0f;
+            colorAdjustments.active = false;
+        }
         // Smoothly restore time scale
         StartCoroutine(RestoreTimeCoroutine());
 
@@ -197,4 +321,335 @@ public class TutorialManager : MonoBehaviour
         yield return StartCoroutine(FadeCanvas(cg, from, to, speed));
         cg.gameObject.SetActive(false);
     }
+    public void TriggerDirectComboCanvas()
+    {
+        if (!InTutorialMode) return;
+        if (hasShownDirectCombo) return; // Only show once ever
+
+        hasShownDirectCombo = true;
+
+        if (directComboCoroutine != null) StopCoroutine(directComboCoroutine);
+        directComboCoroutine = StartCoroutine(DirectComboSequence());
+    }
+
+    private IEnumerator DirectComboSequence()
+    {
+        if (directComboCanvasGroup == null) yield break;
+
+        directComboCanvasGroup.gameObject.SetActive(true);
+
+        // Fade in
+        yield return StartCoroutine(FadeCanvas(directComboCanvasGroup, 0f, 1f, directComboFadeInSpeed));
+
+        // Hold
+        yield return new WaitForSecondsRealtime(directComboDisplayTime);
+
+        // Fade out
+        yield return StartCoroutine(FadeCanvasThenDisable(directComboCanvasGroup, 1f, 0f, directComboFadeOutSpeed));
+
+        directComboCoroutine = null;
+    }
+    public void TryTriggerDashAttackCanvas(Transform player, Transform reaper)
+    {
+        if (!InTutorialMode) return;
+        if (hasShownDashAttack) return;
+        if (!hasShownDirectCombo) return; // Only show after direct combo was taught first
+
+        float distance = Vector2.Distance(player.position, reaper.position);
+        if (distance < dashAttackTriggerDistance) return;
+
+        hasShownDashAttack = true;
+
+        if (dashAttackCoroutine != null) StopCoroutine(dashAttackCoroutine);
+        dashAttackCoroutine = StartCoroutine(DashAttackCanvasSequence());
+    }
+
+    public void OnPlayerPerformedDashAttack()
+    {
+        if (!InTutorialMode || !hasShownDashAttack) return;
+        if (dashAttackCoroutine == null && Time.timeScale >= 1f) return;
+
+        Debug.Log("<color=lime>Tutorial: Dash attack performed — restoring time and fading canvas.</color>");
+
+        // Stop the display sequence so it doesn't keep running
+        if (dashAttackCoroutine != null)
+        {
+            StopCoroutine(dashAttackCoroutine);
+            dashAttackCoroutine = null;
+        }
+
+        // Fade out canvas immediately
+        if (dashAttackCanvasGroup != null && dashAttackCanvasGroup.gameObject.activeSelf)
+        {
+            if (fadeCoroutine != null) StopCoroutine(fadeCoroutine);
+            fadeCoroutine = StartCoroutine(FadeCanvasThenDisable(
+                dashAttackCanvasGroup, dashAttackCanvasGroup.alpha, 0f, dashAttackFadeOutSpeed));
+        }
+
+        // Restore time then trigger UpperCut canvas after delay
+        StartCoroutine(RestoreAndTriggerUpperCut());
+    }
+
+    private IEnumerator RestoreAndTriggerUpperCut()
+    {
+        // Restore time first
+        yield return StartCoroutine(RestoreDashAttackSlowTime());
+
+        // Delay before showing UpperCut canvas
+        yield return new WaitForSecondsRealtime(upperCutDelayAfterDashCanvas);
+
+        TriggerUpperCutCanvas();
+    }
+
+    private IEnumerator DashAttackCanvasSequence()
+    {
+        if (dashAttackCanvasGroup == null) yield break;
+
+        // Slow time immediately when canvas triggers
+        Time.timeScale = dashAttackSlowTimeScale;
+        Time.fixedDeltaTime = 0.02f * Time.timeScale;
+
+        dashAttackCanvasGroup.gameObject.SetActive(true);
+
+        // Fade in using unscaled time so it works during slow motion
+        yield return StartCoroutine(FadeCanvas(dashAttackCanvasGroup, 0f, 1f, dashAttackFadeInSpeed));
+
+        // Hold for display time in real seconds
+        yield return new WaitForSecondsRealtime(dashAttackDisplayTime);
+
+        // Fade out
+        yield return StartCoroutine(FadeCanvasThenDisable(dashAttackCanvasGroup, 1f, 0f, dashAttackFadeOutSpeed));
+
+        // Restore time smoothly after canvas fades out
+        yield return StartCoroutine(RestoreDashAttackSlowTime());
+
+        dashAttackCoroutine = null;
+
+        // Delay before showing UpperCut canvas
+        yield return new WaitForSecondsRealtime(upperCutDelayAfterDashCanvas);
+
+        // Trigger UpperCut canvas after delay
+        TriggerUpperCutCanvas();
+    }
+
+    private IEnumerator RestoreDashAttackSlowTime()
+    {
+        while (Time.timeScale < 1f)
+        {
+            Time.timeScale = Mathf.MoveTowards(
+                Time.timeScale, 1f, dashAttackSlowTimeRestoreSpeed * Time.unscaledDeltaTime);
+            Time.fixedDeltaTime = 0.02f * Time.timeScale;
+            yield return null;
+        }
+        Time.timeScale = 1f;
+        Time.fixedDeltaTime = 0.02f;
+    }
+
+    public void TriggerUpperCutCanvas()
+    {
+        if (!InTutorialMode) return;
+        if (hasShownUpperCut) return;
+
+        hasShownUpperCut = true;
+
+        if (upperCutCoroutine != null) StopCoroutine(upperCutCoroutine);
+        upperCutCoroutine = StartCoroutine(UpperCutCanvasSequence());
+    }
+
+    private IEnumerator UpperCutCanvasSequence()
+    {
+        if (upperCutCanvasGroup == null) yield break;
+
+        upperCutCanvasGroup.gameObject.SetActive(true);
+
+        // Fade in
+        yield return StartCoroutine(FadeCanvas(upperCutCanvasGroup, 0f, 1f, upperCutFadeInSpeed));
+
+        // Hold
+        yield return new WaitForSecondsRealtime(upperCutDisplayTime);
+
+        // Fade out
+        yield return StartCoroutine(FadeCanvasThenDisable(upperCutCanvasGroup, 1f, 0f, upperCutFadeOutSpeed));
+
+        upperCutCoroutine = null;
+    }
+    public void TriggerAerialComboCanvas()
+    {
+        if (!InTutorialMode) return;
+        if (hasShownAerialCombo) return;
+        if (!hasShownUpperCut) return; // Only after uppercut canvas was shown
+
+        hasShownAerialCombo = true;
+
+        if (aerialComboCoroutine != null) StopCoroutine(aerialComboCoroutine);
+        aerialComboCoroutine = StartCoroutine(AerialComboCanvasSequence());
+    }
+
+    // Called by ZreyAttacks when player taps attack in the air during aerial combo slow window
+    public void OnPlayerPerformedAerialAttack()
+    {
+        if (!InTutorialMode || !hasShownAerialCombo) return;
+        if (aerialComboCoroutine == null && Time.timeScale >= 1f) return;
+
+        Debug.Log("<color=lime>Tutorial: Aerial attack performed — restoring time.</color>");
+
+        if (aerialComboCoroutine != null)
+        {
+            StopCoroutine(aerialComboCoroutine);
+            aerialComboCoroutine = null;
+        }
+
+        // Fade out canvas immediately
+        if (aerialComboCanvasGroup != null && aerialComboCanvasGroup.gameObject.activeSelf)
+        {
+            StartCoroutine(FadeCanvasThenDisable(
+                aerialComboCanvasGroup, aerialComboCanvasGroup.alpha, 0f, aerialComboFadeOutSpeed));
+        }
+
+        // Restore time
+        StartCoroutine(RestoreAerialComboSlowTime());
+    }
+
+    private IEnumerator AerialComboCanvasSequence()
+    {
+        if (aerialComboCanvasGroup == null) yield break;
+
+        // Slow time
+        Time.timeScale = aerialComboSlowTimeScale;
+        Time.fixedDeltaTime = 0.02f * Time.timeScale;
+
+        aerialComboCanvasGroup.gameObject.SetActive(true);
+
+        yield return StartCoroutine(FadeCanvas(aerialComboCanvasGroup, 0f, 1f, aerialComboFadeInSpeed));
+
+        yield return new WaitForSecondsRealtime(aerialComboDisplayTime);
+
+        yield return StartCoroutine(FadeCanvasThenDisable(
+            aerialComboCanvasGroup, 1f, 0f, aerialComboFadeOutSpeed));
+
+        yield return StartCoroutine(RestoreAerialComboSlowTime());
+
+        aerialComboCoroutine = null;
+    }
+
+    private IEnumerator RestoreAerialComboSlowTime()
+    {
+        while (Time.timeScale < 1f)
+        {
+            Time.timeScale = Mathf.MoveTowards(
+                Time.timeScale, 1f, aerialComboSlowTimeRestoreSpeed * Time.unscaledDeltaTime);
+            Time.fixedDeltaTime = 0.02f * Time.timeScale;
+            yield return null;
+        }
+        Time.timeScale = 1f;
+        Time.fixedDeltaTime = 0.02f;
+    }
+    public void TriggerCounterSlowTime()
+    {
+        if (!InTutorialMode) return;
+        if (isCounterSlowTimeActive) return;
+        if (!HasShownAllCanvases) return; // Only after all hints shown
+
+        if (counterSlowTimeCoroutine != null) StopCoroutine(counterSlowTimeCoroutine);
+        counterSlowTimeCoroutine = StartCoroutine(CounterSlowTimeSequence());
+    }
+
+    // Called when player successfully counters — restores time, clears queued damage
+    public void OnPlayerCounteredSuccessfully()
+    {
+        if (!InTutorialMode || !isCounterSlowTimeActive) return;
+
+        pendingCounterDamageAmount = 0;
+        pendingCounterDamageAttacker = null;
+        pendingCounterDamageImpact = null;
+
+        RestoreCounterTime();
+        Debug.Log("<color=lime>Tutorial: Counter successful — time restored.</color>");
+    }
+
+    // Called from ReaperAttack to queue special attack damage instead of applying it
+    public void QueueCounterDamage(int damage, Transform attacker, ImpactData impact)
+    {
+        if (!InTutorialMode || !isCounterSlowTimeActive) return;
+        pendingCounterDamageAmount = damage;
+        pendingCounterDamageAttacker = attacker;
+        pendingCounterDamageImpact = impact;
+        Debug.Log($"<color=orange>Tutorial: Counter damage queued ({damage}).</color>");
+    }
+
+    public bool IsCounterSlowTimeActive => isCounterSlowTimeActive;
+
+    private IEnumerator CounterSlowTimeSequence()
+    {
+        isCounterSlowTimeActive = true;
+
+        // Greyscale
+        if (colorAdjustments != null)
+        {
+            colorAdjustments.active = true;
+            colorAdjustments.saturation.value = 0f;
+            if (saturationCoroutine != null) StopCoroutine(saturationCoroutine);
+            saturationCoroutine = StartCoroutine(FadeSaturation(0f, -100f, saturationFadeSpeed));
+        }
+
+        Time.timeScale = counterSlowTimeScale;
+        Time.fixedDeltaTime = 0.02f * Time.timeScale;
+
+        float elapsed = 0f;
+        while (isCounterSlowTimeActive && elapsed < counterSlowTimeTimeout)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            yield return null;
+        }
+
+        if (isCounterSlowTimeActive)
+        {
+            RestoreCounterTime();
+            yield return new WaitForSecondsRealtime(0.1f);
+            FlushCounterDamage();
+        }
+    }
+
+    private void RestoreCounterTime()
+    {
+        isCounterSlowTimeActive = false;
+
+        if (colorAdjustments != null)
+        {
+            if (saturationCoroutine != null) StopCoroutine(saturationCoroutine);
+            colorAdjustments.saturation.value = 0f;
+            colorAdjustments.active = false;
+        }
+
+        StartCoroutine(RestoreCounterTimeCoroutine());
+    }
+
+    private IEnumerator RestoreCounterTimeCoroutine()
+    {
+        while (Time.timeScale < 1f)
+        {
+            Time.timeScale = Mathf.MoveTowards(
+                Time.timeScale, 1f, counterSlowTimeRestoreSpeed * Time.unscaledDeltaTime);
+            Time.fixedDeltaTime = 0.02f * Time.timeScale;
+            yield return null;
+        }
+        Time.timeScale = 1f;
+        Time.fixedDeltaTime = 0.02f;
+    }
+
+    private void FlushCounterDamage()
+    {
+        if (pendingCounterDamageAmount <= 0 || pendingCounterDamageAttacker == null) return;
+        PlayerHealth playerHealth = FindObjectOfType<PlayerHealth>();
+        if (playerHealth != null)
+        {
+            Debug.Log($"<color=red>Tutorial: Counter failed — applying queued damage ({pendingCounterDamageAmount}).</color>");
+            playerHealth.TakeUnblockableDamage(
+                pendingCounterDamageAmount, pendingCounterDamageAttacker, pendingCounterDamageImpact);
+        }
+        pendingCounterDamageAmount = 0;
+        pendingCounterDamageAttacker = null;
+        pendingCounterDamageImpact = null;
+    }
+
 }

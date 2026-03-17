@@ -1,4 +1,4 @@
-using FirstGearGames.SmoothCameraShaker;
+﻿using FirstGearGames.SmoothCameraShaker;
 using System.Collections;
 using UnityEngine;
 using System;
@@ -210,8 +210,32 @@ public class ZreyAttacks : MonoBehaviour
     [Tooltip("How fast the vignette fades in and out.")]
     [SerializeField] private float vignetteFadeSpeed = 3f;
 
+    [Header("Dash Attack Settings")]
+    [Tooltip("The AttackData for the dash attack hit.")]
+    [SerializeField] private AttackData dashAttackData;
+    [Tooltip("X offset from the enemy where the player snaps to (negative = behind).")]
+    [SerializeField] private float dashAttackSnapOffsetX = -1.2f;
+    [Tooltip("Speed at which the player travels to the enemy during dash attack.")]
+    [SerializeField] private float dashAttackTravelSpeed = 60f;
+    [Tooltip("Minimum distance from the enemy required to perform a dash attack.")]
+    [SerializeField] private float dashAttackMinDistance = 2.5f;
+    private readonly int dashAttackTriggerHash = Animator.StringToHash("AttackDash");
+    public bool isDashAttacking = false;
+
     private Vignette vignette;
     private Coroutine vignetteCoroutine;
+    [Tooltip("The trail effect prefab to spawn during the dash attack.")]
+    [SerializeField] private GameObject dashAttackTrailPrefab;
+    [Tooltip("The spawn point where the trail will be spawned and parented to.")]
+    [SerializeField] private Transform dashAttackTrailSpawnPoint;
+
+    private readonly int reaperCounterTriggerHash = Animator.StringToHash("ReaperCounter");
+    private bool isReaperCountering = false;
+
+    [Header("Reaper Counter Settings")]
+    [Tooltip("Duration of the Reaper counter animation sequence.")]
+    [SerializeField] private float reaperCounterDuration = 2.5f;
+
     private void OnEnable()
     {
         InputManager.OnInteractPressed += HandleInteractionInput;
@@ -339,13 +363,35 @@ public class ZreyAttacks : MonoBehaviour
                     isChargeAttackPrimed = true;
                 }
             }
+            if (attackReleased
+              && playerMovement.IsDashing()
+              && playerMovement.IsInCombatMode
+              && playerMovement.LockedOnTarget != null
+              && !playerMovement.IsBackwardDashing
+              && !isDashAttacking
+              && !IsInCinematicState)
+            {
+                float distToTarget = Vector2.Distance(
+                    transform.position,
+                    playerMovement.LockedOnTarget.position);
 
+                if (distToTarget >= dashAttackMinDistance)
+                {
+                    StartCoroutine(ExecuteDashAttack(playerMovement.LockedOnTarget));
+                    return;
+                }
+                else
+                {
+                    Debug.Log($"<color=orange>Dash attack blocked: too close to enemy ({distToTarget:F2} < {dashAttackMinDistance}).</color>");
+                }
+            }
             // Grounded Tap Logic (Normal Combo or Block Attack)
             if (attackReleased && !isChargeAttackPrimed && !playerMovement.IsDashing())
             {
                 if (AttemptFinisher()) return;
                 HandleAttack(); // This method already handles the block-attack check.
             }
+          
         }
         else
         {
@@ -365,7 +411,7 @@ public class ZreyAttacks : MonoBehaviour
             {
                 if (isAttacking)
                 {
-                    // Player tapped during uppercut � buffer it for when uppercut ends
+                    // Player tapped during uppercut — buffer it for when uppercut ends
                     if (aerialInputBuffer < maxAerialComboSteps)
                     {
                         aerialInputBuffer++;
@@ -395,6 +441,122 @@ public class ZreyAttacks : MonoBehaviour
             rb.linearVelocity = new Vector2(0, -downSlamForce);
         }
     }
+    private IEnumerator ExecuteDashAttack(Transform target)
+    {
+        if (isDashAttacking || IsInCinematicState || isAttacking) yield break;
+
+        isDashAttacking = true;
+        isAttacking = true;
+        if (TutorialManager.Instance != null)
+            TutorialManager.Instance.OnPlayerPerformedDashAttack();
+        playerMovement.CancelGroundDash();
+        // Stop current dash immediately
+        playerMovement.CanMove = false;
+        if (rb != null)
+        {
+            rb.linearVelocity = Vector2.zero;
+            rb.gravityScale = 0f;
+        }
+
+        // Ignore collisions with enemies during travel so player passes through cleanly
+        Physics2D.IgnoreLayerCollision(playerLayerValue, enemyLayerValue, false);
+        Physics2D.IgnoreLayerCollision(playerLayerValue, enemyLayerValue, true);
+
+        // Play animation
+        animator.SetTrigger(dashAttackTriggerHash);
+
+        // Determine which side the player is coming from BEFORE any movement
+        bool playerIsOnLeft = transform.position.x < target.position.x;
+
+        // Snap target X — place player on the OPPOSITE side of where they started
+        // If player was on the left, they end up on the right side of the enemy and vice versa
+        float sideMultiplier = playerIsOnLeft ? 1f : -1f;
+        float snapTargetX = target.position.x + (dashAttackSnapOffsetX * sideMultiplier);
+
+        // Determine the correct facing direction AFTER snapping
+        // Player snapped to right side of enemy → face left (toward enemy)
+        // Player snapped to left side of enemy → face right (toward enemy)
+        bool shouldFaceRightAfterSnap = snapTargetX < target.position.x;
+
+        float elapsed = 0f;
+        float startX = transform.position.x;
+
+        while (elapsed < dashAttackTravelSpeed)
+        {
+            // Always use unscaled delta time so slow-motion tutorial
+            // doesn't affect the snap distance or travel feel
+            elapsed += Time.unscaledDeltaTime;
+            float t = Mathf.Clamp01(elapsed / dashAttackTravelSpeed);
+            float smoothT = Mathf.SmoothStep(0f, 1f, t);
+
+            transform.position = new Vector3(
+                Mathf.Lerp(startX, snapTargetX, smoothT),
+                transform.position.y,
+                transform.position.z
+            );
+
+            yield return null;
+        }
+
+        // Guarantee clean X snap, Y untouched
+        transform.position = new Vector3(
+            snapTargetX,
+            transform.position.y,
+            transform.position.z
+        );
+
+        // Restore gravity and physics
+        if (rb != null)
+        {
+            rb.gravityScale = originalGravityScale;
+            rb.linearVelocity = Vector2.zero;
+        }
+
+        // Force correct facing direction explicitly — this is the source of truth
+        // Do this BEFORE re-enabling CanMove so combat mode auto-flip
+        // doesn't race against us on the next FixedUpdate
+        playerMovement.ForceFaceDirection(shouldFaceRightAfterSnap);
+
+    }
+    public void EVENT_DashAttackDamage()
+    {
+        if (dashAttackData != null)
+        {
+            AttackEnemy(dashAttackData);
+        }
+        Debug.Log("<color=lime>Dash Attack damage dealt.</color>");
+    }
+    public void EVENT_EndDashAttack()
+    {
+        isDashAttacking = false;
+        // IsDashAttacking is now false — ZreyMovements combat mode
+        // resumes auto-facing the locked enemy on the next frame naturally
+        EndAttack();
+        Debug.Log("<color=lime>Dash Attack complete.</color>");
+    }
+    public void EVENT_SpawnDashAttackTrail()
+    {
+        if (dashAttackTrailPrefab == null || dashAttackTrailSpawnPoint == null)
+        {
+            Debug.LogWarning("Dash attack trail prefab or spawn point not assigned!");
+            return;
+        }
+
+        Instantiate(
+            dashAttackTrailPrefab,
+            dashAttackTrailSpawnPoint.position,
+            dashAttackTrailSpawnPoint.rotation,
+            dashAttackTrailSpawnPoint
+        );
+
+        Debug.Log("<color=cyan>Dash attack trail spawned.</color>");
+    }
+
+    public void EVENT_TriggerAerialComboCanvas()
+    {
+        if (TutorialManager.Instance != null)
+            TutorialManager.Instance.TriggerAerialComboCanvas();
+    }
     private void PerformAerialAttack()
     {
         // Failsafe: If we are busy, do nothing.
@@ -402,7 +564,8 @@ public class ZreyAttacks : MonoBehaviour
         {
             return;
         }
-
+        if (TutorialManager.Instance != null)
+            TutorialManager.Instance.OnPlayerPerformedAerialAttack();
         Debug.Log($"<color=cyan>--- AERIAL ATTACK {aerialComboStep + 1} TRIGGERED ---</color>");
 
         // --- Start the attack state ---
@@ -705,12 +868,12 @@ public class ZreyAttacks : MonoBehaviour
 
         if (lastAttackJumpVariant == -1)
         {
-            // First time � purely random
+            // First time — purely random
             chosenVariant = UnityEngine.Random.Range(0, 2);
         }
         else if (sameAttackJumpCount >= maxSameAttackJumpInRow)
         {
-            // Forced to switch � pick the OTHER variant
+            // Forced to switch — pick the OTHER variant
             chosenVariant = lastAttackJumpVariant == 0 ? 1 : 0;
         }
         else
@@ -959,7 +1122,7 @@ public class ZreyAttacks : MonoBehaviour
         comboResetCoroutine = StartCoroutine(ComboResetRoutine());
         Debug.Log($"Attack {comboStep} finished. Combo reset timer started.");
 
-        // Drain aerial buffer � if the player spammed attack during uppercut and is airborne, fire them now
+        // Drain aerial buffer — if the player spammed attack during uppercut and is airborne, fire them now
         if (aerialInputBuffer > 0 && !playerMovement.IsGrounded() && !isDownSlamming)
         {
             Debug.Log($"<color=cyan>Draining aerial buffer: {aerialInputBuffer} tap(s) queued.</color>");
@@ -980,10 +1143,10 @@ public class ZreyAttacks : MonoBehaviour
             // Wait one frame so the state has fully reset before firing the next attack
             yield return null;
 
-            // Safety checks � if something changed between taps, stop draining
+            // Safety checks — if something changed between taps, stop draining
             if (isAttacking || isDownSlamming || IsInCinematicState || playerMovement.IsGrounded())
             {
-                Debug.Log("<color=orange>Aerial buffer drain stopped early � state changed.</color>");
+                Debug.Log("<color=orange>Aerial buffer drain stopped early — state changed.</color>");
                 aerialInputBuffer = 0;
                 yield break;
             }
@@ -1307,14 +1470,50 @@ public class ZreyAttacks : MonoBehaviour
         if (playerHealth != null && playerHealth.IsGrabbed) return;
         if (isAttacking || IsInCinematicState) return;
 
-      
 
-        // PRIORITY 2: Vagabond Counter � Knight enemies ONLY via direct call
+
+        // PRIORITY 2: Vagabond Counter — Knight enemies ONLY via direct call
         if (BroadcastVagabondCounter()) return;
 
-        // PRIORITY 3: Knight Counter � Spear enemies ONLY via direct call
+        // PRIORITY 3: Reaper Counter — Reaper enemies ONLY
+        if (BroadcastReaperCounter()) return;
+
+        // PRIORITY 4: Knight Counter — Spear enemies ONLY via direct call
         BroadcastSpearCounter();
     }
+    private bool BroadcastReaperCounter()
+    {
+        if (playerHealth != null && playerHealth.isStunned) return false;
+
+        Collider2D[] nearbyEnemies = Physics2D.OverlapCircleAll(
+            transform.position, counterBroadcastRange, enemyLayer);
+
+        foreach (Collider2D enemyCollider in nearbyEnemies)
+        {
+            // Skip Knight and Spear enemies — this broadcast is Reaper only
+            KnightAI knightCheck = enemyCollider.GetComponentInParent<KnightAI>();
+            if (knightCheck == null) knightCheck = enemyCollider.GetComponentInChildren<KnightAI>();
+            if (knightCheck != null) continue;
+
+            SpearAI spearCheck = enemyCollider.GetComponentInParent<SpearAI>();
+            if (spearCheck == null) spearCheck = enemyCollider.GetComponentInChildren<SpearAI>();
+            if (spearCheck != null) continue;
+
+            ReaperAI reaperAI = enemyCollider.GetComponentInParent<ReaperAI>();
+            if (reaperAI == null) reaperAI = enemyCollider.GetComponentInChildren<ReaperAI>();
+            if (reaperAI != null)
+            {
+                Debug.Log($"<color=magenta>Found ReaperAI on {enemyCollider.name}. Firing counter attempt.</color>");
+                // Fire the same event — ReaperAI is subscribed and will handle it
+                OnPlayerCounterAttempt?.Invoke();
+                return true;
+            }
+        }
+
+        Debug.Log("<color=grey>Reaper counter broadcast: no reaper enemy nearby.</color>");
+         return false;
+    }
+
     private bool BroadcastVagabondCounter()
     {
         if (playerHealth != null && playerHealth.isStunned) return false;
@@ -1437,7 +1636,50 @@ public class ZreyAttacks : MonoBehaviour
 
         return false; // No finishable enemies found
     }
+    public void StartReaperCounter(Transform reaperTransform = null)
+    {
+        if (isReaperCountering || IsInCinematicState) return;
 
+        isReaperCountering = true;
+        SetCinematicState(true, reaperTransform);
+        if (TutorialManager.Instance != null)
+            TutorialManager.Instance.OnPlayerCounteredSuccessfully();
+        if (playerTrail != null) playerTrail.StartTrail();
+
+        CancelAttack();
+
+        if (playerMovement != null) playerMovement.CanMove = false;
+
+        // Play the player's dedicated Reaper counter animation
+        animator.SetTrigger(reaperCounterTriggerHash);
+
+        StartCoroutine(ReaperCounterSequence());
+    }
+
+    private IEnumerator ReaperCounterSequence()
+    {
+        if (rb != null) rb.linearVelocity = Vector2.zero;
+
+        yield return new WaitForSeconds(reaperCounterDuration);
+
+        FinishReaperCounter();
+    }
+
+    // Call this from the Animation Event on the last frame of ReaperCounter animation
+    // OR it fires automatically after reaperCounterDuration as a fallback
+    public void FinishReaperCounter()
+    {
+        if (!isReaperCountering) return;
+
+        isReaperCountering = false;
+        SetCinematicState(false);
+
+        if (playerMovement != null) playerMovement.CanMove = true;
+
+        EndAttack();
+        Debug.Log("<color=cyan>Reaper Counter finished. Player control restored.</color>");
+    }
+    public bool IsReaperCountering() => isReaperCountering;
     private IEnumerator ExecuteVagabondFinisherSequence(KnightHealth targetKnight)
     {
         // --- 1. LOCK EVERYTHING ---

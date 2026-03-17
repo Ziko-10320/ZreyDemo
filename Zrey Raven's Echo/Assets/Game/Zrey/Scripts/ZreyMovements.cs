@@ -164,6 +164,9 @@ public class ZreyMovements : MonoBehaviour
 
     private bool isInCombatMode = false;
     private Transform lockedOnTarget = null;
+    public Transform LockedOnTarget => lockedOnTarget;
+    public bool IsInCombatMode => isInCombatMode;
+    public bool IsBackwardDashing { get; private set; } = false;
     private bool isAttackLocked = false;
 
     // --- ADD THESE NEW ANIMATION HASHES ---
@@ -369,7 +372,7 @@ public class ZreyMovements : MonoBehaviour
         }
 
 
-        if (!isInCombatMode && isGrounded && moveInput.x != 0 && canFlip && !wallJumpInputLocked)
+        if (!isInCombatMode && isGrounded && moveInput.x != 0 && canFlip && !wallJumpInputLocked && (playerAttacks == null || !playerAttacks.isDashAttacking))
         {
             if (moveInput.x < 0 && isFacingRight) { Flip(); }
             else if (moveInput.x > 0 && !isFacingRight) { Flip(); }
@@ -466,13 +469,15 @@ public class ZreyMovements : MonoBehaviour
         }
         if (isInCombatMode && isGrounded && lockedOnTarget != null && !wallJumpInputLocked)
         {
-            ForceFaceDirection(lockedOnTarget.position.x > transform.position.x);
+            if (playerAttacks == null || !playerAttacks.isDashAttacking)
+                ForceFaceDirection(lockedOnTarget.position.x > transform.position.x);
+
             rb.linearVelocity = new Vector2(moveInput.x * combatRunSpeed, rb.linearVelocity.y);
         }
         // PRIORITY #2: If not locked on (either not in combat OR in the air), do normal movement.
         else
         {
-            if (!wallJumpInputLocked)
+            if (!wallJumpInputLocked && (playerAttacks == null || !playerAttacks.isDashAttacking))
             {
                 if (moveInput.x < 0 && isFacingRight) { Flip(); }
                 else if (moveInput.x > 0 && !isFacingRight) { Flip(); }
@@ -516,8 +521,19 @@ public class ZreyMovements : MonoBehaviour
     {
         isDashing = false;
     }
+    public void CancelGroundDash()
+    {
+        if (groundDashCoroutine != null)
+        {
+            StopCoroutine(groundDashCoroutine);
+            groundDashCoroutine = null;
+        }
+        isDashing = false;
+        rb.linearVelocity = Vector2.zero;
+        rb.gravityScale = originalGravityScale;
+        Debug.Log("<color=orange>Ground dash cancelled by dash attack.</color>");
+    }
 
-   
     private void HandleJump(InputAction.CallbackContext context)
     {
         if (playerAttacks != null && playerAttacks.IsAttacking() && isGrounded)
@@ -626,6 +642,7 @@ public class ZreyMovements : MonoBehaviour
             if (isInCombatMode && wantsToMoveBackward)
             {
                 Debug.Log("<color=orange>--- Performing GROUND BACKWARD Dash (Physics) ---</color>");
+                IsBackwardDashing = true;
                 animator.SetTrigger(dashBackTriggerHash);
                 animator.SetBool(isMovingBackwardHash, false);
                 if (groundDashClip != null) sfxSource.PlayOneShot(groundDashClip, groundDashSoundVolume);
@@ -638,6 +655,7 @@ public class ZreyMovements : MonoBehaviour
             else
             {
                 Debug.Log("<color=green>--- Performing GROUND FORWARD Dash (Physics) ---</color>");
+                IsBackwardDashing = false;
                 animator.SetTrigger(dashTriggerHash);
                 if (groundDashClip != null) sfxSource.PlayOneShot(groundDashClip, groundDashSoundVolume);
 
@@ -690,9 +708,8 @@ public class ZreyMovements : MonoBehaviour
         CanMove = true;
         groundDashCoroutine = null;
 
-        // Notify attack script that dash is done
-        if (playerAttacks != null) playerAttacks.EVENT_OnDashComplete();
-
+        if (playerAttacks != null && !playerAttacks.isDashAttacking)
+            playerAttacks.EVENT_OnDashComplete();
         Debug.Log("<color=lime>Ground dash complete.</color>");
     }
     private IEnumerator SynchronizeToRootMotion(float duration)

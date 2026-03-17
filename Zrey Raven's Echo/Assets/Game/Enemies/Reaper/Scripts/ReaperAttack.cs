@@ -129,14 +129,24 @@ public class ReaperAttack : MonoBehaviour
                 PlayerHealth playerHealth = player.GetComponent<PlayerHealth>();
                 if (playerHealth != null)
                 {
-                    Debug.Log("<color=red>Knight hit Player with normal attack!</color>");
-
-                    // This calls the normal TakeDamage, which CAN be blocked or parried.
-                    playerHealth.TakeDamage(attackDamage, transform, currentImpactData);
-
-                    // Immediately close the window to prevent hitting multiple times.
                     isDamageWindowOpen = false;
-                    break; // Exit the loop.
+
+                    // Tutorial: queue damage instead of applying it during counter slow time
+                    if (TutorialManager.Instance != null
+                        && TutorialManager.Instance.InTutorialMode
+                        && TutorialManager.Instance.IsCounterSlowTimeActive)
+                    {
+                        TutorialManager.Instance.QueueCounterDamage(
+                            attackDamage, transform, currentImpactData);
+                        Debug.Log("<color=orange>Tutorial: Special damage queued.</color>");
+                    }
+                    else
+                    {
+                        // Normal case — unblockable, cannot be parried, must be countered
+                        Debug.Log("<color=red>Reaper special hit Player — unblockable!</color>");
+                        playerHealth.TakeUnblockableDamage(attackDamage, transform, currentImpactData);
+                    }
+                    break;
                 }
             }
         }
@@ -187,19 +197,14 @@ public class ReaperAttack : MonoBehaviour
     }
     public void StartSpecialDamage()
     {
-        Debug.Log("<color=red>!!! Special Damage Over Time STARTED !!!</color>");
-        if (ReaperAI != null)
-        {
-            ReaperAI.OpenCounterWindow();
-        }
+        if (ReaperAI != null) ReaperAI.OpenCounterWindow();
+
+        // Trigger tutorial counter slow time if applicable
+        if (TutorialManager.Instance != null)
+            TutorialManager.Instance.TriggerCounterSlowTime();
+
         Physics2D.IgnoreLayerCollision(playerLayerValue, enemyLayerValue, false);
-        // If a previous DOT is somehow still running, stop it first.
-        if (specialDamageCoroutine != null)
-        {
-            StopCoroutine(specialDamageCoroutine);
-        }
-        // Start the new DOT coroutine.
-        specialDamageCoroutine = StartCoroutine(SpecialDamageOverTimeRoutine());
+        isDamageWindowOpen = true;
     }
 
     /// <summary>
@@ -207,18 +212,10 @@ public class ReaperAttack : MonoBehaviour
     /// </summary>
     public void StopSpecialDamage()
     {
-        Debug.Log("<color=grey>Special Damage Over Time STOPPED</color>");
-        if (ReaperAI != null)
-        {
-            ReaperAI.CloseCounterWindow();
-        }
+        Debug.Log("<color=grey>Special Damage Window CLOSED</color>");
+        if (ReaperAI != null) ReaperAI.CloseCounterWindow();
         Physics2D.IgnoreLayerCollision(playerLayerValue, enemyLayerValue, true);
-        // If the DOT coroutine is running, stop it.
-        if (specialDamageCoroutine != null)
-        {
-            StopCoroutine(specialDamageCoroutine);
-            specialDamageCoroutine = null;
-        }
+        isDamageWindowOpen = false;
     }
     private IEnumerator SpecialDamageOverTimeRoutine()
     {

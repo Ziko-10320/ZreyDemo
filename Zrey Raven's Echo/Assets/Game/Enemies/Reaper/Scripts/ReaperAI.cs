@@ -29,6 +29,8 @@ public class ReaperAI : MonoBehaviour
     private bool isActionLocked = false;
     // --- STATE LOCK ---
     private bool isCounterSequenceRunning = false;
+    private bool tutorialSpecialAttackUnlocked = false;
+    private bool hasRecoveredFromFirstGuardBreak = false;
 
     [Header("Special Attack Counter")]
     [Tooltip("An empty GameObject marking the center of the counter-check area.")]
@@ -159,36 +161,45 @@ public class ReaperAI : MonoBehaviour
         {
             specialAttackCooldownTimer -= Time.deltaTime;
         }
-
-        if (specialAttackCooldownTimer <= 0 && !isActionLocked && !attack.IsAttacking())
+        bool tutorialAllowsSpecialAttack = true;
+        if (TutorialManager.Instance != null && TutorialManager.Instance.InTutorialMode)
         {
-            // --- THIS IS THE GUARANTEED FIX ---
-            // NEW CONDITION: Check the distance to the player.
-            float distanceToPlayer = Vector2.Distance(transform.position, playerTarget.position);
-
-            // The AI will only even CONSIDER the attack if the player is in range.
-            if (distanceToPlayer <= specialAttackRange)
+            if (!tutorialSpecialAttackUnlocked)
             {
-                // If in range, THEN roll the dice.
-                float roll = Random.Range(0f, 1f);
-                if (roll <= specialAttackChance)
-                {
-                    // SUCCESS: We are in range and the dice roll passed.
-                    isActionLocked = true;
-                    Debug.LogWarning($"--- AI DECISION: Player in range ({distanceToPlayer}m). Backstep into Special Attack ---");
-                    if (attack != null)
-                    {
-                        attack.PerformBackstep();
-                    }
-                    return; // Exit Update
-                }
-                else
-                {
-                    // Failed the roll, reset cooldown.
-                    ResetSpecialAttackCooldown();
-                }
+                tutorialAllowsSpecialAttack = false;
             }
-            // --- END OF THE GUARANTEED FIX ---
+        }
+
+        if (tutorialAllowsSpecialAttack
+            && specialAttackCooldownTimer <= 0
+            && !isActionLocked
+            && !attack.IsAttacking()
+            && Vector2.Distance(transform.position, playerTarget.position) <= specialAttackRange)
+        {
+            if (Random.Range(0f, 1f) <= specialAttackChance)
+            {
+                Debug.LogWarning($"--- AI DECISION: Player is in range. Attempting SPECIAL ATTACK ---");
+                isActionLocked = true;
+                StartCoroutine(SpecialAttackSequence());
+            }
+            else
+            {
+                ResetSpecialAttackCooldown();
+            }
+        }
+
+        // Counter window box check
+        if (isCounterWindowOpen)
+        {
+            Collider2D playerCollider = Physics2D.OverlapBox(
+                counterCheckPoint.position, counterCheckAreaSize, 0f, playerLayer);
+            isPlayerInCounterBox = (playerCollider != null);
+            if (counterPromptUI != null) counterPromptUI.SetActive(isPlayerInCounterBox);
+        }
+        else
+        {
+            isPlayerInCounterBox = false;
+            if (counterPromptUI != null) counterPromptUI.SetActive(false);
         }
 
     }
@@ -263,110 +274,87 @@ public class ReaperAI : MonoBehaviour
     {
         Debug.Log("<color=yellow>!!! SPECIAL ATTACK TRIGGERED !!!</color>");
 
-        // 1. LOCK THE BRAIN & BECOME INVINCIBLE.
-        isActionLocked = true;
-        isPerformingSpecialAttack = true; // A specific flag for this state.
+        isPerformingSpecialAttack = true;
 
+        if (attack != null) attack.StartSpecialAttack();
 
-        // 2. COMMAND the attack script to play the animation.
-        if (attack != null)
-        {
-            attack.StartSpecialAttack(); // We will create this new method.
-        }
-        if (counterPromptUI != null)
-        {
-            counterPromptUI.SetActive(false);
-        }
-        float specialAttackDuration = 2.0f; // The total duration of your special attack.
+        // Open counter window during the special attack
+        OpenCounterWindow();
+
+        float specialAttackDuration = attack != null
+            ? attack.GetComboDuration()
+            : 2.0f;
+
         float timer = 0f;
         while (timer < specialAttackDuration)
         {
-            // Check if the player is inside the counter box.
-            Collider2D playerCollider = Physics2D.OverlapBox(counterCheckPoint.position, counterCheckAreaSize, 0f, playerLayer);
-            isPlayerInCounterBox = (playerCollider != null);
-            if (counterPromptUI != null)
+            // If counter was triggered mid-sequence, abort the rest
+            if (!isActionLocked)
             {
-                // ...set its active state to be the SAME as isPlayerInCounterBox.
-                // If isPlayerInCounterBox is true, the UI is turned on.
-                // If isPlayerInCounterBox is false, the UI is turned off.
-                counterPromptUI.SetActive(isPlayerInCounterBox);
+                Debug.Log("<color=cyan>Special attack interrupted by counter.</color>");
+                yield break;
             }
             timer += Time.deltaTime;
-            yield return null; // Changed back from WaitForEndOfFrame
-        }
-        if (counterPromptUI != null)
-        {
-            counterPromptUI.SetActive(false);
+            yield return null;
         }
 
-        // 3. Wait for the attack to finish.
-        // You can get this duration from the attack script or hardcode it.
-        yield return new WaitForSeconds(2.0f); // Adjust to your special attack animation length.
+        CloseCounterWindow();
 
-        // 4. UNLOCK THE BRAIN & BECOME VULNERABLE AGAIN.
+        // Extra wait for attack animation to fully finish
+        yield return new WaitForSeconds(1.0f);
+
+        if (attack != null) attack.StopSpecialDamage();
+        if (health != null) health.BecomeVulnerable();
 
         isPerformingSpecialAttack = false;
         isActionLocked = false;
 
-        isPlayerInCounterBox = false;
-        if (attack != null) attack.StopSpecialDamage(); // Ensure DOT is off.
-        if (health != null) health.BecomeVulnerable();
-        // 5. RESET THE COOLDOWN for the next special attack.
         ResetSpecialAttackCooldown();
-
-        Debug.Log("<color=green>Special Attack Sequence Finished.</color>");
+        Debug.Log("<color=green>Reaper Special Attack Sequence Finished.</color>");
     }
     private IEnumerator ExecuteCounterSequence()
     {
         if (playerAttacks != null && playerAttacks.IsInCinematicState)
         {
-            Debug.LogWarning("Spear counter ignored: player already in cinematic state.");
+            Debug.LogWarning("Reaper counter ignored: player already in cinematic state.");
             yield break;
         }
-        if (counterPromptUI != null)
-        {
-            counterPromptUI.SetActive(false);
-        }
-        // 1. CANCEL EVERYTHING.
+
+        // Hide counter prompt immediately
+        if (counterPromptUI != null) counterPromptUI.SetActive(false);
+
+        // Stop the special attack
         if (attack != null) attack.CancelAllAttacks();
-        // The brain is already locked, but we need to stop the attack animations.
         isCounterWindowOpen = false;
+        isActionLocked = false; // Unlock so SpecialAttackSequence can detect the interrupt
 
-
+        // Snap Reaper to correct offset from player
         float directionToPlayer = Mathf.Sign(playerTarget.position.x - transform.position.x);
-        // A. Get the player's X position and our OWN Y and Z positions.
-        Vector3 newPosition = new Vector3(
-            playerTarget.position.x + (counterSuccessOffsetX * -directionToPlayer), // New X behind the player
-            transform.position.y,                                                  // Keep our current Y
-            transform.position.z                                                   // Keep our current Z
+        transform.position = new Vector3(
+            playerTarget.position.x + (counterSuccessOffsetX * -directionToPlayer),
+            transform.position.y,
+            transform.position.z
         );
-        transform.position = newPosition;
 
-        // Make sure the knight is facing the player after the teleport.
         if (follow != null) follow.FacePlayer();
 
+        // Play getCountered animation on the Reaper
         animator.ResetTrigger(specialAttackTriggerHash);
         animator.SetTrigger(getCounteredTriggerHash);
+
+        // Stun the Reaper
         if (health != null)
-        {
-            // We need to get the duration from the health script itself.
-            // This is a bit tricky, so we'll add a public getter for it.
-            health.TriggerStun(health.GetCounterStunDuration()); // We will create this getter.
-        }
-        // 4. COMMAND THE PLAYER TO START THEIR COUNTER-ATTACK.
+            health.TriggerStun(health.GetCounterStunDuration());
+
+        // Trigger player counter — pass Reaper's transform as the target
+        // so it's excluded from the idle-force and plays its own getCountered anim
         if (playerAttacks != null)
-        {
-            // We call the method with NO parameters.
-            playerAttacks.StartKnightCounter();
-        }
-        // 5. Wait for the sequence to end before unlocking the brain.
-        yield return new WaitForSeconds(3.0f); // Adjust to your counter sequence length.
+            playerAttacks.StartReaperCounter(transform);
 
-        // 6. RECOVER.
+        yield return new WaitForSeconds(3.0f);
 
-        isActionLocked = false;
         ResetSpecialAttackCooldown();
-        Debug.Log("<color=green>Knight Counter Sequence Finished. AI Unlocked.</color>");
+        Debug.Log("<color=green>Reaper Counter Sequence Finished.</color>");
     }
     private void OnDrawGizmosSelected()
     {
@@ -427,6 +415,7 @@ public class ReaperAI : MonoBehaviour
     public void CloseCounterWindow()
     {
         isCounterWindowOpen = false;
+        if (counterPromptUI != null) counterPromptUI.SetActive(false);
         Debug.Log("<color=grey>--- COUNTER WINDOW: CLOSED ---</color>");
     }
     private void ResetSpecialAttackCooldown()
@@ -441,5 +430,40 @@ public class ReaperAI : MonoBehaviour
 
         // Start the special attack sequence we already have.
         StartCoroutine(SpecialAttackSequence());
+    }
+    public void OnFirstGuardBreakRecovered()
+    {
+        if (hasRecoveredFromFirstGuardBreak) return;
+        hasRecoveredFromFirstGuardBreak = true;
+
+        // Only unlock special attack if all tutorial canvases have been shown
+        if (TutorialManager.Instance != null && TutorialManager.Instance.InTutorialMode)
+        {
+            if (TutorialManager.Instance.HasShownAllCanvases)
+            {
+                tutorialSpecialAttackUnlocked = true;
+                Debug.Log("<color=lime>Tutorial: Special attack unlocked after first guard break recovery.</color>");
+            }
+            else
+            {
+                // Wait until all canvases shown then unlock
+                StartCoroutine(WaitForCanvasThenUnlock());
+            }
+        }
+        else
+        {
+            tutorialSpecialAttackUnlocked = true;
+        }
+    }
+
+    private IEnumerator WaitForCanvasThenUnlock()
+    {
+        while (TutorialManager.Instance != null
+               && !TutorialManager.Instance.HasShownAllCanvases)
+        {
+            yield return new WaitForSeconds(0.5f);
+        }
+        tutorialSpecialAttackUnlocked = true;
+        Debug.Log("<color=lime>Tutorial: All canvases shown — special attack unlocked.</color>");
     }
 }

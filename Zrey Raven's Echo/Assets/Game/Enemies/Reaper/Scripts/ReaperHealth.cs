@@ -219,6 +219,8 @@ public class ReaperHealth : MonoBehaviour
     [SerializeField] private AudioClip[] hitSoundClips;
     [SerializeField] private AudioClip[] blockSoundClips;
     private AudioSource hitSfxSource;
+
+    private bool hasHadFirstGuardBreak = false;
     void Awake()
     {
         currentHealth = maxHealth;
@@ -460,8 +462,12 @@ public class ReaperHealth : MonoBehaviour
                 currentGuard = Mathf.MoveTowards(currentGuard, maxGuard, guardRecoveryRate * Time.deltaTime);
                 TriggerPostureUpdate();
             }
-        }
 
+        }
+        if (isGuardBroken && playerTarget != null && TutorialManager.Instance != null)
+        {
+            TutorialManager.Instance.TryTriggerDashAttackCanvas(playerTarget, transform);
+        }
     }
     private void PlayRandomHitSound()
     {
@@ -898,6 +904,9 @@ public class ReaperHealth : MonoBehaviour
         animator.SetTrigger(guardBrokenTriggerHash);
         currentGuard = 0;
         TriggerPostureUpdate();
+        if (TutorialManager.Instance != null)
+            TutorialManager.Instance.TriggerDirectComboCanvas();
+
         // --- THIS IS THE FIX ---
         // Instead of containing all the logic, it now just calls the new universal method
         // with the correct duration for a guard break.
@@ -1134,16 +1143,18 @@ public class ReaperHealth : MonoBehaviour
         Debug.LogWarning($"--- SPEAR ENEMY STUN SEQUENCE STARTED (Duration: {stunDuration}s) ---");
 
         // --- PHASE 1 & 2 (Unchanged) ---
+        bool isFirstBreak = !hasHadFirstGuardBreak;
+        hasHadFirstGuardBreak = true;
+
         isGuardBroken = true;
         isUnbreakable = false;
         isBlocking = false;
         animator.SetBool(isWeakAndDamageableBoolHash, true);
         yield return new WaitForSeconds(stunDuration);
 
-        // --- Safety check before recovery ---
         if (isFinishable)
         {
-            yield break; // Abort if defeated during stun
+            yield break;
         }
 
         // --- PHASE 3: THE RECOVERY ---
@@ -1153,7 +1164,8 @@ public class ReaperHealth : MonoBehaviour
 
         isGuardBroken = false;
         timeSinceLastBlock = 0f;
-
+        if (isFirstBreak && ReaperAI != null)
+            ReaperAI.OnFirstGuardBreakRecovered();
         // --- NEW: DYNAMIC POSTURE RECOVERY ANIMATION ---
         float recoveryStartTime = Time.time;
         float recoveryDuration = 1.0f; // How long the recovery animation takes
