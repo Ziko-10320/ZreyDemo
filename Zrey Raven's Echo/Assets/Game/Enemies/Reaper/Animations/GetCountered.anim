@@ -15130,6 +15130,13 @@ AnimationClip:
   m_HasGenericRootTransform: 0
   m_HasMotionFloatCurves: 0
   m_Events:
+  - time: 0
+    functionName: PlaySpecificAttackSound
+    data: 
+    objectReferenceParameter: {fileID: 8300000, guid: 2b8b66c0a98ca594e97349836043c3a9, type: 3}
+    floatParameter: 0
+    intParameter: 0
+    messageOptions: 0
   - time: 0.1
     functionName: CameraShakeheavy
     data: 

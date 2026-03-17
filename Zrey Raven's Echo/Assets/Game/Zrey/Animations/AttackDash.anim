@@ -20223,6 +20223,13 @@ AnimationClip:
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
+  - time: 0
+    functionName: PlayAttackSound
+    data: 
+    objectReferenceParameter: {fileID: 8300000, guid: 892c4a156ce782344b1205973496c05d, type: 3}
+    floatParameter: 0
+    intParameter: 0
+    messageOptions: 0
   - time: 0.0055555557
     functionName: EVENT_SpawnDashAttackTrail
     data: 
@@ -20237,10 +20244,24 @@ AnimationClip:
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
+  - time: 0.16666667
+    functionName: PlayAttackSound
+    data: 
+    objectReferenceParameter: {fileID: 8300000, guid: 103346eb6decd1b47bd4e794e698ce41, type: 3}
+    floatParameter: 0
+    intParameter: 0
+    messageOptions: 0
   - time: 0.17222223
     functionName: EVENT_DashAttackDamage
     data: 
     objectReferenceParameter: {fileID: 0}
+    floatParameter: 0
+    intParameter: 0
+    messageOptions: 0
+  - time: 0.17222223
+    functionName: PlayAttackSound
+    data: 
+    objectReferenceParameter: {fileID: 8300000, guid: b309eb7730a6ba54fa1fbcd1fc1d4bd0, type: 3}
     floatParameter: 0
     intParameter: 0
     messageOptions: 0

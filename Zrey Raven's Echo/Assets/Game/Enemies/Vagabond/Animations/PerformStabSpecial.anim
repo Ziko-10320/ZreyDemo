@@ -15607,6 +15607,13 @@ AnimationClip:
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
+  - time: 0.25
+    functionName: PlaySpecificAttackSound
+    data: 
+    objectReferenceParameter: {fileID: 8300000, guid: bee51a20ce924e74f9b24977b241dce0, type: 3}
+    floatParameter: 0
+    intParameter: 0
+    messageOptions: 0
   - time: 0.4
     functionName: DealGrabDamage
     data: 
@@ -15625,6 +15632,13 @@ AnimationClip:
     functionName: Lunge
     data: 
     objectReferenceParameter: {fileID: 0}
+    floatParameter: 0
+    intParameter: 0
+    messageOptions: 0
+  - time: 1.35
+    functionName: PlaySpecificAttackSound
+    data: 
+    objectReferenceParameter: {fileID: 8300000, guid: 8dc9e8017dc22d847a11ad6d77c9e225, type: 3}
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
