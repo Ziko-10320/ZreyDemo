@@ -67,7 +67,11 @@ public class ReaperAI : MonoBehaviour
     [Tooltip("The maximum distance from the player at which the AI can decide to use the special attack.")]
     [SerializeField] private float specialAttackRange = 7f; // Add this new variable"
 
-    [Tooltip("The chance (0 to 1) that the knight will perform a special attack when the cooldown is ready.")]
+    [SerializeField] private GameObject counterNotifyUI;
+    private Animator counterNotifyAnimator;
+    private readonly int earlyNotifyHash = Animator.StringToHash("EarlyNotify");
+    private readonly int readyInputHash = Animator.StringToHash("ReadyInput");
+    private readonly int fadeOutHash = Animator.StringToHash("FadeOut");
 
     private void OnEnable()
     {
@@ -102,7 +106,18 @@ public class ReaperAI : MonoBehaviour
     {
         animator = GetComponent<Animator>();
         follow = GetComponent<ReaperFollow>();
-
+        if (counterNotifyUI != null)
+        {
+            counterNotifyAnimator = counterNotifyUI.GetComponent<Animator>();
+            if (counterNotifyAnimator == null)
+                Debug.LogError("CounterNotifyUI is assigned but has NO Animator component on it!", counterNotifyUI);
+            else
+                Debug.Log($"<color=lime>CounterNotifyAnimator found: {counterNotifyAnimator.name}</color>");
+        }
+        else
+        {
+            Debug.LogError("counterNotifyUI is NULL — not assigned in Inspector on " + gameObject.name);
+        }
         // 2. Add this block to find the player automatically.
         if (playerTarget == null)
         {
@@ -199,7 +214,7 @@ public class ReaperAI : MonoBehaviour
         else
         {
             isPlayerInCounterBox = false;
-            if (counterPromptUI != null) counterPromptUI.SetActive(false);
+           
         }
 
     }
@@ -275,16 +290,16 @@ public class ReaperAI : MonoBehaviour
         Debug.Log("<color=yellow>!!! SPECIAL ATTACK TRIGGERED !!!</color>");
 
         isPerformingSpecialAttack = true;
-
+        
         if (attack != null) attack.StartSpecialAttack();
-
+        NotifyEarlyCounter();
         // Open counter window during the special attack
         OpenCounterWindow();
 
         float specialAttackDuration = attack != null
             ? attack.GetComboDuration()
             : 2.0f;
-
+        Debug.Log($"<color=cyan>Special attack duration: {specialAttackDuration}s</color>");
         float timer = 0f;
         while (timer < specialAttackDuration)
         {
@@ -321,7 +336,7 @@ public class ReaperAI : MonoBehaviour
         }
 
         // Hide counter prompt immediately
-        if (counterPromptUI != null) counterPromptUI.SetActive(false);
+     
 
         // Stop the special attack
         if (attack != null) attack.CancelAllAttacks();
@@ -403,21 +418,57 @@ public class ReaperAI : MonoBehaviour
             Debug.LogError("Cannot spawn counter blood effect! Prefab or Spawn Point is not assigned!", this);
         }
     }
+    public void NotifyEarlyCounter()
+    {
+        if (counterNotifyUI == null)
+        {
+            Debug.LogError("NotifyEarlyCounter: counterNotifyUI is NULL on " + gameObject.name);
+            return;
+        }
+        if (counterNotifyAnimator == null)
+        {
+            Debug.LogError("NotifyEarlyCounter: counterNotifyAnimator is NULL on " + gameObject.name);
+            return;
+        }
+        if (counterNotifyAnimator.runtimeAnimatorController == null)
+        {
+            Debug.LogError("NotifyEarlyCounter: No AnimatorController on counterNotifyUI!");
+            return;
+        }
+
+        Debug.Log($"<color=magenta>NotifyEarlyCounter CALLED — playing EarlyNotify directly</color>");
+        counterNotifyAnimator.Play("EarlyNotify", 0, 0f);
+    }
+
+
+
+
     public void OpenCounterWindow()
     {
         isCounterWindowOpen = true;
+
+        if (counterNotifyUI != null && counterNotifyAnimator != null)
+        {
+            // "ReadyInput" must exactly match your animation state name
+            counterNotifyAnimator.Play("CounterPopUp", 0, 0f);
+        }
+
         Debug.LogWarning("--- COUNTER WINDOW: OPEN ---");
     }
 
-    /// <summary>
-    /// Called by KnightAttack to close the counter window.
-    /// </summary>
     public void CloseCounterWindow()
     {
         isCounterWindowOpen = false;
-        if (counterPromptUI != null) counterPromptUI.SetActive(false);
+
+        if (counterNotifyUI != null && counterNotifyAnimator != null)
+        {
+            // "FadeOut" must exactly match your animation state name
+            counterNotifyAnimator.Play("FadeOut", 0, 0f);
+        }
+
         Debug.Log("<color=grey>--- COUNTER WINDOW: CLOSED ---</color>");
     }
+
     private void ResetSpecialAttackCooldown()
     {
         specialAttackCooldownTimer = Random.Range(minSpecialAttackCooldown, maxSpecialAttackCooldown);

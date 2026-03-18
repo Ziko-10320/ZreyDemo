@@ -83,12 +83,21 @@ public class KnightAI : MonoBehaviour
     [SerializeField] private float specialAttackRange = 4f;
     private bool isCounterBeingExecuted = false;
     public PlayerHealth playerHealth;
-
+    [SerializeField] private GameObject counterNotifyUI;
+    private Animator counterNotifyAnimator;
+    private readonly int earlyNotifyHash = Animator.StringToHash("EarlyNotify");
+    private readonly int readyInputHash = Animator.StringToHash("ReadyInput");
+    private readonly int fadeOutHash = Animator.StringToHash("FadeOut");
     void Awake()
     {
         animator = GetComponent<Animator>();
         follow = GetComponent<KnightFollow>();
         playerHealth = FindObjectOfType<PlayerHealth>();
+        if (counterNotifyUI != null)
+        {
+            counterNotifyAnimator = counterNotifyUI.GetComponent<Animator>();
+            
+        }
         // 2. Add this block to find the player automatically.
         if (playerTarget == null)
         {
@@ -147,7 +156,7 @@ public class KnightAI : MonoBehaviour
         else
         {
             isPlayerInCounterBox = false;
-            if (counterPromptUI != null) counterPromptUI.SetActive(false);
+            
         }
         // --- THIS IS THE NEW, SIMPLIFIED GRAB LOGIC ---
         // 1. Check if we can even attempt a grab.
@@ -353,20 +362,60 @@ public class KnightAI : MonoBehaviour
             Debug.LogError("Cannot spawn counter blood effect! Prefab or Spawn Point is not assigned!", this);
         }
     }
+    public void NotifyEarlyCounter()
+    {
+        if (counterNotifyUI == null)
+        {
+            Debug.LogError("NotifyEarlyCounter: counterNotifyUI is NULL on " + gameObject.name);
+            return;
+        }
+        if (counterNotifyAnimator == null)
+        {
+            Debug.LogError("NotifyEarlyCounter: counterNotifyAnimator is NULL on " + gameObject.name);
+            return;
+        }
+        if (counterNotifyAnimator.runtimeAnimatorController == null)
+        {
+            Debug.LogError("NotifyEarlyCounter: No AnimatorController on counterNotifyUI!");
+            return;
+        }
+
+        Debug.Log($"<color=magenta>NotifyEarlyCounter CALLED — playing EarlyNotify directly</color>");
+        counterNotifyAnimator.Play("EarlyNotify", 0, 0f);
+    }
+
     public void OpenCounterWindow()
     {
         isCounterWindowOpen = true;
+
+        if (counterNotifyUI != null && counterNotifyAnimator != null)
+        {
+            // "ReadyInput" must exactly match your animation state name
+            counterNotifyAnimator.Play("CounterPopUp", 0, 0f);
+        }
+
         Debug.LogWarning("--- COUNTER WINDOW: OPEN ---");
     }
 
-    /// <summary>
-    /// Called by KnightAttack to close the counter window.
-    /// </summary>
     public void CloseCounterWindow()
     {
         isCounterWindowOpen = false;
-        if (counterPromptUI != null) counterPromptUI.SetActive(false);
+
+        if (counterNotifyUI != null && counterNotifyAnimator != null)
+        {
+            // "FadeOut" must exactly match your animation state name
+            counterNotifyAnimator.Play("FadeOut", 0, 0f);
+        }
+
         Debug.Log("<color=grey>--- COUNTER WINDOW: CLOSED ---</color>");
+    }
+
+    private IEnumerator DisableCounterNotifyAfterFade()
+    {
+        // Wait for the FadeOut animation to finish before disabling
+        yield return new WaitForSeconds(1f); // Match this to your FadeOut animation length
+        if (counterNotifyUI != null)
+            counterNotifyUI.SetActive(false);
     }
     private void ResetSpecialAttackCooldown()
     {
@@ -402,7 +451,7 @@ public class KnightAI : MonoBehaviour
             yield break;
         }
         isCounterBeingExecuted = true;
-        if (counterPromptUI != null) counterPromptUI.SetActive(false);
+       
         // --- 1. FREEZE BOTH INSTANTLY ---
         // Stop the knight dead
         if (attack != null)
@@ -410,7 +459,7 @@ public class KnightAI : MonoBehaviour
             attack.StopAllMovement();
             attack.CloseGrabWindow();
         }
-
+        NotifyEarlyCounter();
         // Stop the player dead
         Rigidbody2D playerRb = player.GetComponent<Rigidbody2D>();
         if (playerRb != null) playerRb.linearVelocity = Vector2.zero;

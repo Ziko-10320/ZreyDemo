@@ -447,6 +447,7 @@ public class ZreyAttacks : MonoBehaviour
 
         isDashAttacking = true;
         isAttacking = true;
+        playerHealth.MakeInvincible();
         if (TutorialManager.Instance != null)
             TutorialManager.Instance.OnPlayerPerformedDashAttack();
         playerMovement.CancelGroundDash();
@@ -529,6 +530,7 @@ public class ZreyAttacks : MonoBehaviour
     public void EVENT_EndDashAttack()
     {
         isDashAttacking = false;
+        playerHealth.MakeVulnerable();
         // IsDashAttacking is now false — ZreyMovements combat mode
         // resumes auto-facing the locked enemy on the next frame naturally
         EndAttack();
@@ -1462,23 +1464,20 @@ public class ZreyAttacks : MonoBehaviour
     private void HandleInteractionInput()
     {
         // Block ALL counter input if player is stunned
-        if (playerHealth != null && playerHealth.isStunned)
-        {
-            Debug.Log("<color=orange>Counter Input Ignored: Player is stunned.</color>");
-            return;
-        }
+        if (playerHealth != null && playerHealth.isStunned) return;
         if (playerHealth != null && playerHealth.IsGrabbed) return;
-        if (isAttacking || IsInCinematicState) return;
+        if (IsInCinematicState) return;
 
+        // Cancel any ongoing action before attempting counter
+        if (isAttacking || isDashAttacking || playerMovement.IsDashing())
+        {
+            CancelAttack();
+            playerMovement.CancelGroundDash();
+            playerMovement.CanMove = true;
+        }
 
-
-        // PRIORITY 2: Vagabond Counter — Knight enemies ONLY via direct call
         if (BroadcastVagabondCounter()) return;
-
-        // PRIORITY 3: Reaper Counter — Reaper enemies ONLY
         if (BroadcastReaperCounter()) return;
-
-        // PRIORITY 4: Knight Counter — Spear enemies ONLY via direct call
         BroadcastSpearCounter();
     }
     private bool BroadcastReaperCounter()

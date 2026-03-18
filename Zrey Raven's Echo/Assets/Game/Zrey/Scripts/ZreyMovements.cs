@@ -156,7 +156,8 @@ public class ZreyMovements : MonoBehaviour
     private Coroutine airDashCoroutine = null;
     [Header("Combat Mode")]
     [Tooltip("The radius of the circle where the player will detect enemies to enter combat mode.")]
-    [SerializeField] private float combatDetectionRange = 10f;  
+    [SerializeField] private float combatDetectionRange = 10f;
+    [SerializeField] private Vector2 combatDetectionBoxSize = new Vector2(10f, 3f);
     [Tooltip("The layer the enemies are on.")]
     [SerializeField] private LayerMask enemyLayer; // You may need to re-assign this in the Inspector"
     [Tooltip("The player's movement speed when locked on in combat.")]
@@ -1088,7 +1089,7 @@ public class ZreyMovements : MonoBehaviour
         animator.SetBool(isChangingDirectionBoolHash, false);
         if (!isInCombatMode) { animator.SetBool(isMovingForwardHash, false); animator.SetBool(isMovingBackwardHash, false); }
         // --- Combat Detection ---
-        Collider2D[] enemiesInRange = Physics2D.OverlapCircleAll(transform.position, combatDetectionRange, enemyLayer);
+        Collider2D[] enemiesInRange = Physics2D.OverlapBoxAll(transform.position, combatDetectionBoxSize, 0f, enemyLayer);
 
         if (enemiesInRange.Length > 0)
         {
@@ -1391,7 +1392,7 @@ public class ZreyMovements : MonoBehaviour
         Gizmos.DrawWireSphere(groundCheck.position, groundCheckRadius);
 
         Gizmos.color = Color.blue;
-        Gizmos.DrawWireSphere(transform.position, combatDetectionRange);
+        Gizmos.DrawWireCube(transform.position, combatDetectionBoxSize);
 
         // Also draw a line to the locked-on target for debugging
         if (isInCombatMode && lockedOnTarget != null)
