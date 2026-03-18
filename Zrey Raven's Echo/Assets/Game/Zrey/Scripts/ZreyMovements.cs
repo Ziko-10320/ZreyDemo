@@ -1323,23 +1323,25 @@ public class ZreyMovements : MonoBehaviour
     }
     private IEnumerator FlipLockWatchdogRoutine()
     {
-        // Wait for a duration slightly longer than your longest possible dash.
-        // If your dash is 0.5s, waiting 1s is very safe.
-        yield return new WaitForSeconds(0.85f);
+        yield return new WaitForSeconds(1.0f);
 
-        // --- THE FAILSAFE ---
-        // If we get here, it means UnlockFlip() was never called by the animation event.
-        // This can only happen if the animation was interrupted.
-        if (!canFlip)
+        // Only force unlock if we're genuinely stuck in a normal state
+        if (!canFlip
+            && !isDashing
+            && !isInRootMotionState
+            && !isHanging
+            && !isWallSliding
+            && (playerAttacks == null || !playerAttacks.IsInCinematicState)
+            && (playerHealth == null || !playerHealth.IsGrabbed))
         {
-            Debug.LogWarning("<color=orange>FLIP LOCK TIMEOUT! Animation was interrupted. Forcibly unlocking flip.</color>");
-            canFlip = true; // Force the lock to be released.
+            Debug.LogWarning("<color=orange>FLIP LOCK TIMEOUT: Force unlocking.</color>");
+            canFlip = true;
+            CanMove = true;
         }
 
-        // The watchdog's job is done.
         flipLockWatchdogCoroutine = null;
     }
-  
+
     public bool IsGrounded()
     {
         return isGrounded;

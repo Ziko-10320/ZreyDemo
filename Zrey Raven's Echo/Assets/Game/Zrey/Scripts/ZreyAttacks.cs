@@ -904,7 +904,12 @@ public class ZreyAttacks : MonoBehaviour
     public void EVENT_OnAttackJumpComplete()
     {
         isAttackJumping = false;
-        EndAttack();
+        if (playerMovement != null && playerMovement.IsInCombatMode && playerMovement.LockedOnTarget != null)
+        {
+            playerMovement.ForceFaceDirection(
+                playerMovement.LockedOnTarget.position.x > transform.position.x);
+        }
+     
         Debug.Log("<color=lime>Attack Jump complete. Player restored.</color>");
     }
     public void OnPlayerLanded()
@@ -984,8 +989,12 @@ public class ZreyAttacks : MonoBehaviour
     }
     public void PerformLunge()
     {
-        if (playerMovement == null) return;
-        lungeCoroutine = StartCoroutine(LungeCoroutine(1f));
+         if (lungeCoroutine != null)
+        {
+            StopCoroutine(lungeCoroutine);
+        }
+        // Start the new, transform-based lunge coroutine.
+        lungeCoroutine = StartCoroutine(TransformLungeCoroutine(1f));
     }
     public void PerformLungeBackward()
     {
@@ -1027,36 +1036,33 @@ public class ZreyAttacks : MonoBehaviour
     }
     public void PerformTransformLunge()
     {
-        // If a lunge is already happening, stop it first.
-        if (lungeCoroutine != null)
-        {
-            StopCoroutine(lungeCoroutine);
-        }
-        // Start the new, transform-based lunge coroutine.
-        lungeCoroutine = StartCoroutine(TransformLungeCoroutine());
+        if (lungeCoroutine != null) StopCoroutine(lungeCoroutine);
+        lungeCoroutine = StartCoroutine(TransformLungeCoroutine(1f));
     }
 
-    // ADD THIS NEW COROUTINE
-    private IEnumerator TransformLungeCoroutine()
+    public void PerformBackwardTransformLunge()
+    {
+        if (lungeCoroutine != null) StopCoroutine(lungeCoroutine);
+        lungeCoroutine = StartCoroutine(TransformLungeCoroutine(-1f));
+    }
+
+    private IEnumerator TransformLungeCoroutine(float directionMultiplier)
     {
         Debug.Log("<color=orange>--- Performing TRANSFORM-BASED Lunge ---</color>");
 
         float timer = 0f;
-        Vector3 direction = playerMovement.IsFacingRight() ? Vector3.right : Vector3.left;
+        Vector2 baseDirection = playerMovement.IsFacingRight() ? Vector2.right : Vector2.left;
+        Vector3 direction = baseDirection * directionMultiplier;
 
         while (timer < lungeDuration)
         {
-            // Calculate the movement for this frame.
             float moveStep = lungeSpeed * Time.deltaTime;
-
-            // Apply the movement directly to the transform.
             transform.position += direction * moveStep;
-
             timer += Time.deltaTime;
             yield return null;
         }
 
-        lungeCoroutine = null; // Mark the coroutine as finished.
+        lungeCoroutine = null;
     }
     private IEnumerator LungeCoroutine(float directionMultiplier)
     {
@@ -1351,6 +1357,8 @@ public class ZreyAttacks : MonoBehaviour
         }
         // 1. BRUTALLY INTERRUPT whatever the player was doing.
         CancelAttack(); // Cancel any normal combo.
+        if (counterTarget != null && playerMovement != null)
+            playerMovement.ForceFaceDirection(counterTarget.position.x > transform.position.x);
         if (playerMovement != null)
         {
             // You might need a StopDash() method on your movement script if the dash is a coroutine.
@@ -1578,7 +1586,8 @@ public class ZreyAttacks : MonoBehaviour
         StartFinisherVignette();
         playerMovement.CanMove = false;
         rb.linearVelocity = Vector2.zero;
-
+        if (counterTarget != null && playerMovement != null)
+            playerMovement.ForceFaceDirection(counterTarget.position.x > transform.position.x);
         // --- 2. PLAY ANIMATION ---
         animator.SetTrigger(vagabondCounterTriggerHash);
 
@@ -1652,7 +1661,8 @@ public class ZreyAttacks : MonoBehaviour
         if (playerTrail != null) playerTrail.StartTrail();
 
         CancelAttack();
-
+        if (reaperTransform != null && playerMovement != null)
+            playerMovement.ForceFaceDirection(reaperTransform.position.x > transform.position.x);
         if (playerMovement != null) playerMovement.CanMove = false;
 
         // Play the player's dedicated Reaper counter animation

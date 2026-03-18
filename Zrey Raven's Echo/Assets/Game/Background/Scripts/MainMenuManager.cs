@@ -41,7 +41,13 @@ public class MainMenuManager : MonoBehaviour
 
         if (menuMusicClip != null)
             musicSource.Play();
+        if (fadeScreenImage != null)
+        {
+            fadeScreenImage.color = new Color(0f, 0f, 0f, 1f); // Start fully black
+            StartCoroutine(FadeInOnStart());
+        }
     }
+
     public void StartGame()
     {
         // Start the coroutine that handles the fade and scene loading sequence.
@@ -120,5 +126,17 @@ public class MainMenuManager : MonoBehaviour
     {
         Debug.Log("Quitting game...");
         Application.Quit();
+    }
+    private IEnumerator FadeInOnStart()
+    {
+        float timer = 0f;
+        while (timer < fadeDuration)
+        {
+            timer += Time.deltaTime;
+            float alpha = Mathf.Clamp01(1f - (timer / fadeDuration));
+            fadeScreenImage.color = new Color(0f, 0f, 0f, alpha);
+            yield return null;
+        }
+        fadeScreenImage.color = new Color(0f, 0f, 0f, 0f); // Fully transparent at the end
     }
 }

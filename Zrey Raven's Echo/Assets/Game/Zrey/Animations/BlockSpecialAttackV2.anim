@@ -9233,17 +9233,17 @@ AnimationClip:
         inWeight: 0.33333334
         outWeight: 0.33333334
       - serializedVersion: 3
-        time: 0.175
-        value: 0.9
-        inSlope: 0
-        outSlope: 0
+        time: 0.15
+        value: 0.3
+        inSlope: 0.16326533
+        outSlope: 0.16326533
         tangentMode: 136
         weightedMode: 0
         inWeight: 0.33333334
         outWeight: 0.33333334
       - serializedVersion: 3
         time: 1.225
-        value: 0.9
+        value: 0.5
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -9281,8 +9281,8 @@ AnimationClip:
         inWeight: 0.33333334
         outWeight: 0.33333334
       - serializedVersion: 3
-        time: 0.175
-        value: 65
+        time: 0.15
+        value: 19
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -37190,17 +37190,17 @@ AnimationClip:
         inWeight: 0.33333334
         outWeight: 0.33333334
       - serializedVersion: 3
-        time: 0.175
-        value: 0.9
-        inSlope: 0
-        outSlope: 0
+        time: 0.15
+        value: 0.3
+        inSlope: 0.16326533
+        outSlope: 0.16326533
         tangentMode: 136
         weightedMode: 0
         inWeight: 0.33333334
         outWeight: 0.33333334
       - serializedVersion: 3
         time: 1.225
-        value: 0.9
+        value: 0.5
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -37238,8 +37238,8 @@ AnimationClip:
         inWeight: 0.33333334
         outWeight: 0.33333334
       - serializedVersion: 3
-        time: 0.175
-        value: 65
+        time: 0.15
+        value: 19
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -39417,16 +39417,16 @@ AnimationClip:
     intParameter: 0
     messageOptions: 0
   - time: 0.175
-    functionName: CameraShakeheavy
+    functionName: PlayAttackSound
     data: 
-    objectReferenceParameter: {fileID: 0}
+    objectReferenceParameter: {fileID: 8300000, guid: 671a928df791bd4478775e6829a8f497, type: 3}
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
   - time: 0.175
-    functionName: PlayAttackSound
+    functionName: CameraShakeheavy
     data: 
-    objectReferenceParameter: {fileID: 8300000, guid: 671a928df791bd4478775e6829a8f497, type: 3}
+    objectReferenceParameter: {fileID: 0}
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
@@ -39532,6 +39532,13 @@ AnimationClip:
     functionName: AttackEnemy
     data: 
     objectReferenceParameter: {fileID: 11400000, guid: 8b23c304b7b08d9418c283efaad9c547, type: 2}
+    floatParameter: 0
+    intParameter: 0
+    messageOptions: 0
+  - time: 0.675
+    functionName: PerformLunge
+    data: 
+    objectReferenceParameter: {fileID: 0}
     floatParameter: 0
     intParameter: 0
     messageOptions: 0

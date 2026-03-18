@@ -70,7 +70,7 @@ public class SpearAI : MonoBehaviour
     private readonly int earlyNotifyHash = Animator.StringToHash("EarlyNotify");
     private readonly int readyInputHash = Animator.StringToHash("ReadyInput");
     private readonly int fadeOutHash = Animator.StringToHash("FadeOut");
-
+    private readonly int idleHash = Animator.StringToHash("Idle");
     private void OnEnable()
     {
         // --- THIS IS THE FIX ---
@@ -467,9 +467,19 @@ public class SpearAI : MonoBehaviour
         {
             // "FadeOut" must exactly match your animation state name
             counterNotifyAnimator.Play("FadeOut", 0, 0f);
+            StartCoroutine(ResetNotifyToIdle());
         }
 
         Debug.Log("<color=grey>--- COUNTER WINDOW: CLOSED ---</color>");
+    }
+    private IEnumerator ResetNotifyToIdle()
+    {
+        // Wait for FadeOut to finish before going Idle
+        yield return new WaitForSeconds(0.5f);
+        if (counterNotifyAnimator != null)
+        {
+            counterNotifyAnimator.SetTrigger(idleHash);
+        }
     }
     private void ResetSpecialAttackCooldown()
     {
