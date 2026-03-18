@@ -131,7 +131,12 @@ public class GameManager : MonoBehaviour
         ZreyMovements.NukeInputSystem();
         StartCoroutine(FadeAndLoadScene(SceneManager.GetActiveScene().name, deathFadeImage));
     }
-
+    public void LoadTutorial()
+    {
+        Time.timeScale = 1f;
+        ZreyMovements.NukeInputSystem();
+        StartCoroutine(FadeAndLoadScene("SampleScene", sceneFadeImage));
+    }
     public void LoadMainMenuFromDeath()
     {
         AudioListener.pause = false;

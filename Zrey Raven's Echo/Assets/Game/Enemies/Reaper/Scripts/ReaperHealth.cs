@@ -763,18 +763,19 @@ public class ReaperHealth : MonoBehaviour
     }
     public void ExecuteFinisher()
     {
-        // Failsafe: if we're not in a finishable state, this can't be called.
         if (!isFinishable) return;
 
         Debug.LogError($"--- {transform.name} IS BEING FINISHED! ---");
 
         if (TutorialManager.Instance != null)
             TutorialManager.Instance.OnPlayerExecutedFinisher();
-        // Play the "TakeFinisher" animation.
+
         animator.SetTrigger(takeFinisherTriggerHash);
 
-        // After a delay (the length of the animation), destroy the object.
-        // IMPORTANT: Change 3.0f to the length of your TakeFinisher animation.
+        // ? add this
+        if (TutorialManager.Instance != null)
+            TutorialManager.Instance.OnReaperFinisherComplete();
+
         Destroy(gameObject, 7.0f);
     }
     public void TakePostureDamageOnParry()

@@ -20,8 +20,28 @@ public class MainMenuManager : MonoBehaviour
     [Tooltip("How long, in seconds, the fade-to-black should take.")]
     public float fadeDuration = 1.0f;
     // --- END OF NEW VARIABLES ---
+    [Header("Music")]
+    [Tooltip("Drag the main menu music clip here.")]
+    public AudioClip menuMusicClip;
+    [Tooltip("How long the music fade out takes (should match or be shorter than fadeDuration).")]
+    public float musicFadeDuration = 1.0f;
+    [Range(0f, 1f)]
+    public float musicVolume = 1f;
 
+    private AudioSource musicSource;
     // This function is still called by your "Start" button's OnClick() event.
+    void Start()
+    {
+        musicSource = gameObject.AddComponent<AudioSource>();
+        musicSource.clip = menuMusicClip;
+        musicSource.volume = musicVolume;
+        musicSource.loop = true;
+        musicSource.spatialBlend = 0f;
+        musicSource.playOnAwake = false;
+
+        if (menuMusicClip != null)
+            musicSource.Play();
+    }
     public void StartGame()
     {
         // Start the coroutine that handles the fade and scene loading sequence.
@@ -56,7 +76,7 @@ public class MainMenuManager : MonoBehaviour
         // --- THE FADE LOGIC ---
         float timer = 0f;
         Color originalColor = fadeScreenImage.color;
-
+        StartCoroutine(FadeOutMusic());
         // This loop will run until the timer reaches the desired fade duration.
         while (timer < fadeDuration)
         {
@@ -78,7 +98,23 @@ public class MainMenuManager : MonoBehaviour
         Debug.Log($"Attempting to load scene: {sceneToLoad}");
         SceneManager.LoadScene(sceneToLoad);
     }
+    private IEnumerator FadeOutMusic()
+    {
+        if (musicSource == null) yield break;
 
+        float startVolume = musicSource.volume;
+        float timer = 0f;
+
+        while (timer < musicFadeDuration)
+        {
+            timer += Time.deltaTime;
+            musicSource.volume = Mathf.Lerp(startVolume, 0f, timer / musicFadeDuration);
+            yield return null;
+        }
+
+        musicSource.volume = 0f;
+        musicSource.Stop();
+    }
     // This function is still called by your "Quit" button.
     public void QuitGame()
     {

@@ -7,10 +7,19 @@ using UnityEngine.Rendering.Universal;
 public class TutorialManager : MonoBehaviour
 {
     public static TutorialManager Instance { get; private set; }
-
+    [Header("Scene Transition")]
+    [SerializeField] private string gameSceneName = "GameScene";
+    [SerializeField] private float transitionDelay = 2f;
+    [SerializeField] private Image transitionFadeImage;
+    [SerializeField] private float fadeDuration = 1f;
     [Header("Tutorial Mode")]
     public bool InTutorialMode = false;
-
+    [Header("Skip Hint")]
+    [SerializeField] private CanvasGroup skipHintCanvasGroup;
+    [SerializeField] private CanvasGroup skipHintCanvasGroup2;
+    [SerializeField] private float skipHintFadeInSpeed = 2f;
+    [SerializeField] private float skipHintDisplayTime = 3f;
+    [SerializeField] private float skipHintFadeOutSpeed = 2f;
     [Header("Parry Prompt Canvas")]
     [SerializeField] private CanvasGroup parryPromptCanvasGroup;
     [SerializeField] private float fadeInSpeed = 3f;
@@ -133,6 +142,16 @@ public class TutorialManager : MonoBehaviour
     private Coroutine finisherCoroutine;
     void Awake()
     {
+        if (skipHintCanvasGroup != null)
+        {
+            skipHintCanvasGroup.alpha = 0f;
+            skipHintCanvasGroup.gameObject.SetActive(false);
+        }
+        if (skipHintCanvasGroup2 != null)
+        {
+            skipHintCanvasGroup2.alpha = 0f;
+            skipHintCanvasGroup2.gameObject.SetActive(false);
+        }
         if (Instance != null && Instance != this) { Destroy(gameObject); return; }
         Instance = this;
 
@@ -198,7 +217,68 @@ public class TutorialManager : MonoBehaviour
             colorAdjustments.saturation.value = 0f;
         }
     }
+    void Start()
+    {
+        StartCoroutine(ShowSkipHint());
+    }
+    public void OnReaperFinisherComplete()
+    {
+        StartCoroutine(DelayedFadeToGame());
+    }
 
+    private IEnumerator DelayedFadeToGame()
+    {
+        yield return new WaitForSecondsRealtime(transitionDelay);
+        yield return StartCoroutine(FadeToGame());
+    }
+    private IEnumerator ShowSkipHint()
+    {
+        if (skipHintCanvasGroup == null && skipHintCanvasGroup2 == null) yield break;
+
+        if (skipHintCanvasGroup != null) skipHintCanvasGroup.gameObject.SetActive(true);
+        if (skipHintCanvasGroup2 != null) skipHintCanvasGroup2.gameObject.SetActive(true);
+
+        // Fade both in at the same time
+        if (skipHintCanvasGroup != null) StartCoroutine(FadeCanvas(skipHintCanvasGroup, 0f, 1f, skipHintFadeInSpeed));
+        if (skipHintCanvasGroup2 != null) yield return StartCoroutine(FadeCanvas(skipHintCanvasGroup2, 0f, 1f, skipHintFadeInSpeed));
+
+        yield return new WaitForSecondsRealtime(skipHintDisplayTime);
+
+        // Fade both out at the same time
+        if (skipHintCanvasGroup != null) StartCoroutine(FadeCanvasThenDisable(skipHintCanvasGroup, 1f, 0f, skipHintFadeOutSpeed));
+        if (skipHintCanvasGroup2 != null) yield return StartCoroutine(FadeCanvasThenDisable(skipHintCanvasGroup2, 1f, 0f, skipHintFadeOutSpeed));
+    }
+    private IEnumerator FadeToGame()
+    {
+        if (transitionFadeImage != null)
+        {
+            transitionFadeImage.gameObject.SetActive(true);
+            float timer = 0f;
+            Color c = transitionFadeImage.color;
+            c.a = 0f;
+            transitionFadeImage.color = c;
+
+            while (timer < fadeDuration)
+            {
+                timer += Time.unscaledDeltaTime;
+                c.a = Mathf.Clamp01(timer / fadeDuration);
+                transitionFadeImage.color = c;
+                yield return null;
+            }
+        }
+
+        ZreyMovements.NukeInputSystem();
+        UnityEngine.SceneManagement.SceneManager.LoadScene(gameSceneName);
+    }
+
+    void Update()
+    {
+        // ESC to skip tutorial
+        if (UnityEngine.InputSystem.Keyboard.current.escapeKey.wasPressedThisFrame)
+        {
+            StartCoroutine(FadeToGame());
+        }
+    }
     // Called from Reaper counter animation event
     public void TriggerParrySlowTime()
     {
