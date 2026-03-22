@@ -290,32 +290,53 @@ public class ReaperAI : MonoBehaviour
         Debug.Log("<color=yellow>!!! SPECIAL ATTACK TRIGGERED !!!</color>");
 
         isPerformingSpecialAttack = true;
-        
+
         if (attack != null) attack.StartSpecialAttack();
         NotifyEarlyCounter();
-        // Open counter window during the special attack
-        OpenCounterWindow();
 
         float specialAttackDuration = attack != null
             ? attack.GetComboDuration()
             : 2.0f;
+
         Debug.Log($"<color=cyan>Special attack duration: {specialAttackDuration}s</color>");
+
+        // Open counter window during the special attack
+        OpenCounterWindow();
+
+        bool tutorialSlowTimeTriggered = false;
         float timer = 0f;
+
         while (timer < specialAttackDuration)
         {
-            // If counter was triggered mid-sequence, abort the rest
             if (!isActionLocked)
             {
                 Debug.Log("<color=cyan>Special attack interrupted by counter.</color>");
                 yield break;
             }
+
+            // Only trigger slow time once, after window is open AND player is inside
+            if (!tutorialSlowTimeTriggered
+                && isCounterWindowOpen
+                && TutorialManager.Instance != null
+                && TutorialManager.Instance.InTutorialMode)
+            {
+                Collider2D playerCollider = Physics2D.OverlapBox(
+                    counterCheckPoint.position, counterCheckAreaSize, 0f, playerLayer);
+
+                if (playerCollider != null)
+                {
+                    tutorialSlowTimeTriggered = true;
+                    TutorialManager.Instance.TriggerCounterSlowTime();
+                    Debug.Log("<color=cyan>Tutorial: Player in counter box — triggering slow time.</color>");
+                }
+            }
+
             timer += Time.deltaTime;
             yield return null;
         }
 
         CloseCounterWindow();
 
-        // Extra wait for attack animation to fully finish
         yield return new WaitForSeconds(1.0f);
 
         if (attack != null) attack.StopSpecialDamage();
