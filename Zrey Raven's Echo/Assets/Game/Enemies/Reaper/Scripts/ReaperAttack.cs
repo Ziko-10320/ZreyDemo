@@ -356,12 +356,21 @@ public class ReaperAttack : MonoBehaviour
         currentComboStep = 0;
         lastComboTime = Time.time; // **NEW:** Record the time this combo finished.
     }
+
+    [System.Obsolete]
     public void FinishCounterAttack()
     {
         // This method ONLY sets the isAttacking flag to false.
         // It does NOT touch the combo timer or any other combo logic.
         isAttacking = false;
         Debug.Log("<color=cyan>KnightAttack: Counter-Attack Animation Finished. Resetting isAttacking flag.</color>");
+        if (TutorialManager.Instance != null && TutorialManager.Instance.InTutorialMode
+        && !TutorialManager.Instance.HasPlayerLearnedParry)
+        {
+            ZreyMovements zm = FindObjectOfType<ZreyMovements>();
+            if (zm != null) zm.CanMove = true;
+            if (zm != null) zm.IsDashing();
+        }
     }
     public bool IsFinalComboAttack()
     {
@@ -438,6 +447,7 @@ public class ReaperAttack : MonoBehaviour
         knockbackCoroutine = null;
     }
 
+    [System.Obsolete]
     public void StartCounterAttack()
     {
         // --- THIS IS THE FIX ---
@@ -447,6 +457,16 @@ public class ReaperAttack : MonoBehaviour
 
         isAttacking = true;
         animator.SetTrigger(counterAttackTriggerHash);
+        if (TutorialManager.Instance != null && TutorialManager.Instance.InTutorialMode
+      && !TutorialManager.Instance.HasPlayerLearnedParry)
+        {
+            PlayerHealth ph = FindObjectOfType<PlayerHealth>();
+            ZreyMovements zm = FindObjectOfType<ZreyMovements>();
+            ZreyAttacks za = FindObjectOfType<ZreyAttacks>();
+            if (zm != null) zm.CanMove = false;
+            if (za != null) za.CancelAttack();
+            // Do NOT set cinematic — player must still be able to block/parry
+        }
     }
 
     public void StartSpecialAttack()

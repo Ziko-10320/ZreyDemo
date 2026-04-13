@@ -507,6 +507,9 @@ public class ReaperHealth : MonoBehaviour
     {
         float distanceToUse;
         float durationToUse;
+        bool tutorialHealthLocked = TutorialManager.Instance != null
+     && TutorialManager.Instance.InTutorialMode
+     && !TutorialManager.Instance.TutorialCombatUnlocked;
 
         // --- THIS IS THE CUSTOM KNOCKBACK LOGIC ---
         // 1. Check if a custom knockback is primed.
@@ -529,7 +532,9 @@ public class ReaperHealth : MonoBehaviour
         if (isGuardBroken)
         {
             PlayHitReaction(hitType);
-            currentHealth -= damage;
+           
+            if (!tutorialHealthLocked)
+                currentHealth -= damage;
             Debug.Log("<color=red>GUARD BROKEN! Dealt " + damage + " direct damage.</color>");
             SpawnBloodVFX();
             PlayRandomHitSound();
@@ -537,7 +542,8 @@ public class ReaperHealth : MonoBehaviour
             if (knockbackCoroutine != null) StopCoroutine(knockbackCoroutine);
             knockbackCoroutine = StartCoroutine(KnockbackRoutine(attacker, knockbackDistance, knockbackDuration, 0, 0));
 
-            if (currentHealth <= 0) Die();
+            if (!tutorialHealthLocked && currentHealth <= 0)
+                    Die();
             return; // Exit the function.
         }
 
@@ -583,7 +589,10 @@ public class ReaperHealth : MonoBehaviour
             return;
         }
         PlayHitReaction(hitType);
-        currentHealth -= damage;
+      
+
+        if (!tutorialHealthLocked)
+            currentHealth -= damage;
         SpawnBloodVFX();
         PlayRandomHitSound();
         Debug.Log(transform.name + " took " + damage + " damage. Health is now: " + currentHealth);
@@ -595,21 +604,22 @@ public class ReaperHealth : MonoBehaviour
             StopCoroutine(knockbackCoroutine);
         }
         knockbackCoroutine = StartCoroutine(KnockbackRoutine(attacker, knockbackDistance, knockbackDuration, 0f, 0f));
-        if (currentHealth <= 0)
-        {
+        if (!tutorialHealthLocked && currentHealth <= 0)
             Die();
-        }
     }
     public void TakeDamageCounter(int damage)
     {
-        currentHealth -= damage; // Fixed damage for counter hits.
+        bool tutorialHealthLocked = TutorialManager.Instance != null
+    && TutorialManager.Instance.InTutorialMode
+    && !TutorialManager.Instance.TutorialCombatUnlocked;
+
+        if (!tutorialHealthLocked)
+            currentHealth -= damage;// Fixed damage for counter hits.
         Debug.Log(transform.name + " took 10 damage from counter. Health is now: " + currentHealth);
         TriggerHealthUpdate();
         UpdateHealthUI();
-        if (currentHealth <= 0)
-        {
+        if (!tutorialHealthLocked && currentHealth <= 0)
             Die();
-        }
     }
     private void SpawnBloodVFX() // MODIFIED: No longer needs the 'attacker' parameter.
     {
@@ -1055,7 +1065,10 @@ public class ReaperHealth : MonoBehaviour
         float downward = attackData.downwardForce;
         Transform attacker = GameObject.FindGameObjectWithTag("Player").transform;
         if (attacker == null) return;
-
+        // ADD HERE:
+        bool tutorialHealthLocked = TutorialManager.Instance != null
+            && TutorialManager.Instance.InTutorialMode
+            && !TutorialManager.Instance.TutorialCombatUnlocked;
         Debug.Log($"<color=red>--- ATTACK DATA RECEIVED ---</color>\n" +
                   $"Damage: {damage}, HitType: {hitType}, Knockback: {distance}, Duration: {duration}");
 
@@ -1063,7 +1076,10 @@ public class ReaperHealth : MonoBehaviour
         if (isGuardBroken)
         {
             PlayHitReaction(hitType);
-            currentHealth -= damage;
+           
+
+            if (!tutorialHealthLocked)
+                currentHealth -= damage;
             TriggerHealthUpdate();
             SpawnBloodVFX();
             PlayRandomHitSound();
@@ -1071,7 +1087,8 @@ public class ReaperHealth : MonoBehaviour
             if (flashCoroutine != null) StopCoroutine(flashCoroutine);
             flashCoroutine = StartCoroutine(FlashDamageEffect());
             knockbackCoroutine = StartCoroutine(KnockbackRoutine(attacker, distance, duration, upward, downward));
-            if (currentHealth <= 0) Die();
+            if (!tutorialHealthLocked && currentHealth <= 0)
+                Die();
             return;
         }
         TriggerHealthUpdate();
@@ -1114,14 +1131,18 @@ public class ReaperHealth : MonoBehaviour
         }
 
         PlayHitReaction(hitType);
-        currentHealth -= damage;
+       
+
+        if (!tutorialHealthLocked)
+            currentHealth -= damage;
         SpawnBloodVFX();
         PlayRandomHitSound();
         SpawnWoundEffect();
         if (flashCoroutine != null) StopCoroutine(flashCoroutine);
         flashCoroutine = StartCoroutine(FlashDamageEffect());
         knockbackCoroutine = StartCoroutine(KnockbackRoutine(attacker, distance, duration, upward, downward));
-        if (currentHealth <= 0) Die();
+        if (!tutorialHealthLocked && currentHealth <= 0)
+            Die();
     }
     private void SetNewCounterThreshold()
     {
@@ -1154,7 +1175,18 @@ public class ReaperHealth : MonoBehaviour
         isUnbreakable = false;
         isBlocking = false;
         animator.SetBool(isWeakAndDamageableBoolHash, true);
-        yield return new WaitForSeconds(stunDuration);
+        if (TutorialManager.Instance != null && TutorialManager.Instance.InTutorialMode)
+        {
+            yield return new WaitForSeconds(stunDuration);
+            // Hold here until dash attack happens
+            while (!TutorialManager.Instance.HasPlayerDashAttacked)
+                yield return null;
+        }
+        else
+        {
+            yield return new WaitForSeconds(stunDuration);
+        }
+
 
         if (isFinishable)
         {
@@ -1219,7 +1251,9 @@ public class ReaperHealth : MonoBehaviour
     }
     public void TakeUpperAttack(AttackData attackData)
     {
-
+        bool tutorialHealthLocked = TutorialManager.Instance != null
+      && TutorialManager.Instance.InTutorialMode
+      && !TutorialManager.Instance.TutorialCombatUnlocked;
         // --- Master Shields (these are the same) ---
         if (isFinishable || isUnbreakable || isDying)
         {
@@ -1281,10 +1315,8 @@ public class ReaperHealth : MonoBehaviour
                 attackData.downwardForce
             ));
 
-            if (currentHealth <= 0)
-            {
+            if (!tutorialHealthLocked && currentHealth <= 0)
                 Die();
-            }
         }
         // --- END OF FIX ---
     }

@@ -290,7 +290,13 @@ public class ReaperAI : MonoBehaviour
         Debug.Log("<color=yellow>!!! SPECIAL ATTACK TRIGGERED !!!</color>");
 
         isPerformingSpecialAttack = true;
-
+        if (TutorialManager.Instance != null && TutorialManager.Instance.InTutorialMode
+      && !TutorialManager.Instance.HasPlayerLearnedParry)
+        {
+            ZreyMovements zm = FindObjectOfType<ZreyMovements>();
+            if (zm != null) zm.CanMove = true;
+            if (zm != null) zm.IsDashing();
+        }
         if (attack != null) attack.StartSpecialAttack();
         NotifyEarlyCounter();
 
@@ -300,8 +306,7 @@ public class ReaperAI : MonoBehaviour
 
         Debug.Log($"<color=cyan>Special attack duration: {specialAttackDuration}s</color>");
 
-        // Open counter window during the special attack
-        OpenCounterWindow();
+        
 
         bool tutorialSlowTimeTriggered = false;
         float timer = 0f;
@@ -315,21 +320,7 @@ public class ReaperAI : MonoBehaviour
             }
 
             // Only trigger slow time once, after window is open AND player is inside
-            if (!tutorialSlowTimeTriggered
-                && isCounterWindowOpen
-                && TutorialManager.Instance != null
-                && TutorialManager.Instance.InTutorialMode)
-            {
-                Collider2D playerCollider = Physics2D.OverlapBox(
-                    counterCheckPoint.position, counterCheckAreaSize, 0f, playerLayer);
-
-                if (playerCollider != null)
-                {
-                    tutorialSlowTimeTriggered = true;
-                    TutorialManager.Instance.TriggerCounterSlowTime();
-                    Debug.Log("<color=cyan>Tutorial: Player in counter box — triggering slow time.</color>");
-                }
-            }
+           
 
             timer += Time.deltaTime;
             yield return null;
@@ -467,7 +458,8 @@ public class ReaperAI : MonoBehaviour
     public void OpenCounterWindow()
     {
         isCounterWindowOpen = true;
-
+        if (TutorialManager.Instance != null && TutorialManager.Instance.InTutorialMode)
+            TutorialManager.Instance.TriggerCounterSlowTime();
         if (counterNotifyUI != null && counterNotifyAnimator != null)
         {
             // "ReadyInput" must exactly match your animation state name

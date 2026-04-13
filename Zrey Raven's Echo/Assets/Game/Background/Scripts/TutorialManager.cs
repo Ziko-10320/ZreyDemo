@@ -140,6 +140,11 @@ public class TutorialManager : MonoBehaviour
     [SerializeField] private float finisherDisplayTime = 3f;
     private bool hasShownFinisher = false;
     private Coroutine finisherCoroutine;
+
+    private bool hasPlayerDashAttacked = false;
+    public bool HasPlayerDashAttacked => hasPlayerDashAttacked;
+    public bool TutorialCombatUnlocked =>
+    hasPlayerLearnedParry && hasPlayerDashAttacked && hasPlayerLearnedCounter;
     void Awake()
     {
         if (skipHintCanvasGroup != null)
@@ -503,6 +508,7 @@ public class TutorialManager : MonoBehaviour
 
     public void OnPlayerPerformedDashAttack()
     {
+        hasPlayerDashAttacked = true;
         if (!InTutorialMode || !hasShownDashAttack) return;
         if (dashAttackCoroutine == null && Time.timeScale >= 1f) return;
 
