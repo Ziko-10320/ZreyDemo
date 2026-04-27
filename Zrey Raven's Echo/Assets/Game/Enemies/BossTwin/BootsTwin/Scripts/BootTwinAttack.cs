@@ -126,8 +126,35 @@ public class BootTwinAttack : MonoBehaviour
     [SerializeField] private float backflipCooldown = 5f;
     [SerializeField] private float backflipArcHeight = 4f;
     [SerializeField] private float backflipDuration = 1.2f;
+    [SerializeField] private float distanceNoBackFLip = 5f;
 
+    [Header("Rock Range Attack")]
+    [SerializeField] private Transform rockSpawnPoint;
+    [SerializeField] private GameObject smallRockPrefab;
+    [SerializeField] private GameObject midRockPrefab;
+    [SerializeField] private GameObject bigRockPrefab;
+    [SerializeField] private int smallRockDamage = 8;
+    [SerializeField] private int midRockDamage = 15;
+    [SerializeField] private int bigRockDamage = 25;
+     
+    [SerializeField] private ImpactData rockImpactData;
+    [SerializeField] private float rockAttackMinRange = 5f;
+    [Range(0f, 1f)]
+    [SerializeField] private float rockAttackChance = 0.4f;
+    [SerializeField] private float rockAttackCooldown = 4f;
 
+    [Header("Rock Aim & Spin")]
+    [SerializeField] private float smallRockAimOffsetY = 0.5f;
+    [SerializeField] private float midRockAimOffsetY = 0.8f;
+    [SerializeField] private float bigRockAimOffsetY = 1.2f;
+
+    [SerializeField] private float smallRockSpeed = 14f;
+    [SerializeField] private float midRockSpeed = 10f;
+    [SerializeField] private float bigRockSpeed = 7f;
+
+    [SerializeField] private float smallRockSpinSpeed = 720f;
+    [SerializeField] private float midRockSpinSpeed = 480f;
+    [SerializeField] private float bigRockSpinSpeed = 240f;
     // ─────────────────────────────────────────────
     //  PRIVATE STATE
     // ─────────────────────────────────────────────
@@ -189,6 +216,12 @@ public class BootTwinAttack : MonoBehaviour
     private static readonly int BackFallHash = Animator.StringToHash("BackFall");
     private static readonly int BackLandHash = Animator.StringToHash("BackLand");
 
+    private float rockAttackCooldownTimer = 0f;
+    private bool isRockAttacking = false;
+    
+
+    private static readonly int ThrowKickRocksHash = Animator.StringToHash("ThrowKickRocks");
+
     // ─────────────────────────────────────────────
     //  UNITY LIFECYCLE
     // ─────────────────────────────────────────────
@@ -236,7 +269,7 @@ public class BootTwinAttack : MonoBehaviour
         airLaunchCooldownTimer -= Time.deltaTime;
         jumpAttackCooldownTimer -= Time.deltaTime;
         backflipCooldownTimer -= Time.deltaTime;
-
+        rockAttackCooldownTimer -= Time.deltaTime;
 
         // Ground / fall / landing state machine
         bool grounded = IsGrounded();
@@ -270,6 +303,10 @@ public class BootTwinAttack : MonoBehaviour
             if (backflipCooldownTimer <= 0f && !isBackflipping && IsCornerBehindEnemy() && Random.value <= backflipChance)
             {
                 StartBackflip();
+            }
+            else if (rockAttackCooldownTimer <= 0f && !isRockAttacking && IsEnemyAtCorner() && IsPlayerFarEnoughForRocks() && Random.value <= rockAttackChance)
+            {
+                StartRockAttack();
             }
             else if (airLaunchReady && Random.value <= airLaunchChance)
             {
@@ -401,6 +438,19 @@ public class BootTwinAttack : MonoBehaviour
             transform.position.y + closeRangeBoxOffset.y
         );
         return Physics2D.OverlapBox(boxCenter, closeRangeBoxSize, 0f, playerLayer) != null;
+    }
+    private bool IsPlayerFarEnoughForRocks()
+    {
+        float xDist = Mathf.Abs(player.position.x - transform.position.x);
+        return xDist >= rockAttackMinRange;
+    }
+
+    private bool IsEnemyAtCorner()
+    {
+        if (cornerLeft == null || cornerRight == null) return false;
+        float distLeft = Mathf.Abs(transform.position.x - cornerLeft.position.x);
+        float distRight = Mathf.Abs(transform.position.x - cornerRight.position.x);
+        return distLeft < distanceNoBackFLip || distRight < distanceNoBackFLip;
     }
     private bool IsGrounded()
     {
@@ -744,6 +794,7 @@ public class BootTwinAttack : MonoBehaviour
         isAirKickDamageWindowOpen = false;
         isFalling = false;
         isBackflipping = false;
+        isRockAttacking = false;
 
         if (backflipCoroutine != null) { StopCoroutine(backflipCoroutine); backflipCoroutine = null; }
         if (launchCoroutine != null) { StopCoroutine(launchCoroutine); launchCoroutine = null; }
@@ -806,7 +857,7 @@ public class BootTwinAttack : MonoBehaviour
 
         // If already AT the corner, don't backflip
         float distToCorner = Mathf.Abs(transform.position.x - behindCorner.position.x);
-        if (distToCorner < 4f) return false; // ← tune this threshold in inspector if needed
+        if (distToCorner < distanceNoBackFLip) return false; // ← tune this threshold in inspector if needed
 
         // Check if there's a wall behind — if already pinned, don't backflip
         float behindDir = isFacingRight ? -1f : 1f;
@@ -901,6 +952,56 @@ public class BootTwinAttack : MonoBehaviour
     public void EVENT_BackflipFinished()
     {
         isBackflipping = false;
+        isAttacking = false;
+
+        if (player != null)
+        {
+            isFacingRight = player.position.x > transform.position.x;
+            SetFacing(isFacingRight);
+        }
+    }
+
+    private void StartRockAttack()
+    {
+        isAttacking = true;
+        isRockAttacking = true;
+        rockAttackCooldownTimer = rockAttackCooldown;
+
+         
+
+        animator.SetTrigger(ThrowKickRocksHash);
+    }
+
+    // Animation Event — call at exact frame for small rock
+    public void EVENT_SpawnSmallRock()
+    {
+        SpawnRock(smallRockPrefab, smallRockDamage, smallRockSpeed, smallRockAimOffsetY, smallRockSpinSpeed);
+    }
+
+    public void EVENT_SpawnMidRock()
+    {
+        SpawnRock(midRockPrefab, midRockDamage, midRockSpeed, midRockAimOffsetY, midRockSpinSpeed);
+    }
+
+    public void EVENT_SpawnBigRock()
+    {
+        SpawnRock(bigRockPrefab, bigRockDamage, bigRockSpeed, bigRockAimOffsetY, bigRockSpinSpeed);
+    }
+
+    private void SpawnRock(GameObject prefab, int damage, float speed, float aimOffsetY, float spinSpeed)
+    {
+        if (prefab == null || rockSpawnPoint == null) return;
+
+        GameObject rock = Instantiate(prefab, rockSpawnPoint.position, Quaternion.identity);
+        RockProjectile rp = rock.GetComponent<RockProjectile>();
+        if (rp != null)
+            rp.Init((Vector2)player.position, speed, damage, rockImpactData, playerLayer,
+                    aimOffsetY, spinSpeed, transform);
+    }
+    // Animation Event — place at END of ThrowKickRocks clip
+    public void EVENT_RockAttackFinished()
+    {
+        isRockAttacking = false;
         isAttacking = false;
 
         if (player != null)
@@ -1259,7 +1360,21 @@ public class BootTwinAttack : MonoBehaviour
             UnityEditor.Handles.Label(cornerRight.position + Vector3.up * 0.3f, "Corner R");
 #endif
         }
-
+        // ROCK ATTACK MIN RANGE LINE (orange-red)
+        Vector3 rockRangeLeft = new Vector3(pos.x - rockAttackMinRange, pos.y, pos.z);
+        Vector3 rockRangeRight = new Vector3(pos.x + rockAttackMinRange, pos.y, pos.z);
+        Gizmos.color = new Color(1f, 0.3f, 0f, 1f);
+        Gizmos.DrawLine(new Vector3(pos.x - rockAttackMinRange, pos.y - 1f, pos.z),
+                        new Vector3(pos.x - rockAttackMinRange, pos.y + 1f, pos.z));
+        Gizmos.DrawLine(new Vector3(pos.x + rockAttackMinRange, pos.y - 1f, pos.z),
+                        new Vector3(pos.x + rockAttackMinRange, pos.y + 1f, pos.z));
+#if UNITY_EDITOR
+        UnityEditor.Handles.color = new Color(1f, 0.3f, 0f, 1f);
+        UnityEditor.Handles.Label(
+            new Vector3(pos.x + rockAttackMinRange, pos.y + 1.2f, pos.z),
+            $"Rock Min Range: {rockAttackMinRange}m  chance:{rockAttackChance * 100f:0}%"
+        );
+#endif
     }
 
 

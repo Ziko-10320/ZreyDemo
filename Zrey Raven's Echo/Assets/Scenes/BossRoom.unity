@@ -5183,13 +5183,44 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 223867351}
   serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0.7098337, w: 0.70436937}
+  m_LocalRotation: {x: 0, y: 0, z: 0.7071068, w: 0.7071068}
   m_LocalPosition: {x: 34, y: 3.5000012, z: 0}
   m_LocalScale: {x: 121.04853, y: 13.262601, z: 2.5344}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: -90.443}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 90}
+--- !u!1 &232989214
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 232989215}
+  m_Layer: 8
+  m_Name: SpawnRocksPoint
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &232989215
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 232989214}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -1.04, y: -0.5, z: 0.11}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 2089702023}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &312619297
 GameObject:
   m_ObjectHideFlags: 0
@@ -6136,7 +6167,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8990848837076458346, guid: 901e76773e0373943b1ffb363577cd0b, type: 3}
       propertyPath: m_LocalPosition.y
-      value: -10.37
+      value: -10.3
       objectReference: {fileID: 0}
     - target: {fileID: 8990848837076458346, guid: 901e76773e0373943b1ffb363577cd0b, type: 3}
       propertyPath: m_LocalPosition.z
@@ -6716,13 +6747,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2092911620}
   serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0.7098337, w: 0.70436937}
+  m_LocalRotation: {x: 0, y: 0, z: 0.7071068, w: 0.7071068}
   m_LocalPosition: {x: -41.1, y: 3.5000012, z: 0}
   m_LocalScale: {x: 121.04853, y: 13.262601, z: 2.5344}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: -90.443}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 90}
 --- !u!1001 &2121171278
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -6934,7 +6965,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1564793766570273241, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -30.93
+      value: -31.4
       objectReference: {fileID: 0}
     - target: {fileID: 1564793766570273241, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
       propertyPath: m_LocalPosition.y
@@ -6982,7 +7013,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2713116273456232504, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
       propertyPath: m_IsActive
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 2964195751568711880, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
       propertyPath: m_GravityScale
@@ -6995,6 +7026,10 @@ PrefabInstance:
     - target: {fileID: 4474428025743037352, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
       propertyPath: m_Enabled
       value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 4474428025743037352, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
+      propertyPath: rockSpeed
+      value: 120
       objectReference: {fileID: 0}
     - target: {fileID: 4474428025743037352, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
       propertyPath: cornerLeft
@@ -7013,20 +7048,36 @@ PrefabInstance:
       value: 140
       objectReference: {fileID: 0}
     - target: {fileID: 4474428025743037352, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
+      propertyPath: bigRockSpeed
+      value: 150
+      objectReference: {fileID: 0}
+    - target: {fileID: 4474428025743037352, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
       propertyPath: launchChance
       value: 0.7
+      objectReference: {fileID: 0}
+    - target: {fileID: 4474428025743037352, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
+      propertyPath: midRockSpeed
+      value: 150
       objectReference: {fileID: 0}
     - target: {fileID: 4474428025743037352, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
       propertyPath: airKickDamage
       value: 25
       objectReference: {fileID: 0}
     - target: {fileID: 4474428025743037352, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
+      propertyPath: bigRockPrefab
+      value: 
+      objectReference: {fileID: 371402201051160064, guid: e8f3de48b58f31a4aa4e3a013dc8dc7d, type: 3}
+    - target: {fileID: 4474428025743037352, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
       propertyPath: comboCooldown
       value: 4
       objectReference: {fileID: 0}
     - target: {fileID: 4474428025743037352, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
+      propertyPath: midRockPrefab
+      value: 
+      objectReference: {fileID: 3808147991590945737, guid: b60b901af1bbe0f489747d110aab7fdf, type: 3}
+    - target: {fileID: 4474428025743037352, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
       propertyPath: backflipChance
-      value: 0.5
+      value: 0.082
       objectReference: {fileID: 0}
     - target: {fileID: 4474428025743037352, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
       propertyPath: closeDashSpeed
@@ -7034,11 +7085,23 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4474428025743037352, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
       propertyPath: launchCooldown
-      value: 5
+      value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: 4474428025743037352, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
+      propertyPath: rockImpactData
+      value: 
+      objectReference: {fileID: 11400000, guid: d5ceee1020fbaf247a2a7d8fba0a380c, type: 2}
+    - target: {fileID: 4474428025743037352, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
+      propertyPath: rockSpawnPoint
+      value: 
+      objectReference: {fileID: 232989215}
+    - target: {fileID: 4474428025743037352, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
+      propertyPath: smallRockSpeed
+      value: 150
       objectReference: {fileID: 0}
     - target: {fileID: 4474428025743037352, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
       propertyPath: airLaunchChance
-      value: 0.775
+      value: 0.869
       objectReference: {fileID: 0}
     - target: {fileID: 4474428025743037352, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
       propertyPath: airLaunchSpeedX
@@ -7049,6 +7112,10 @@ PrefabInstance:
       value: 90
       objectReference: {fileID: 0}
     - target: {fileID: 4474428025743037352, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
+      propertyPath: smallRockPrefab
+      value: 
+      objectReference: {fileID: 5676220526896293302, guid: ffd7212e724bace45b076a68b8e98111, type: 3}
+    - target: {fileID: 4474428025743037352, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
       propertyPath: airKickBoxSize.x
       value: 7.1
       objectReference: {fileID: 0}
@@ -7058,16 +7125,24 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4474428025743037352, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
       propertyPath: backflipCooldown
-      value: 9
+      value: 10
       objectReference: {fileID: 0}
     - target: {fileID: 4474428025743037352, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
       propertyPath: backflipDuration
       value: 0.6
       objectReference: {fileID: 0}
     - target: {fileID: 4474428025743037352, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
+      propertyPath: bigRockSpinSpeed
+      value: 360
+      objectReference: {fileID: 0}
+    - target: {fileID: 4474428025743037352, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
       propertyPath: groundCheckPoint
       value: 
       objectReference: {fileID: 626792076}
+    - target: {fileID: 4474428025743037352, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
+      propertyPath: rockAttackChance
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 4474428025743037352, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
       propertyPath: wallLayer.m_Bits
       value: 128
@@ -7079,6 +7154,10 @@ PrefabInstance:
     - target: {fileID: 4474428025743037352, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
       propertyPath: backflipArcHeight
       value: 9
+      objectReference: {fileID: 0}
+    - target: {fileID: 4474428025743037352, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
+      propertyPath: bigRockAimOffsetY
+      value: 3.39
       objectReference: {fileID: 0}
     - target: {fileID: 4474428025743037352, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
       propertyPath: cinematicZoomSize
@@ -7101,6 +7180,10 @@ PrefabInstance:
       value: 18.2
       objectReference: {fileID: 0}
     - target: {fileID: 4474428025743037352, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
+      propertyPath: midRockAimOffsetY
+      value: 2.37
+      objectReference: {fileID: 0}
+    - target: {fileID: 4474428025743037352, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
       propertyPath: wallCheckDistance
       value: 2.12
       objectReference: {fileID: 0}
@@ -7117,8 +7200,20 @@ PrefabInstance:
       value: 8
       objectReference: {fileID: 0}
     - target: {fileID: 4474428025743037352, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
+      propertyPath: distanceNoBackFLip
+      value: 18
+      objectReference: {fileID: 0}
+    - target: {fileID: 4474428025743037352, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
       propertyPath: groundLayer.m_Bits
       value: 64
+      objectReference: {fileID: 0}
+    - target: {fileID: 4474428025743037352, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
+      propertyPath: rockAttackCooldown
+      value: 7
+      objectReference: {fileID: 0}
+    - target: {fileID: 4474428025743037352, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
+      propertyPath: rockAttackMinRange
+      value: 61.1
       objectReference: {fileID: 0}
     - target: {fileID: 4474428025743037352, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
       propertyPath: cinematicFocusPoint
@@ -7147,6 +7242,10 @@ PrefabInstance:
     - target: {fileID: 4474428025743037352, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
       propertyPath: launchKickBoxSize.y
       value: 5.82
+      objectReference: {fileID: 0}
+    - target: {fileID: 4474428025743037352, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
+      propertyPath: smallRockAimOffsetY
+      value: 2.14
       objectReference: {fileID: 0}
     - target: {fileID: 4474428025743037352, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
       propertyPath: airLaunchMaxDuration
@@ -7260,6 +7359,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 4690270261998393664, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
       insertIndex: -1
       addedObject: {fileID: 626792076}
+    - targetCorrespondingSourceObject: {fileID: 4690270261998393664, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 232989215}
     - targetCorrespondingSourceObject: {fileID: 152528844071094582, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
       insertIndex: 1
       addedObject: {fileID: 116676913}
