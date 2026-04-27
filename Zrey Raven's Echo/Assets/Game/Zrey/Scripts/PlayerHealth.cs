@@ -57,6 +57,8 @@ public class PlayerHealth : MonoBehaviour
     private readonly int getHitDownTriggerHash = Animator.StringToHash("getHitDown");
     private readonly int getHitFinalBackTriggerHash = Animator.StringToHash("finalBack");
     private readonly int getHitFallTriggerHash = Animator.StringToHash("Hitfall");
+    private readonly int getHitUpwardTriggerHash = Animator.StringToHash("Upward");
+    private readonly int getHitDownwardTriggerHash = Animator.StringToHash("Downward");
     private readonly int deathTriggerHash = Animator.StringToHash("death");
     private ZreyMovements playerMovements;
 
@@ -605,6 +607,10 @@ public class PlayerHealth : MonoBehaviour
         animator.ResetTrigger(getHitBackTriggerHash);
         animator.ResetTrigger(getHitDownTriggerHash);
         animator.ResetTrigger(getHitFinalBackTriggerHash);
+        animator.ResetTrigger(getHitFallTriggerHash);
+        animator.ResetTrigger(getHitUpwardTriggerHash);
+        animator.ResetTrigger(getHitDownwardTriggerHash);
+            
 
         switch (hitType.ToLower())
         {
@@ -612,6 +618,8 @@ public class PlayerHealth : MonoBehaviour
             case "finalback": animator.SetTrigger(getHitFinalBackTriggerHash); break;
             case "back": animator.SetTrigger(getHitBackTriggerHash); break;
             case "fall": animator.SetTrigger(getHitFallTriggerHash); break;
+            case "upward": animator.SetTrigger(getHitUpwardTriggerHash); break;
+            case "downward": animator.SetTrigger(getHitDownwardTriggerHash); break;
         }
     }
 

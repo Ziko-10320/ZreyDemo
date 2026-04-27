@@ -12,8 +12,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cb14096b58bcea94da9448a86e05797e, type: 3}
   m_Name: UpwardHit
   m_EditorClassIdentifier: Assembly-CSharp::ImpactData
-  hitReactionType: back
-  knockbackDistance: 3
+  hitReactionType: upward
+  knockbackDistance: 5
   knockbackDuration: 0.2
+  parryKnockbackDistance: 5
+  parryKnockbackDuration: 0.15
   upwardForce: 50
   downwardForce: 0
