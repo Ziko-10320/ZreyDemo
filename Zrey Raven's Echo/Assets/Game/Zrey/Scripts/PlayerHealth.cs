@@ -743,6 +743,7 @@ public class PlayerHealth : MonoBehaviour
         if (rb != null) rb.linearVelocity = new Vector2(0, rb.linearVelocity.y);
 
         if (parryWindowCoroutine != null) StopCoroutine(parryWindowCoroutine);
+        isParryWindowActive = true;
         parryWindowCoroutine = StartCoroutine(ParryWindowCoroutine());
     }
 
@@ -757,7 +758,7 @@ public class PlayerHealth : MonoBehaviour
 
     private IEnumerator ParryWindowCoroutine()
     {
-        isParryWindowActive = true;
+        
         if (TutorialManager.Instance != null
            && TutorialManager.Instance.InTutorialMode
            && TutorialManager.Instance.IsTutorialParryWindowOpen)

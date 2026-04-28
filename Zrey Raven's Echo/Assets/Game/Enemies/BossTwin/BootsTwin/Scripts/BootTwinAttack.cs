@@ -300,17 +300,17 @@ public class BootTwinAttack : MonoBehaviour
             bool comboReady = cooldownTimer <= 0f && IsPlayerInCloseRange();
             bool closeDashReady = cooldownTimer <= 0f && IsPlayerInComboRange() && !IsPlayerInCloseRange() && IsGrounded();
 
-            if (backflipCooldownTimer <= 0f && !isBackflipping && IsCornerBehindEnemy() && Random.value <= backflipChance)
+            if (airLaunchReady && Random.value <= airLaunchChance)
+            {
+                StartAirLaunch();
+            }
+            else if (backflipCooldownTimer <= 0f && !isBackflipping && !isAttacking && !isAirLaunching && !isLaunching && IsCornerBehindEnemy() && Random.value <= backflipChance)
             {
                 StartBackflip();
             }
             else if (rockAttackCooldownTimer <= 0f && !isRockAttacking && IsEnemyAtCorner() && IsPlayerFarEnoughForRocks() && Random.value <= rockAttackChance)
             {
                 StartRockAttack();
-            }
-            else if (airLaunchReady && Random.value <= airLaunchChance)
-            {
-                StartAirLaunch();
             }
             else if (comboReady)
             {
@@ -324,7 +324,6 @@ public class BootTwinAttack : MonoBehaviour
             else if (launchReady)
             {
                 if (Random.value <= launchChance) StartAnticipationLaunch();
-                // no else — close dash not available, just wait for launch cooldown
             }
             else if (closeDashReady)
             {
@@ -737,8 +736,17 @@ public class BootTwinAttack : MonoBehaviour
         isAttacking = true;
         isCloseDashing = true;
         cooldownTimer = comboCooldown;
-        animator.SetTrigger(AnticipationDashHash); // ← play anticipation first
-                                                   // CloseDashCoroutine starts via animation event EVENT_BeginCloseDash
+        animator.SetTrigger(AnticipationDashHash); 
+        StartCoroutine(CloseDashWatchdog());
+    }
+    private IEnumerator CloseDashWatchdog()
+    {
+        yield return new WaitForSeconds(closeDashMaxDuration + 3f);
+        if (isCloseDashing)
+        {
+            Debug.LogWarning("[BootTwin] CloseDash WATCHDOG triggered — force resetting.");
+            ForceResetAttackState();
+        }
     }
 
     // Animation Event — place at END of AnticipationDash clip
@@ -756,13 +764,10 @@ public class BootTwinAttack : MonoBehaviour
 
         while (timer < closeDashMaxDuration)
         {
-            // Check if player is now in close range
             if (IsPlayerInCloseRange())
             {
-                StopCoroutine(closeDashCoroutine);
                 closeDashCoroutine = null;
                 animator.SetTrigger(StartComboKickHash);
-                // actual combo fires via EVENT_CloseDistanceKickFinished animation event
                 yield break;
             }
 
@@ -774,12 +779,14 @@ public class BootTwinAttack : MonoBehaviour
         // Timed out — recover cleanly
         isCloseDashing = false;
         isAttacking = false;
+        closeDashCoroutine = null;
     }
 
     // Animation Event — place at the END of StartComboKick animation
     public void EVENT_CloseDistanceKickFinished()
     {
         isCloseDashing = false;
+        isAttacking = false;
         // Immediately chain into normal combo
         StartNormalCombo();
     }
