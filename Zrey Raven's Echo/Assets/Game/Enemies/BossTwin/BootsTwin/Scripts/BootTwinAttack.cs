@@ -16,6 +16,9 @@ public class BootTwinAttack : MonoBehaviour
     [SerializeField] private Vector3 rightFacingScale = new Vector3(1, 1, 1);
     [SerializeField] private Vector3 leftFacingScale = new Vector3(1, -1, 1);
 
+    [Header("Flip With Enemy")]
+    [SerializeField] private GameObject[] flipWithEnemy;
+
     [Header("Attack Detection")]
     [Tooltip("Centre of the attack box in LOCAL space (relative to this transform).")]
     [SerializeField] private Vector2 attackBoxOffset = new Vector2(1.2f, 0f);
@@ -136,8 +139,10 @@ public class BootTwinAttack : MonoBehaviour
     [SerializeField] private int smallRockDamage = 8;
     [SerializeField] private int midRockDamage = 15;
     [SerializeField] private int bigRockDamage = 25;
-     
-    [SerializeField] private ImpactData rockImpactData;
+
+    [SerializeField] private ImpactData smallRockImpactData;
+    [SerializeField] private ImpactData midRockImpactData;
+    [SerializeField] private ImpactData bigRockImpactData;
     [SerializeField] private float rockAttackMinRange = 5f;
     [Range(0f, 1f)]
     [SerializeField] private float rockAttackChance = 0.4f;
@@ -155,6 +160,7 @@ public class BootTwinAttack : MonoBehaviour
     [SerializeField] private float smallRockSpinSpeed = 720f;
     [SerializeField] private float midRockSpinSpeed = 480f;
     [SerializeField] private float bigRockSpinSpeed = 240f;
+
     // ─────────────────────────────────────────────
     //  PRIVATE STATE
     // ─────────────────────────────────────────────
@@ -394,7 +400,7 @@ public class BootTwinAttack : MonoBehaviour
     // ─────────────────────────────────────────────
     //  FACING
     // ─────────────────────────────────────────────
-    private void FacePlayer()
+    public void FacePlayer()
     {
         if (isFlipLocked) return;
 
@@ -410,8 +416,29 @@ public class BootTwinAttack : MonoBehaviour
         // ✅ localEulerAngles instead of eulerAngles
         transform.localEulerAngles = facingRight ? rightFacingRotation : leftFacingRotation;
         transform.localScale = facingRight ? rightFacingScale : leftFacingScale;
+        foreach (GameObject go in flipWithEnemy)
+        {
+            if (go == null) continue;
+            ParticleSystem ps = go.GetComponentInChildren<ParticleSystem>(true);
+            if (ps != null)
+            {
+                var main = ps.main;
+                main.startRotation = facingRight ? -90f * Mathf.Deg2Rad : 90f * Mathf.Deg2Rad;
+            }
+            else
+            {
+                // fallback for non-particle objects
+                Vector3 euler = go.transform.localEulerAngles;
+                euler.y = facingRight ? 0f : 180f;
+                go.transform.localEulerAngles = euler;
+            }
+        }
     }
-
+    public bool IsFacingRight()
+    {
+        
+        return isFacingRight;
+    }
     // ─────────────────────────────────────────────
     //  RANGE CHECK
     // ─────────────────────────────────────────────
@@ -465,13 +492,11 @@ public class BootTwinAttack : MonoBehaviour
         cooldownTimer = comboCooldown;
         animator.SetTrigger(NormalComboHash);
     }
+    public bool IsAttacking()
+    {
+        return isAttacking;
+    }
 
-    // ─────────────────────────────────────────────
-    //  ANIMATION EVENT — call this on the damage frame
-    //  in the NormalCombo animation clip
-    // ─────────────────────────────────────────────
-    // Field
-  
 
     // Called by Animation Event — drag any ImpactData asset in the event slot
     public void SetImpactType(ImpactData impactData)
@@ -982,27 +1007,27 @@ public class BootTwinAttack : MonoBehaviour
     // Animation Event — call at exact frame for small rock
     public void EVENT_SpawnSmallRock()
     {
-        SpawnRock(smallRockPrefab, smallRockDamage, smallRockSpeed, smallRockAimOffsetY, smallRockSpinSpeed);
+        SpawnRock(smallRockPrefab, smallRockDamage, smallRockSpeed, smallRockAimOffsetY, smallRockSpinSpeed, smallRockImpactData);
     }
 
     public void EVENT_SpawnMidRock()
     {
-        SpawnRock(midRockPrefab, midRockDamage, midRockSpeed, midRockAimOffsetY, midRockSpinSpeed);
+        SpawnRock(midRockPrefab, midRockDamage, midRockSpeed, midRockAimOffsetY, midRockSpinSpeed, midRockImpactData);
     }
 
     public void EVENT_SpawnBigRock()
     {
-        SpawnRock(bigRockPrefab, bigRockDamage, bigRockSpeed, bigRockAimOffsetY, bigRockSpinSpeed);
+        SpawnRock(bigRockPrefab, bigRockDamage, bigRockSpeed, bigRockAimOffsetY, bigRockSpinSpeed, bigRockImpactData);
     }
 
-    private void SpawnRock(GameObject prefab, int damage, float speed, float aimOffsetY, float spinSpeed)
+    private void SpawnRock(GameObject prefab, int damage, float speed, float aimOffsetY, float spinSpeed, ImpactData impactData)
     {
         if (prefab == null || rockSpawnPoint == null) return;
 
         GameObject rock = Instantiate(prefab, rockSpawnPoint.position, Quaternion.identity);
         RockProjectile rp = rock.GetComponent<RockProjectile>();
         if (rp != null)
-            rp.Init((Vector2)player.position, speed, damage, rockImpactData, playerLayer,
+            rp.Init((Vector2)player.position, speed, damage, impactData, playerLayer,
                     aimOffsetY, spinSpeed, transform);
     }
     // Animation Event — place at END of ThrowKickRocks clip

@@ -22,4 +22,8 @@ public class ImpactData : ScriptableObject
     public float upwardForce = 0f;
     [Tooltip("The downward force to apply (for slams). Overrides horizontal knockback if > 0.")]
     public float downwardForce = 0f;
+
+    [Header("Parry Animation Override")]
+    [Tooltip("If true, plays ParryLong instead of the normal parry animations.")]
+    public bool isParryLong = false;
 }

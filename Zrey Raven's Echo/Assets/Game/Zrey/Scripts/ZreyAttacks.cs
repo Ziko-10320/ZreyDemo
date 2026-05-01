@@ -847,6 +847,14 @@ public class ZreyAttacks : MonoBehaviour
                 ReaperHealth.TakeUpperAttack(upperAttackData);
                 break; // Hit one enemy and stop.
             }
+            BootTwinHealth BootTwinHealth = enemy.GetComponent<BootTwinHealth>();
+            if (BootTwinHealth != null)
+            {
+                // Call the new, specialized method.
+                BootTwinHealth.TakeUpperAttack(upperAttackData);
+                break; // Hit one enemy and stop.
+            }
+           
         }
       
     }
@@ -1109,6 +1117,24 @@ public class ZreyAttacks : MonoBehaviour
 
                 break;
             }
+            ReaperHealth ReaperHealth = enemy.GetComponent<ReaperHealth>();
+            if (ReaperHealth != null)
+            {
+
+                ReaperHealth.TriggerStun(guardCrushStunDuration);
+
+                break;
+            }
+            
+           BootTwinHealth BootTwinHealth = enemy.GetComponent<BootTwinHealth>();
+            if (BootTwinHealth != null)
+            {
+
+                BootTwinHealth.TriggerStun(guardCrushStunDuration);
+
+                break;
+            }
+            
         }
     }
     public void EndAttack()
@@ -1221,6 +1247,17 @@ public class ZreyAttacks : MonoBehaviour
                 if (playerHealth != null && !wasBlocking) playerHealth.HealFromLifeSteal(attackData.damage);
                 break;
             }
+            BootTwinHealth BootTwinHealth = enemy.GetComponent<BootTwinHealth>();
+            if (BootTwinHealth != null)
+            {
+                bool wasBlocking = BootTwinHealth.isBlocking;
+                BootTwinHealth.ApplyDamageAndKnockback(attackData);
+                if (playerHealth != null && !wasBlocking) playerHealth.HealFromLifeSteal(attackData.damage);
+                break;
+                if (playerHealth != null && !wasBlocking) playerHealth.HealFromLifeSteal(attackData.damage);
+                break;
+            }
+          
         }
     }
     private IEnumerator ComboResetRoutine()
@@ -1319,6 +1356,12 @@ public class ZreyAttacks : MonoBehaviour
             {
                 // Tell the AI BRAIN that we are starting an attack.
                 ReaperAi.OnPlayerAttackTelegraphed(this.transform);
+            }
+            BootTwinHealth BootTwinHealth = enemy.GetComponent<BootTwinHealth>();
+            if (BootTwinHealth != null)
+            {
+                // Tell the AI BRAIN that we are starting an attack.
+                BootTwinHealth.OnPlayerAttackTelegraphed(this.transform);
             }
         }
     }

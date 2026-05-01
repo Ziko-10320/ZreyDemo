@@ -117,6 +117,10 @@ public class PlayerHealth : MonoBehaviour
     [SerializeField] private AudioClip[] parryClips;
     [SerializeField] private AudioClip[] bloodHitClips;
     [SerializeField] private Vector2 blockStartPitchRange = new Vector2(0.9f, 1.1f);
+
+    private readonly int parry3TriggerHash = Animator.StringToHash("parry3");
+    private readonly int parryLongTriggerHash = Animator.StringToHash("ParryLong");
+    private int lastParryIndex = -1;
     void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
@@ -260,8 +264,7 @@ public class PlayerHealth : MonoBehaviour
             isBlocking = false;
             if (TutorialManager.Instance != null)
                 TutorialManager.Instance.OnPlayerParriedSuccessfully();
-            int parryAnim = Random.Range(0, 2);
-            animator.SetTrigger(parryAnim == 0 ? parry1TriggerHash : parry2TriggerHash);
+            TriggerParryAnimation(impact);
 
             if (parryVFX != null) Instantiate(parryVFX, defenseVFXSpawnPoint.position, Quaternion.identity);
             PlayRandomDefenseSound(parryClips);
@@ -329,6 +332,17 @@ public class PlayerHealth : MonoBehaviour
                     RHealth.GetParried(transform);
                 }
                 else Debug.Log("<color=yellow>Parried a normal attack. Knight is knocked back but not stunned.</color>");
+            }
+
+            BootTwinAttack BootTwinAttack = attacker.GetComponent<BootTwinAttack>();
+            BootTwinHealth BootTwinHealth = attacker.GetComponent<BootTwinHealth>();
+            if (BootTwinHealth != null)
+            {
+                BootTwinHealth.TakePostureDamageOnParry();
+                
+                  BootTwinHealth.GetParried(transform);
+                 
+               
             }
             return;
         }
@@ -647,8 +661,7 @@ public class PlayerHealth : MonoBehaviour
     {
         yield return null; // One frame for stopBlock to register in Animator
 
-        int parryAnim = Random.Range(0, 2);
-        animator.SetTrigger(parryAnim == 0 ? parry1TriggerHash : parry2TriggerHash);
+        TriggerParryAnimation(impact);
 
         if (parryVFX != null) Instantiate(parryVFX, defenseVFXSpawnPoint.position, Quaternion.identity);
         PlayRandomDefenseSound(parryClips);
@@ -772,7 +785,25 @@ public class PlayerHealth : MonoBehaviour
 
         isParryWindowActive = false;
     }
+    private void TriggerParryAnimation(ImpactData impact)
+    {
+        if (impact != null && impact.isParryLong)
+        {
+            animator.SetTrigger(parryLongTriggerHash);
+            lastParryIndex = -1; // reset so next normal parry is fully random
+            return;
+        }
 
+        // Pick randomly but never the same index twice in a row
+        int index;
+        do { index = Random.Range(0, 3); } // 0=parry1, 1=parry2, 2=parry3
+        while (index == lastParryIndex);
+        lastParryIndex = index;
+
+        if (index == 0) animator.SetTrigger(parry1TriggerHash);
+        else if (index == 1) animator.SetTrigger(parry2TriggerHash);
+        else animator.SetTrigger(parry3TriggerHash);
+    }
     public void GetGrabbedByEnemy(Vector3 targetPosition, Transform enemyTransform)
     {
         Debug.LogError("--- PLAYER HAS BEEN GRABBED! LOSING CONTROL. ---");
