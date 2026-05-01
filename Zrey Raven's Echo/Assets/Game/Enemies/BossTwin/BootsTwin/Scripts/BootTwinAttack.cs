@@ -496,7 +496,18 @@ public class BootTwinAttack : MonoBehaviour
     {
         return isAttacking;
     }
-
+    public bool IsLaunching()
+    {
+        return isLaunching;
+    }
+    public bool IsAirLaunching()
+    {
+        return isAirLaunching;
+    }
+    public bool IsThrowingRocks()
+    {
+        return isRockAttacking;
+    }
 
     // Called by Animation Event — drag any ImpactData asset in the event slot
     public void SetImpactType(ImpactData impactData)

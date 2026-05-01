@@ -1059,7 +1059,7 @@ public class BootTwinHealth : MonoBehaviour
             Debug.Log("Damage ignored: Knight is already defeated.");
             return;
         }
-        if (followAI != null && followAI.IsAttacking())
+        if (followAI != null && followAI.IsAttacking() && followAI.IsLaunching() && followAI.IsAirLaunching() && followAI.IsThrowingRocks())
         {
             // 2. If YES, do NOTHING. The knight is invincible during his combo.
             Debug.Log("<color=red>KNIGHT IS INVINCIBLE (mid-combo)! Damage ignored.</color>");
