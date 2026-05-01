@@ -455,6 +455,7 @@ public class PlayerHealth : MonoBehaviour
 
     public void TakeHazardDamage(int damageAmount)
     {
+        IsInvincible = false;
         if (IsInvincible) { Debug.Log("Damage ignored: Player is invincible."); return; }
         if (currentHealth <= 0) return;
 

@@ -284,6 +284,7 @@ public class HazardController : MonoBehaviour
     }
     private void OnTriggerEnter2D(Collider2D other)
     {
+        Debug.Log($"Hazard triggered by: {other.name} | tag: {other.tag}");
         // --- THIS IS THE FIX ---
         // If this is a "Brain Only" component, we check for proximity, but then we STOP.
         // We do not proceed to the damage logic.
