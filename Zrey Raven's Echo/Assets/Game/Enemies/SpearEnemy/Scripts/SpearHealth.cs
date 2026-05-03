@@ -1204,59 +1204,20 @@ public class SpearHealth : MonoBehaviour
     }
     public void TakeUpperAttack(AttackData attackData)
     {
-       
-        // --- Master Shields (these are the same) ---
-        if (isFinishable || isUnbreakable || isDying )
+        if (isFinishable || isUnbreakable || isDying) return;
+
+        Transform attacker = playerTarget;
+
+        // If guard is already broken — just launch him, no block check needed
+        if (isGuardBroken)
         {
-            return;
-        }
-
-        Transform attacker = playerTarget; // We know the attacker is the player.
-
-        // --- THIS IS THE FINAL, GUARANTEED FIX ---
-        // THE CORE LOGIC: Was the enemy blocking?
-        if (isBlocking)
-        {
-            TriggerPostureUpdate();
-            // --- CASE 1: ENEMY WAS BLOCKING ---
-            Debug.LogWarning("--- Upper Attack BLOCKED! Applying Guard Damage. ---");
-
-            // 1. Do NOT apply the upward force. The enemy is grounded.
-            // 2. Apply the special guard damage from the AttackData.
-            currentGuard -= attackData.guardDamage;
-            timeSinceLastBlock = 0f; // Reset the guard recovery timer.
-
-            // 3. Play a heavy block recoil animation and sound.
-            //    (You can create a new trigger for a "heavy block" if you want)
-            animator.SetTrigger(block3TriggerHash); // Using block3 as an example for a heavy hit.
-            CameraShakerHandler.Shake(CameraShakeParry); // Use a heavy shake.
-
-            // 4. Apply a small recoil knockback to the enemy.
-            if (knockbackCoroutine != null) StopCoroutine(knockbackCoroutine);
-            knockbackCoroutine = StartCoroutine(KnockbackRoutine(attacker, blockRecoilDistance, blockRecoilDuration, 0, 0));
-
-            // 5. Check if this attack broke their guard.
-            if (currentGuard <= 0)
-            {
-                StartCoroutine(GuardBrokenSequence());
-            }
-        }
-        else
-        {
-            TriggerHealthUpdate();
-            // --- CASE 2: ENEMY WAS NOT BLOCKING ---
-            Debug.Log("<color=yellow>--- Upper Attack LANDED! Launching enemy. ---</color>");
-
-            // This logic is the same as a normal hit, but we are guaranteed
-            // to use the AttackData that contains the upwardForce.
-            PlayHitReaction(attackData.hitType); // This will be "Up"
+            PlayHitReaction(attackData.hitType);
             currentHealth -= attackData.damage;
             SpawnBloodVFX();
             PlayRandomHitSound();
             if (flashCoroutine != null) StopCoroutine(flashCoroutine);
             flashCoroutine = StartCoroutine(FlashDamageEffect());
-
-            // Apply the knockback, which now includes the upward force.
+            TriggerHealthUpdate();
             if (knockbackCoroutine != null) StopCoroutine(knockbackCoroutine);
             knockbackCoroutine = StartCoroutine(KnockbackRoutine(
                 attacker,
@@ -1265,13 +1226,42 @@ public class SpearHealth : MonoBehaviour
                 attackData.upwardForce,
                 attackData.downwardForce
             ));
-
-            if (currentHealth <= 0)
-            {
-                Die();
-            }
+            if (currentHealth <= 0) Die();
+            return;
         }
-        // --- END OF FIX ---
+
+        if (isBlocking)
+        {
+            TriggerPostureUpdate();
+            Debug.LogWarning("--- Upper Attack BLOCKED! Applying Guard Damage. ---");
+            currentGuard -= attackData.guardDamage;
+            timeSinceLastBlock = 0f;
+            animator.SetTrigger(block2TriggerHash);
+            CameraShakerHandler.Shake(CameraShakeParry);
+            if (knockbackCoroutine != null) StopCoroutine(knockbackCoroutine);
+            knockbackCoroutine = StartCoroutine(KnockbackRoutine(attacker, blockRecoilDistance, blockRecoilDuration, 0, 0));
+            if (currentGuard <= 0) StartCoroutine(GuardBrokenSequence());
+        }
+        else
+        {
+            Debug.Log("<color=yellow>--- Upper Attack LANDED! Launching enemy. ---</color>");
+            PlayHitReaction(attackData.hitType);
+            currentHealth -= attackData.damage;
+            SpawnBloodVFX();
+            PlayRandomHitSound();
+            if (flashCoroutine != null) StopCoroutine(flashCoroutine);
+            flashCoroutine = StartCoroutine(FlashDamageEffect());
+            TriggerPostureUpdate();
+            if (knockbackCoroutine != null) StopCoroutine(knockbackCoroutine);
+            knockbackCoroutine = StartCoroutine(KnockbackRoutine(
+                attacker,
+                attackData.knockbackDistance,
+                attackData.knockbackDuration,
+                attackData.upwardForce,
+                attackData.downwardForce
+            ));
+            if (currentHealth <= 0) Die();
+        }
     }
     public bool IsStunned()
     {

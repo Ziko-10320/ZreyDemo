@@ -161,6 +161,15 @@ public class BootTwinAttack : MonoBehaviour
     [SerializeField] private float midRockSpinSpeed = 480f;
     [SerializeField] private float bigRockSpinSpeed = 240f;
 
+    [Header("Special Aim Down Attack")]
+    [SerializeField] private float specialAttackChance = 0.4f;
+    [SerializeField] private float specialAttackCooldown = 8f;
+    [SerializeField] private float specialJumpHeight = 10f;
+    [SerializeField] private float specialJumpSpeed = 15f;
+    [SerializeField] private float specialFollowSpeedX = 8f;
+    [SerializeField] private float specialDownKickSpeed = 20f;
+    [SerializeField] private Rigidbody2D rb;
+
     // ─────────────────────────────────────────────
     //  PRIVATE STATE
     // ─────────────────────────────────────────────
@@ -227,7 +236,19 @@ public class BootTwinAttack : MonoBehaviour
     
 
     private static readonly int ThrowKickRocksHash = Animator.StringToHash("ThrowKickRocks");
+    private BootTwinHealth health;
 
+    private static readonly int AnticipationJumpSpecialHash = Animator.StringToHash("AnticipationJumpSpecial");
+    private static readonly int JumpSpecialHash = Animator.StringToHash("JumpSpecial");
+    private static readonly int SpecialAimDownHash = Animator.StringToHash("SpecialAimDown");
+    private static readonly int SpecialDownKickHash = Animator.StringToHash("SpecialDownKick");
+    private static readonly int ConcasseImpactHash = Animator.StringToHash("ConcasseImpact");
+
+    private bool isSpecialAttacking = false;
+    private float specialAttackCooldownTimer = 0f;
+    private bool isFollowingPlayerX = false;
+    private bool isDownKicking = false;
+    private Coroutine specialAttackCoroutine;
     // ─────────────────────────────────────────────
     //  UNITY LIFECYCLE
     // ─────────────────────────────────────────────
@@ -244,6 +265,8 @@ public class BootTwinAttack : MonoBehaviour
         mainCam = Camera.main;
         defaultCamSize = mainCam.orthographicSize;
         defaultCamPos = mainCam.transform.position;
+        rb = GetComponent<Rigidbody2D>();
+        health = GetComponent<BootTwinHealth>();
     }
 
     // ✅ ADD this whole method
@@ -258,7 +281,11 @@ public class BootTwinAttack : MonoBehaviour
     }
     private void Update()
     {
-        if (player == null) return;
+        if (player == null) return; 
+        if (health != null && health.isGuardBroken && isAttacking)
+        {
+            ForceResetAttackState();
+        }
         if (isCinematicActive && mainCam != null && cinematicFocusPoint != null)
         {
             Vector3 follow = cinematicFocusPoint.position;
@@ -276,6 +303,21 @@ public class BootTwinAttack : MonoBehaviour
         jumpAttackCooldownTimer -= Time.deltaTime;
         backflipCooldownTimer -= Time.deltaTime;
         rockAttackCooldownTimer -= Time.deltaTime;
+        specialAttackCooldownTimer -= Time.deltaTime;
+
+        if (isFollowingPlayerX && player != null)
+        {
+            float targetX = player.position.x;
+            float newX = Mathf.Lerp(transform.position.x, targetX, specialFollowSpeedX * Time.deltaTime);
+            transform.position = new Vector3(newX, transform.position.y, transform.position.z);
+        }
+        if (isDownKicking && IsGrounded())
+        {
+            isDownKicking = false;
+            if (rb != null) rb.linearVelocity = Vector2.zero;
+            animator.SetTrigger(ConcasseImpactHash);
+            
+        }
 
         // Ground / fall / landing state machine
         bool grounded = IsGrounded();
@@ -293,7 +335,7 @@ public class BootTwinAttack : MonoBehaviour
         }
         wasGrounded = grounded;
 
-        if (!isAttacking && !isLaunching && !isAirLaunching)
+        if (!isAttacking && !isLaunching && !isAirLaunching && (health == null || !health.isGuardBroken))
         {
             bool playerInLaunchBox = IsPlayerInLaunchRangeBox();
             float yDist = Mathf.Abs(player.position.y - transform.position.y);
@@ -306,7 +348,11 @@ public class BootTwinAttack : MonoBehaviour
             bool comboReady = cooldownTimer <= 0f && IsPlayerInCloseRange();
             bool closeDashReady = cooldownTimer <= 0f && IsPlayerInComboRange() && !IsPlayerInCloseRange() && IsGrounded();
 
-            if (airLaunchReady && Random.value <= airLaunchChance)
+            if (specialAttackCooldownTimer <= 0f && !isSpecialAttacking && IsGrounded() && Random.value <= specialAttackChance)
+            {
+                StartSpecialAimDownAttack();
+            }
+            else if (airLaunchReady && Random.value <= airLaunchChance)
             {
                 StartAirLaunch();
             }
@@ -838,11 +884,16 @@ public class BootTwinAttack : MonoBehaviour
         isFalling = false;
         isBackflipping = false;
         isRockAttacking = false;
+        isSpecialAttacking = false;
+        isFollowingPlayerX = false;
+        isDownKicking = false;
 
         if (backflipCoroutine != null) { StopCoroutine(backflipCoroutine); backflipCoroutine = null; }
         if (launchCoroutine != null) { StopCoroutine(launchCoroutine); launchCoroutine = null; }
         if (airLaunchCoroutine != null) { StopCoroutine(airLaunchCoroutine); airLaunchCoroutine = null; }
         if (closeDashCoroutine != null) { StopCoroutine(closeDashCoroutine); closeDashCoroutine = null; }
+        if (rb != null) rb.gravityScale = 1f;
+        if (specialAttackCoroutine != null) { StopCoroutine(specialAttackCoroutine); specialAttackCoroutine = null; }
 
         if (player != null)
         {
@@ -953,7 +1004,6 @@ public class BootTwinAttack : MonoBehaviour
     {
         Vector3 startPos = transform.position;
         float timer = 0f;
-        bool peakReached = false;
         bool fallTriggered = false;
 
         while (timer < backflipDuration)
@@ -1052,6 +1102,106 @@ public class BootTwinAttack : MonoBehaviour
             isFacingRight = player.position.x > transform.position.x;
             SetFacing(isFacingRight);
         }
+    }
+
+    private void StartSpecialAimDownAttack()
+{
+    isAttacking = true;
+    isSpecialAttacking = true;
+    specialAttackCooldownTimer = specialAttackCooldown;
+    animator.SetTrigger(AnticipationJumpSpecialHash);
+     
+}
+
+// Animation Event — place at END of AnticipationJumpSpecial clip
+public void EVENT_BeginJumpSpecial()
+{
+    if (specialAttackCoroutine != null) StopCoroutine(specialAttackCoroutine);
+    specialAttackCoroutine = StartCoroutine(JumpSpecialCoroutine());
+}
+
+private IEnumerator JumpSpecialCoroutine()
+{
+    animator.SetTrigger(JumpSpecialHash);
+    
+
+    // Disable gravity and launch upward
+    if (rb != null)
+    {
+        rb.gravityScale = 0f;
+        rb.linearVelocity = Vector2.zero;
+    }
+
+    float startY = transform.position.y;
+    float targetY = startY + specialJumpHeight;
+
+    // Move upward until target height reached
+    while (transform.position.y < targetY)
+    {
+        transform.position += new Vector3(0f, specialJumpSpeed * Time.deltaTime, 0f);
+        yield return null;
+    }
+
+    // Freeze at peak — gravity stays off
+    transform.position = new Vector3(transform.position.x, targetY, transform.position.z);
+    if (rb != null) rb.linearVelocity = Vector2.zero;
+
+    // JumpSpecial animation plays — wait for EVENT_BeginAimDown via animation event
+    // Do nothing here, coroutine ends
+    specialAttackCoroutine = null;
+}
+
+// Animation Event — place at END of JumpSpecial clip
+public void EVENT_BeginAimDown()
+{
+    isFollowingPlayerX = true;
+    animator.SetTrigger(SpecialAimDownHash);
+   
+}
+
+// Animation Event — place at the frame inside SpecialAimDown where you want to STOP following
+public void EVENT_StopFollowingPlayer()
+{
+    isFollowingPlayerX = false;
+    // Lock X completely
+    if (rb != null) rb.linearVelocity = new Vector2(0f, rb.linearVelocity.y);
+}
+
+// Animation Event — place at END of SpecialAimDown clip
+public void EVENT_BeginDownKick()
+{
+    animator.SetTrigger(SpecialDownKickHash);
+    
+    isDownKicking = true;
+
+    // Re-enable gravity and push downward
+    if (rb != null)
+    {
+        rb.gravityScale = 1f;
+        rb.linearVelocity = new Vector2(0f, -specialDownKickSpeed);
+    }
+}
+
+// Animation Event — place at END of ConcasseImpact clip
+public void EVENT_SpecialAttackFinished()
+{
+    isSpecialAttacking = false;
+    isAttacking = false;
+    isFollowingPlayerX = false;
+    isDownKicking = false;
+
+    if (rb != null) rb.gravityScale = 1f;
+
+    if (player != null)
+    {
+        isFacingRight = player.position.x > transform.position.x;
+        SetFacing(isFacingRight);
+    }
+}
+
+    public bool IsSpecialAttacking()
+    {
+        return isSpecialAttacking;
     }
     public void LockFlip()
     {

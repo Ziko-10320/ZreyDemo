@@ -95,7 +95,7 @@ public class BootTwinHealth : MonoBehaviour
     [SerializeField] private float guardDamageOnParried = 50f;
 
     private float currentGuard;
-    private bool isGuardBroken = false;
+    public bool isGuardBroken = false;
     [HideInInspector] public float timeSinceLastBlock = 0f;
 
     // --- New Animation Hash ---
@@ -189,6 +189,8 @@ public class BootTwinHealth : MonoBehaviour
     [Header("Transition Lock")]
     [SerializeField] private string[] protectedTriggers; // fill in inspector with all your Any State trigger names
     private bool isTransitionLocked = false;
+
+    private Coroutine stunSequenceCoroutine;
     void Awake()
     {
         currentHealth = maxHealth;
@@ -561,57 +563,20 @@ public class BootTwinHealth : MonoBehaviour
     }
     public void TakeUpperAttack(AttackData attackData)
     {
-        if (isFinishable || isUnbreakable || isDying)
+        if (isFinishable || isUnbreakable || isDying) return;
+
+        Transform attacker = playerTarget;
+
+        // If guard is already broken — just launch him, no block check needed
+        if (isGuardBroken)
         {
-            return;
-        }
-
-
-        Transform attacker = playerTarget; // We know the attacker is the player.
-
-        // --- THIS IS THE FINAL, GUARANTEED FIX ---
-        // THE CORE LOGIC: Was the enemy blocking?
-        if (isBlocking)
-        {
-            TriggerPostureUpdate();
-            // --- CASE 1: ENEMY WAS BLOCKING ---
-            Debug.LogWarning("--- Upper Attack BLOCKED! Applying Guard Damage. ---");
-
-            // 1. Do NOT apply the upward force. The enemy is grounded.
-            // 2. Apply the special guard damage from the AttackData.
-            currentGuard -= attackData.guardDamage;
-            timeSinceLastBlock = 0f; // Reset the guard recovery timer.
-
-            // 3. Play a heavy block recoil animation and sound.
-            //    (You can create a new trigger for a "heavy block" if you want)
-            animator.SetTrigger(block2TriggerHash); // Using block3 as an example for a heavy hit.
-            CameraShakerHandler.Shake(CameraShakeParry); // Use a heavy shake.
-
-            // 4. Apply a small recoil knockback to the enemy.
-            if (knockbackCoroutine != null) StopCoroutine(knockbackCoroutine);
-            knockbackCoroutine = StartCoroutine(KnockbackRoutine(attacker, blockRecoilDistance, blockRecoilDuration, 0, 0));
-
-            // 5. Check if this attack broke their guard.
-            if (currentGuard <= 0)
-            {
-                StartCoroutine(GuardBrokenSequence());
-            }
-        }
-        else
-        {
-            // --- CASE 2: ENEMY WAS NOT BLOCKING ---
-            Debug.Log("<color=yellow>--- Upper Attack LANDED! Launching enemy. ---</color>");
-
-            // This logic is the same as a normal hit, but we are guaranteed
-            // to use the AttackData that contains the upwardForce.
-            PlayHitReaction(attackData.hitType); // This will be "Up"
+            PlayHitReaction(attackData.hitType);
             currentHealth -= attackData.damage;
             SpawnBloodVFX();
             PlayRandomHitSound();
             if (flashCoroutine != null) StopCoroutine(flashCoroutine);
             flashCoroutine = StartCoroutine(FlashDamageEffect());
-            TriggerPostureUpdate();
-            // Apply the knockback, which now includes the upward force.
+            TriggerHealthUpdate();
             if (knockbackCoroutine != null) StopCoroutine(knockbackCoroutine);
             knockbackCoroutine = StartCoroutine(KnockbackRoutine(
                 attacker,
@@ -620,13 +585,42 @@ public class BootTwinHealth : MonoBehaviour
                 attackData.upwardForce,
                 attackData.downwardForce
             ));
-
-            if (currentHealth <= 0)
-            {
-                Die();
-            }
+            if (currentHealth <= 0) Die();
+            return;
         }
-        // --- END OF FIX ---
+
+        if (isBlocking)
+        {
+            TriggerPostureUpdate();
+            Debug.LogWarning("--- Upper Attack BLOCKED! Applying Guard Damage. ---");
+            currentGuard -= attackData.guardDamage;
+            timeSinceLastBlock = 0f;
+            animator.SetTrigger(block2TriggerHash);
+            CameraShakerHandler.Shake(CameraShakeParry);
+            if (knockbackCoroutine != null) StopCoroutine(knockbackCoroutine);
+            knockbackCoroutine = StartCoroutine(KnockbackRoutine(attacker, blockRecoilDistance, blockRecoilDuration, 0, 0));
+            if (currentGuard <= 0) StartCoroutine(GuardBrokenSequence());
+        }
+        else
+        {
+            Debug.Log("<color=yellow>--- Upper Attack LANDED! Launching enemy. ---</color>");
+            PlayHitReaction(attackData.hitType);
+            currentHealth -= attackData.damage;
+            SpawnBloodVFX();
+            PlayRandomHitSound();
+            if (flashCoroutine != null) StopCoroutine(flashCoroutine);
+            flashCoroutine = StartCoroutine(FlashDamageEffect());
+            TriggerPostureUpdate();
+            if (knockbackCoroutine != null) StopCoroutine(knockbackCoroutine);
+            knockbackCoroutine = StartCoroutine(KnockbackRoutine(
+                attacker,
+                attackData.knockbackDistance,
+                attackData.knockbackDuration,
+                attackData.upwardForce,
+                attackData.downwardForce
+            ));
+            if (currentHealth <= 0) Die();
+        }
     }
     private void SpawnBloodVFX() // MODIFIED: No longer needs the 'attacker' parameter.
     {
@@ -836,13 +830,13 @@ public class BootTwinHealth : MonoBehaviour
             Debug.Log("<color=orange>Forcing a different block animation!</color>");
             do
             {
-                nextBlockIndex = Random.Range(1, 4); // Pick a number from 1, 2, or 3.
+                nextBlockIndex = Random.Range(1, 3); // Pick a number from 1, 2, or 3.
             } while (nextBlockIndex == lastBlockAnimationIndex); // Keep picking until it's a new one.
         }
         else
         {
             // B. If NO, we can pick any animation randomly.
-            nextBlockIndex = Random.Range(1, 4); // Pick a number from 1, 2, or 3.
+            nextBlockIndex = Random.Range(1, 3); // Pick a number from 1, 2, or 3.
         }
 
         // --- UPDATE THE STATE FOR THE NEXT BLOCK ---
@@ -898,7 +892,7 @@ public class BootTwinHealth : MonoBehaviour
     {
         // --- THE HYPER ARMOR LOGIC ---
         // If the Follow brain is already locked in an attack, DO NOTHING.
-        if (followAI != null && followAI.IsAttacking())
+        if (!isInJuggleState && followAI != null && (followAI.IsAttacking() || followAI.IsLaunching() || followAI.IsAirLaunching() || followAI.IsThrowingRocks() || followAI.IsSpecialAttacking()))
         {
             Debug.Log("<color=red>AI is ATTACKING. Ignoring player attack telegraph.</color>");
             return;
@@ -937,15 +931,24 @@ public class BootTwinHealth : MonoBehaviour
     }
     private IEnumerator GuardBrokenSequence()
     {
-        Debug.Log("<color=red>KNIGHT'S GUARD IS BROKEN!</color>");
-        // Safety: kill any previous stun bool that may be orphaned
+        // Cancel only the stun sequence, not everything
+        if (stunSequenceCoroutine != null)
+        {
+            StopCoroutine(stunSequenceCoroutine);
+            stunSequenceCoroutine = null;
+        }
+
+        isGuardBroken = false;
+        isBlocking = false;
         animator.SetBool(isWeakAndDamageableBoolHash, false);
-        yield return null; // one frame gap so animator registers the reset
+        yield return null;
+
         animator.SetTrigger(guardBrokenTriggerHash);
         currentGuard = 0;
         TriggerPostureUpdate();
-        TriggerStun(guardBrokenStunDuration);
-        yield return null;
+
+        // Bypass TriggerStun's guard check and start directly
+        stunSequenceCoroutine = StartCoroutine(StunSequence(guardBrokenStunDuration));
     }
     public void PlayHitReaction(string hitType)
     {
@@ -1059,7 +1062,7 @@ public class BootTwinHealth : MonoBehaviour
             Debug.Log("Damage ignored: Knight is already defeated.");
             return;
         }
-        if (followAI != null && followAI.IsAttacking() && followAI.IsLaunching() && followAI.IsAirLaunching() && followAI.IsThrowingRocks())
+        if (!isGuardBroken && !isInJuggleState &&  followAI != null && (followAI.IsAttacking() || followAI.IsLaunching() || followAI.IsAirLaunching() || followAI.IsThrowingRocks() || followAI.IsSpecialAttacking()))
         {
             // 2. If YES, do NOTHING. The knight is invincible during his combo.
             Debug.Log("<color=red>KNIGHT IS INVINCIBLE (mid-combo)! Damage ignored.</color>");
@@ -1165,10 +1168,8 @@ public class BootTwinHealth : MonoBehaviour
     }
     public void TriggerStun(float stunDuration)
     {
-        // Failsafe: If already stunned, don't start another stun.
         if (isGuardBroken) return;
-
-        StartCoroutine(StunSequence(stunDuration));
+        stunSequenceCoroutine = StartCoroutine(StunSequence(stunDuration));
     }
 
     // This new coroutine contains the logic that used to be in GuardBrokenSequence.
