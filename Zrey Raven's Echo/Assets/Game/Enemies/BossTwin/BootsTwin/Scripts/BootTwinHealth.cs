@@ -1,4 +1,4 @@
-using FirstGearGames.SmoothCameraShaker;
+﻿using FirstGearGames.SmoothCameraShaker;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -191,6 +191,12 @@ public class BootTwinHealth : MonoBehaviour
     private bool isTransitionLocked = false;
 
     private Coroutine stunSequenceCoroutine;
+
+    private static readonly int GetCounteredLaunchHash = Animator.StringToHash("GetCounteredLaunch");
+    private static readonly int GetCounteredAimDownHash = Animator.StringToHash("GetCounteredAimDown");
+    [Header("Counter Blood VFX")]
+    [SerializeField] private GameObject counterBloodPrefab;
+    [SerializeField] private Transform counterBloodSpawnPoint;
     void Awake()
     {
         currentHealth = maxHealth;
@@ -567,7 +573,7 @@ public class BootTwinHealth : MonoBehaviour
 
         Transform attacker = playerTarget;
 
-        // If guard is already broken � just launch him, no block check needed
+        // If guard is already broken — just launch him, no block check needed
         if (isGuardBroken)
         {
             PlayHitReaction(attackData.hitType);
@@ -1161,7 +1167,7 @@ public class BootTwinHealth : MonoBehaviour
     {
         if (isTransitionLocked)
         {
-            Debug.Log($"[BootTwin] Trigger '{triggerName}' blocked � transition locked.");
+            Debug.Log($"[BootTwin] Trigger '{triggerName}' blocked — transition locked.");
             return;
         }
         animator.SetTrigger(hash);
@@ -1318,6 +1324,37 @@ public class BootTwinHealth : MonoBehaviour
         // We just need to expose its value.
         return isGrounded;
     }
+
+    public void PlayGetCounteredLaunch()
+    {
+        followAI.ForceResetAttackState();
+        followAI.isBeingCountered = true;        // ← lock BEFORE animation plays
+        followAI.LockFlip();
+        animator.SetTrigger(GetCounteredLaunchHash);
+    }
+    public void PlayGetCounteredAimDown()
+    {
+        followAI.ForceResetAttackState();
+        followAI.isBeingCountered = true;
+        followAI.LockFlip();
+        if (rb != null)
+        {
+            rb.gravityScale = 1f;
+            rb.linearVelocity = Vector2.zero;
+        }
+        animator.SetTrigger(GetCounteredAimDownHash);
+    }
+    public void SpawnCounterBlood()
+    {
+        if (counterBloodPrefab == null || counterBloodSpawnPoint == null) return;
+        Instantiate(
+            counterBloodPrefab,
+            counterBloodSpawnPoint.position,
+            counterBloodPrefab.transform.rotation
+        );
+    }
+
+   
     private void OnDrawGizmosSelected()
     {
         if (groundCheck != null)

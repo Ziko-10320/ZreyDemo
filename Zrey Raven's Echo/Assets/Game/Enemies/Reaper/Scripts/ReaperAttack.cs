@@ -170,7 +170,11 @@ public class ReaperAttack : MonoBehaviour
                     else
                     {
                         Debug.Log("<color=red>Reaper special hit Player — unblockable!</color>");
-                        playerHealth.TakeUnblockableDamage(attackDamage, transform, currentImpactData);
+                        ZreyAttacks playerAttacks = player.GetComponent<ZreyAttacks>();
+                        if (playerAttacks != null && playerAttacks.TryTriggerCounterFromSpecialAttack("Reaper", transform))
+                            break; // counter absorbed it
+                        else
+                            playerHealth.TakeUnblockableDamage(attackDamage, transform, currentImpactData);
                     }
                     break;
                 }
@@ -223,7 +227,7 @@ public class ReaperAttack : MonoBehaviour
     }
     public void StartSpecialDamage()
     {
-        if (ReaperAI != null) ReaperAI.OpenCounterWindow();
+       
 
         // Trigger tutorial slow time FIRST — must be active before damage window opens
         // so IsCounterSlowTimeActive is true by the time Update checks it
@@ -240,7 +244,7 @@ public class ReaperAttack : MonoBehaviour
     public void StopSpecialDamage()
     {
         Debug.Log("<color=grey>Special Damage Window CLOSED</color>");
-        if (ReaperAI != null) ReaperAI.CloseCounterWindow();
+        
         Physics2D.IgnoreLayerCollision(playerLayerValue, enemyLayerValue, true);
         isSpecialDamageWindowOpen = false;
     }

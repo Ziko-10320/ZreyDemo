@@ -236,6 +236,22 @@ public class ZreyAttacks : MonoBehaviour
     [Tooltip("Duration of the Reaper counter animation sequence.")]
     [SerializeField] private float reaperCounterDuration = 2.5f;
 
+    [Header("Counter Stance")]
+    [SerializeField] private float counterStanceTimeout = 3f; // fallback if anim event never fires
+    private bool isCounterStanceActive = false;
+    private bool isCounterWindowOpen = false;
+    private Coroutine counterStanceTimeoutCoroutine;
+    private readonly int counterStanceTriggerHash = Animator.StringToHash("CounterStance");
+
+    [Header("Boot Twin Counter Settings")]
+    [SerializeField] private int bootTwinCounterDamage = 60;
+    [SerializeField] private Vector3 bootTwinCounterSnapOffset = new Vector3(1.5f, 0, 0);
+    private readonly int counterLaunchBootTriggerHash = Animator.StringToHash("CounterLaunchBoot");
+
+    [Header("Boot Twin Concasse Counter Settings")]
+    [SerializeField] private int bootTwinConcasseCounterDamage = 70;
+    [SerializeField] private Vector3 bootTwinConcasseCounterSnapOffset = new Vector3(1.5f, 0.5f, 0);
+    private readonly int counterDownSlamBootTriggerHash = Animator.StringToHash("CounterDownSlamBoot");
     private void OnEnable()
     {
         InputManager.OnInteractPressed += HandleInteractionInput;
@@ -1028,6 +1044,13 @@ public class ZreyAttacks : MonoBehaviour
         aerialComboStep = 0;
         lastAttackJumpVariant = -1;
         sameAttackJumpCount = 0;
+        isCounterStanceActive = false;
+        isCounterWindowOpen = false;
+        if (counterStanceTimeoutCoroutine != null) 
+        { 
+            StopCoroutine(counterStanceTimeoutCoroutine);
+            counterStanceTimeoutCoroutine = null; 
+        }
         // --- Reset Physics/Collisions ---
         Physics2D.IgnoreLayerCollision(playerLayerValue, enemyLayerValue, true);
         RestoreNormalGravity(); // Use your existing method to be safe.
@@ -1514,12 +1537,18 @@ public class ZreyAttacks : MonoBehaviour
     }
     private void HandleInteractionInput()
     {
-        // Block ALL counter input if player is stunned
         if (playerHealth != null && playerHealth.isStunned) return;
         if (playerHealth != null && playerHealth.IsGrabbed) return;
         if (IsInCinematicState) return;
 
-        // Cancel any ongoing action before attempting counter
+        // If already in counter stance, pressing again interrupts it
+        if (isCounterStanceActive)
+        {
+            CancelCounterStance();
+            return;
+        }
+
+        // Cancel any ongoing attack/dash before entering stance
         if (isAttacking || isDashAttacking || playerMovement.IsDashing())
         {
             CancelAttack();
@@ -1527,96 +1556,110 @@ public class ZreyAttacks : MonoBehaviour
             playerMovement.CanMove = true;
         }
 
-        if (BroadcastVagabondCounter()) return;
-        if (BroadcastReaperCounter()) return;
-        BroadcastSpearCounter();
+        EnterCounterStance();
     }
-    private bool BroadcastReaperCounter()
+    private void EnterCounterStance()
     {
-        if (playerHealth != null && playerHealth.isStunned) return false;
+        isCounterStanceActive = true;
+        isCounterWindowOpen = false; // window opens via animation event
+        playerMovement.CanMove = false;
+        animator.SetTrigger(counterStanceTriggerHash);
 
-        Collider2D[] nearbyEnemies = Physics2D.OverlapCircleAll(
-            transform.position, counterBroadcastRange, enemyLayer);
+        if (counterStanceTimeoutCoroutine != null) StopCoroutine(counterStanceTimeoutCoroutine);
+        counterStanceTimeoutCoroutine = StartCoroutine(CounterStanceTimeoutRoutine());
+    }
 
-        foreach (Collider2D enemyCollider in nearbyEnemies)
+    // Called by Animation Event at the START of CounterStance animation
+    public void EVENT_OpenCounterWindow()
+    {
+        isCounterWindowOpen = true;
+        Debug.Log("<color=lime>Counter window OPEN.</color>");
+    }
+
+    // Called by Animation Event at the END of CounterStance animation
+    public void EVENT_CloseCounterWindow()
+    {
+        isCounterWindowOpen = false;
+        isCounterStanceActive = false;
+        playerMovement.CanMove = true;
+        if (counterStanceTimeoutCoroutine != null)
         {
-            // Skip Knight and Spear enemies — this broadcast is Reaper only
-            KnightAI knightCheck = enemyCollider.GetComponentInParent<KnightAI>();
-            if (knightCheck == null) knightCheck = enemyCollider.GetComponentInChildren<KnightAI>();
-            if (knightCheck != null) continue;
+            StopCoroutine(counterStanceTimeoutCoroutine);
+            counterStanceTimeoutCoroutine = null;
+        }
+        Debug.Log("<color=orange>Counter window CLOSED.</color>");
+    }
 
-            SpearAI spearCheck = enemyCollider.GetComponentInParent<SpearAI>();
-            if (spearCheck == null) spearCheck = enemyCollider.GetComponentInChildren<SpearAI>();
-            if (spearCheck != null) continue;
+    private void CancelCounterStance()
+    {
+        isCounterWindowOpen = false;
+        isCounterStanceActive = false;
+        playerMovement.CanMove = true;
+        animator.ResetTrigger(counterStanceTriggerHash);
+        if (counterStanceTimeoutCoroutine != null)
+        {
+            StopCoroutine(counterStanceTimeoutCoroutine);
+            counterStanceTimeoutCoroutine = null;
+        }
+        Debug.Log("<color=orange>Counter stance interrupted.</color>");
+    }
 
-            ReaperAI reaperAI = enemyCollider.GetComponentInParent<ReaperAI>();
-            if (reaperAI == null) reaperAI = enemyCollider.GetComponentInChildren<ReaperAI>();
-            if (reaperAI != null)
-            {
-                Debug.Log($"<color=magenta>Found ReaperAI on {enemyCollider.name}. Firing counter attempt.</color>");
-                // Fire the same event — ReaperAI is subscribed and will handle it
+    private IEnumerator CounterStanceTimeoutRoutine()
+    {
+        yield return new WaitForSeconds(counterStanceTimeout);
+        if (isCounterStanceActive)
+        {
+            Debug.LogWarning("Counter stance timed out.");
+            CancelCounterStance();
+        }
+    }
+
+    // This is what enemies call instead of directly triggering the counter
+    public bool TryTriggerCounterFromSpecialAttack(string enemyType, Transform enemyTransform)
+    {
+        if (!isCounterWindowOpen) return false; // window not open, take damage normally
+
+        Debug.Log($"<color=lime>Counter triggered against {enemyType}!</color>");
+        isCounterWindowOpen = false;
+        isCounterStanceActive = false;
+        if (counterStanceTimeoutCoroutine != null)
+        {
+            StopCoroutine(counterStanceTimeoutCoroutine);
+            counterStanceTimeoutCoroutine = null;
+        }
+
+        // Route to the correct existing counter sequence
+        switch (enemyType)
+        {
+            case "Knight":
+                // KnightAI calls its own accept logic — mirror what BroadcastVagabondCounter did
+                Collider2D[] nearbyKnights = Physics2D.OverlapCircleAll(transform.position, counterBroadcastRange, enemyLayer);
+                foreach (var col in nearbyKnights)
+                {
+                    KnightAI k = col.GetComponentInParent<KnightAI>() ?? col.GetComponentInChildren<KnightAI>();
+                    if (k != null) { k.OnPlayerCounterAttempt(this); break; }
+                }
+                break;
+            case "Spear":
                 OnPlayerCounterAttempt?.Invoke();
-                return true;
-            }
-        }
-
-        Debug.Log("<color=grey>Reaper counter broadcast: no reaper enemy nearby.</color>");
-         return false;
-    }
-
-    private bool BroadcastVagabondCounter()
-    {
-        if (playerHealth != null && playerHealth.isStunned) return false;
-
-        Collider2D[] nearbyEnemies = Physics2D.OverlapCircleAll(transform.position, counterBroadcastRange, enemyLayer);
-
-        Debug.Log($"<color=yellow>BroadcastVagabondCounter: checking {nearbyEnemies.Length} nearby enemies.</color>");
-
-        foreach (Collider2D enemyCollider in nearbyEnemies)
-        {
-            // Search parent and children, not just the exact object
-            SpearAI spearCheck = enemyCollider.GetComponentInParent<SpearAI>();
-            if (spearCheck == null) spearCheck = enemyCollider.GetComponentInChildren<SpearAI>();
-            if (spearCheck != null) continue; // Skip spear enemies
-
-            KnightAI knightAI = enemyCollider.GetComponentInParent<KnightAI>();
-            if (knightAI == null) knightAI = enemyCollider.GetComponentInChildren<KnightAI>();
-            if (knightAI != null)
-            {
-                Debug.Log($"<color=yellow>Found KnightAI on {enemyCollider.name}. Calling OnPlayerCounterAttempt.</color>");
-                bool accepted = knightAI.OnPlayerCounterAttempt(this);
-                if (accepted) return true;
-            }
-        }
-        return false;
-    }
-
-    private void BroadcastSpearCounter()
-    {
-        if (playerHealth != null && playerHealth.isStunned) return;
-
-        Collider2D[] nearbyEnemies = Physics2D.OverlapCircleAll(transform.position, counterBroadcastRange, enemyLayer);
-
-        Debug.Log($"<color=cyan>BroadcastSpearCounter: checking {nearbyEnemies.Length} nearby enemies.</color>");
-
-        foreach (Collider2D enemyCollider in nearbyEnemies)
-        {
-            // Search parent and children
-            KnightAI knightCheck = enemyCollider.GetComponentInParent<KnightAI>();
-            if (knightCheck == null) knightCheck = enemyCollider.GetComponentInChildren<KnightAI>();
-            if (knightCheck != null) continue; // Skip knight enemies
-
-            SpearAI spearAI = enemyCollider.GetComponentInParent<SpearAI>();
-            if (spearAI == null) spearAI = enemyCollider.GetComponentInChildren<SpearAI>();
-            if (spearAI != null)
-            {
-                Debug.Log($"<color=cyan>Found SpearAI on {enemyCollider.name}. Firing event.</color>");
+                break;
+            case "Reaper":
                 OnPlayerCounterAttempt?.Invoke();
-                return;
-            }
+                break;
+            case "BootTwin":
+                StartCoroutine(ExecuteBootTwinCounterSequence(
+                    Physics2D.OverlapCircleAll(transform.position, counterBroadcastRange, enemyLayer)
+                ));
+                break;
+            case "BootTwinConcasse":
+                StartCoroutine(ExecuteBootTwinConcasseCounterSequence(
+                    Physics2D.OverlapCircleAll(transform.position, counterBroadcastRange, enemyLayer)
+                ));
+                break;
         }
-        Debug.Log("<color=grey>Spear counter broadcast: no spear enemy nearby.</color>");
+        return true;
     }
+  
     public void ExecuteVagabondCounter(float sequenceDuration, Transform counterTarget = null)
     {
         StartCoroutine(VagabondCounterSequence(sequenceDuration, counterTarget));
@@ -1736,6 +1779,133 @@ public class ZreyAttacks : MonoBehaviour
 
         EndAttack();
         Debug.Log("<color=cyan>Reaper Counter finished. Player control restored.</color>");
+    }
+    private IEnumerator ExecuteBootTwinCounterSequence(Collider2D[] nearbyEnemies)
+    {
+        // Find the BootTwin
+        BootTwinHealth bootTwin = null;
+        foreach (var col in nearbyEnemies)
+        {
+            bootTwin = col.GetComponent<BootTwinHealth>();
+            if (bootTwin != null) break;
+        }
+        if (bootTwin == null) yield break;
+
+        // --- 1. LOCK ---
+        SetCinematicState(true, bootTwin.transform);
+        StartFinisherVignette();
+        playerMovement.CanMove = false;
+        if (rb != null) rb.linearVelocity = Vector2.zero;
+
+        // --- 2. FACE + SNAP ENEMY ---
+        playerMovement.ForceFaceDirection(bootTwin.transform.position.x > transform.position.x);
+        float direction = playerMovement.IsFacingRight() ? 1f : -1f;
+        Vector3 snapPosition = transform.position + new Vector3(
+            bootTwinCounterSnapOffset.x * direction,
+            bootTwinCounterSnapOffset.y,
+            bootTwinCounterSnapOffset.z
+        );
+        bootTwin.transform.position = snapPosition;
+        BootTwinAttack bootTwinAttack = bootTwin.GetComponent<BootTwinAttack>();
+        if (bootTwinAttack != null)
+        {
+            bool enemyShouldFaceRight = transform.position.x > bootTwin.transform.position.x;
+            bootTwinAttack.SetFacingDirect(enemyShouldFaceRight);
+        }
+        // --- 3. PLAY ANIMATIONS SIMULTANEOUSLY ---
+        animator.SetTrigger(counterLaunchBootTriggerHash);
+        bootTwin.PlayGetCounteredLaunch();
+
+        yield return null;
+    }
+
+    // Called by Animation Event at the damage frame of CounterLaunchBoot
+    public void EVENT_BootTwinCounterDamage()
+    {
+        Collider2D[] hits = Physics2D.OverlapBoxAll(attackPoint.position, attackAreaSize, 0f, enemyLayer);
+        foreach (var hit in hits)
+        {
+            BootTwinHealth bth = hit.GetComponent<BootTwinHealth>();
+            if (bth != null)
+            {
+                bth.TakeDamageCounter(bootTwinCounterDamage);
+                bth.SpawnCounterBlood();
+                break;
+            }
+        }
+    }
+
+    // Called by Animation Event at the end of CounterLaunchBoot
+    public void EVENT_BootTwinCounterFinished()
+    {
+        SetCinematicState(false);
+        StopFinisherVignette();
+        playerMovement.CanMove = true;
+        EndAttack();
+    }
+
+    private IEnumerator ExecuteBootTwinConcasseCounterSequence(Collider2D[] nearbyEnemies)
+    {
+        BootTwinHealth bootTwin = null;
+        foreach (var col in nearbyEnemies)
+        {
+            bootTwin = col.GetComponent<BootTwinHealth>();
+            if (bootTwin != null) break;
+        }
+        if (bootTwin == null) yield break;
+
+        // --- 1. LOCK ---
+        SetCinematicState(true, bootTwin.transform);
+        StartFinisherVignette();
+        playerMovement.CanMove = false;
+        if (rb != null) rb.linearVelocity = Vector2.zero;
+
+        // --- 2. FACE + SNAP ENEMY ---
+        bool playerShouldFaceRight = bootTwin.transform.position.x > transform.position.x;
+
+        playerMovement.ForceFaceDirection(playerShouldFaceRight);
+
+        float direction = playerShouldFaceRight ? 1f : -1f;
+        Vector3 snapPosition = transform.position + new Vector3(
+            bootTwinConcasseCounterSnapOffset.x * direction,
+            bootTwinConcasseCounterSnapOffset.y,
+            bootTwinConcasseCounterSnapOffset.z
+        );
+        bootTwin.transform.position = snapPosition;
+
+        BootTwinAttack bootTwinAttack = bootTwin.GetComponent<BootTwinAttack>();
+        if (bootTwinAttack != null)
+            bootTwinAttack.SetFacingDirect(!playerShouldFaceRight);
+        // --- 3. PLAY ANIMATIONS ---
+        animator.SetTrigger(counterDownSlamBootTriggerHash);
+        bootTwin.PlayGetCounteredAimDown();
+
+        yield return null;
+    }
+
+    // Called by Animation Event at the damage frame of CounterDownSlamBoot
+    public void EVENT_BootTwinConcasseCounterDamage()
+    {
+        Collider2D[] hits = Physics2D.OverlapBoxAll(attackPoint.position, attackAreaSize, 0f, enemyLayer);
+        foreach (var hit in hits)
+        {
+            BootTwinHealth bth = hit.GetComponent<BootTwinHealth>();
+            if (bth != null)
+            {
+                bth.TakeDamageCounter(bootTwinConcasseCounterDamage);
+                bth.SpawnCounterBlood();
+                break;
+            }
+        }
+    }
+
+    // Called by Animation Event at the end of CounterDownSlamBoot
+    public void EVENT_BootTwinConcasseCounterFinished()
+    {
+        SetCinematicState(false);
+        StopFinisherVignette();
+        playerMovement.CanMove = true;
+        EndAttack();
     }
     public bool IsReaperCountering() => isReaperCountering;
     private IEnumerator ExecuteVagabondFinisherSequence(KnightHealth targetKnight)

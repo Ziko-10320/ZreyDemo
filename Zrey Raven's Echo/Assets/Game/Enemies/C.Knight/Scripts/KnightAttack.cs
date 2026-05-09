@@ -166,6 +166,12 @@ public class KnightAttack : MonoBehaviour
                         isGrabWindowOpen = false;
                         return;
                     }
+                    ZreyAttacks playerAttacks = player.GetComponent<ZreyAttacks>();
+                    if (playerAttacks != null && playerAttacks.TryTriggerCounterFromSpecialAttack("Knight", transform))
+                    {
+                        isGrabWindowOpen = false;
+                        return; // counter absorbed the grab, don't execute it
+                    }
                     Debug.LogError("--- PLAYER CAUGHT IN GRAB! ---");
                     StopAllMovement();
                     // --- THIS IS THE ALIGNMENT FIX ---
@@ -275,10 +281,7 @@ public class KnightAttack : MonoBehaviour
     public void StartSpecialDamage()
     {
         Debug.Log("<color=red>!!! Special Damage Over Time STARTED !!!</color>");
-        if (knightAI != null)
-        {
-            knightAI.OpenCounterWindow();
-        }
+       
         Physics2D.IgnoreLayerCollision(playerLayerValue, enemyLayerValue, false);
         // If a previous DOT is somehow still running, stop it first.
         if (specialDamageCoroutine != null)
@@ -296,10 +299,7 @@ public class KnightAttack : MonoBehaviour
     {
 
         Debug.Log("<color=grey>Special Damage Over Time STOPPED</color>");
-        if (knightAI != null)
-        {
-            knightAI.CloseCounterWindow();
-        }
+        
         Physics2D.IgnoreLayerCollision(playerLayerValue, enemyLayerValue, true);
         // If the DOT coroutine is running, stop it.
         if (specialDamageCoroutine != null)
@@ -324,7 +324,11 @@ public class KnightAttack : MonoBehaviour
                 {
                     // 2. If we find the player, DEAL UNBLOCKABLE DAMAGE.
                     Debug.LogWarning("!!! Player hit by DOT tick! !!!");
-                    playerHealth.TakeUnblockableDamage(specialAttackDamagePerTick, this.transform, specialAttackImpactData);
+                    ZreyAttacks playerAttacks = player.GetComponent<ZreyAttacks>();
+                    if (playerAttacks != null && playerAttacks.TryTriggerCounterFromSpecialAttack("Knight", transform))
+                        break; // counter absorbed it
+                    else
+                        playerHealth.TakeUnblockableDamage(specialAttackDamagePerTick, this.transform, specialAttackImpactData);
 
                     // We break here so we only damage the player once per tick, even if they have multiple colliders.
                     break;

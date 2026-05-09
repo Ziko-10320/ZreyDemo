@@ -249,6 +249,11 @@ public class BootTwinAttack : MonoBehaviour
     private bool isFollowingPlayerX = false;
     private bool isDownKicking = false;
     private Coroutine specialAttackCoroutine;
+    private Vector3 cinematicCamVelocity = Vector3.zero;
+
+    public bool isBeingCountered = false;
+    private bool isConcasseDamageWindowOpen = false;
+    private ImpactData currentConcasseImpactData;
     // ─────────────────────────────────────────────
     //  UNITY LIFECYCLE
     // ─────────────────────────────────────────────
@@ -288,11 +293,13 @@ public class BootTwinAttack : MonoBehaviour
         }
         if (isCinematicActive && mainCam != null && cinematicFocusPoint != null)
         {
-            Vector3 follow = cinematicFocusPoint.position;
-            follow.z = mainCam.transform.position.z;
-            mainCam.transform.position = Vector3.Lerp(
-                mainCam.transform.position, follow,
-                Time.deltaTime * cinematicZoomSpeed);
+            Vector3 target = cinematicFocusPoint.position;
+            target.z = mainCam.transform.position.z;
+            mainCam.transform.position = Vector3.SmoothDamp(
+                mainCam.transform.position,
+                target,
+                ref cinematicCamVelocity,
+                0.35f); // smoothTime — lower = snappier, raise to 0.25f if still jittery
         }
         FacePlayer();
 
@@ -335,7 +342,7 @@ public class BootTwinAttack : MonoBehaviour
         }
         wasGrounded = grounded;
 
-        if (!isAttacking && !isLaunching && !isAirLaunching && (health == null || !health.isGuardBroken))
+        if (!isAttacking && !isLaunching && !isAirLaunching && !isBeingCountered && (health == null || !health.isGuardBroken))
         {
             bool playerInLaunchBox = IsPlayerInLaunchRangeBox();
             float yDist = Mathf.Abs(player.position.y - transform.position.y);
@@ -348,14 +355,15 @@ public class BootTwinAttack : MonoBehaviour
             bool comboReady = cooldownTimer <= 0f && IsPlayerInCloseRange();
             bool closeDashReady = cooldownTimer <= 0f && IsPlayerInComboRange() && !IsPlayerInCloseRange() && IsGrounded();
 
-            if (specialAttackCooldownTimer <= 0f && !isSpecialAttacking && IsGrounded() && Random.value <= specialAttackChance)
-            {
-                StartSpecialAimDownAttack();
-            }
-            else if (airLaunchReady && Random.value <= airLaunchChance)
+            if (airLaunchReady && Random.value <= airLaunchChance)
             {
                 StartAirLaunch();
             }
+            else if (specialAttackCooldownTimer <= 0f && !isSpecialAttacking && IsGrounded() && Random.value <= specialAttackChance)
+            {
+                StartSpecialAimDownAttack();
+            }
+           
             else if (backflipCooldownTimer <= 0f && !isBackflipping && !isAttacking && !isAirLaunching && !isLaunching && IsCornerBehindEnemy() && Random.value <= backflipChance)
             {
                 StartBackflip();
@@ -436,6 +444,23 @@ public class BootTwinAttack : MonoBehaviour
                 }
             }
         }
+        if (isConcasseDamageWindowOpen)
+        {
+            Vector2 worldOffset = new Vector2(
+                transform.position.x + (attackBoxOffset.x * (isFacingRight ? 1f : -1f)),
+                transform.position.y + attackBoxOffset.y
+            );
+            Collider2D hit = Physics2D.OverlapBox(worldOffset, attackBoxSize, 0f, playerLayer);
+            if (hit != null)
+            {
+                PlayerHealth ph = hit.GetComponent<PlayerHealth>();
+                if (ph != null && currentConcasseImpactData != null)
+                {
+                    isConcasseDamageWindowOpen = false;
+                    ph.TakeUnblockableDamage(normalComboDamage, transform, currentConcasseImpactData);
+                }
+            }
+        }
 
         if (checkJumpWallDuringCombo && !isJumpAttacking && jumpAttackCooldownTimer <= 0f && IsJumpWallNearby())
         {
@@ -455,7 +480,14 @@ public class BootTwinAttack : MonoBehaviour
 
         SetFacing(isFacingRight); // always apply, every frame
     }
-
+    public void SetFacingDirect(bool facingRight)
+    {
+        // Temporarily unlock, force the facing, then re-lock
+        bool wasLocked = isFlipLocked;
+        isFlipLocked = false;
+        SetFacing(facingRight);
+        isFlipLocked = wasLocked;
+    }
     private void SetFacing(bool facingRight)
     {
         isFacingRight = facingRight;
@@ -689,6 +721,16 @@ public class BootTwinAttack : MonoBehaviour
 
     public void StartLaunchDamage()
     {
+        if (player != null)
+        {
+            ZreyAttacks playerAttacks = player.GetComponent<ZreyAttacks>();
+            if (playerAttacks != null && playerAttacks.TryTriggerCounterFromSpecialAttack("BootTwin", transform))
+            {
+                // Counter absorbed it — stop the launch entirely
+                ForceResetAttackState();
+                return;
+            }
+        }
         isLaunchDamageWindowOpen = true;
     }
 
@@ -846,6 +888,21 @@ public class BootTwinAttack : MonoBehaviour
 
         while (timer < closeDashMaxDuration)
         {
+            // ── Wall check (same as LaunchCoroutine) ──
+            Vector2 wallCheckOrigin = new Vector2(
+                transform.position.x + (wallCheckDistance * direction),
+                transform.position.y
+            );
+            bool hitWall = Physics2D.OverlapPoint(wallCheckOrigin, wallLayer);
+
+            if (hitWall)
+            {
+                closeDashCoroutine = null;
+                StopCloseDashAndPlayWall();
+                yield break;
+            }
+
+            // ── Player check ──
             if (IsPlayerInCloseRange())
             {
                 closeDashCoroutine = null;
@@ -858,10 +915,17 @@ public class BootTwinAttack : MonoBehaviour
             yield return null;
         }
 
-        // Timed out — recover cleanly
+        // Timed out with no contact — treat as wall hit
+        closeDashCoroutine = null;
+        StopCloseDashAndPlayWall();
+    }
+    private void StopCloseDashAndPlayWall()
+    {
         isCloseDashing = false;
         isAttacking = false;
-        closeDashCoroutine = null;
+        animator.SetTrigger(LaunchWallHash);
+        // Recovery finished via EVENT_LaunchFinished() which already resets isLaunching/isAttacking
+        // but since we never set isLaunching here, we just need the animation to play and recover
     }
 
     // Animation Event — place at the END of StartComboKick animation
@@ -872,7 +936,7 @@ public class BootTwinAttack : MonoBehaviour
         // Immediately chain into normal combo
         StartNormalCombo();
     }
-    private void ForceResetAttackState()
+    public void ForceResetAttackState()
     {
         isAttacking = false;
         isLaunching = false;
@@ -887,6 +951,7 @@ public class BootTwinAttack : MonoBehaviour
         isSpecialAttacking = false;
         isFollowingPlayerX = false;
         isDownKicking = false;
+        isConcasseDamageWindowOpen = false;
 
         if (backflipCoroutine != null) { StopCoroutine(backflipCoroutine); backflipCoroutine = null; }
         if (launchCoroutine != null) { StopCoroutine(launchCoroutine); launchCoroutine = null; }
@@ -1113,8 +1178,31 @@ public class BootTwinAttack : MonoBehaviour
      
 }
 
-// Animation Event — place at END of AnticipationJumpSpecial clip
-public void EVENT_BeginJumpSpecial()
+    public void SetConcasseImpactType(ImpactData impactData)
+    {
+        currentConcasseImpactData = impactData;
+    }
+
+    public void StartConcasseDamage()
+    {
+        if (player != null)
+        {
+            ZreyAttacks playerAttacks = player.GetComponent<ZreyAttacks>();
+            if (playerAttacks != null && playerAttacks.TryTriggerCounterFromSpecialAttack("BootTwinConcasse", transform))
+            {
+                ForceResetAttackState();
+                return;
+            }
+        }
+        isConcasseDamageWindowOpen = true;
+    }
+
+    public void StopConcasseDamage()
+    {
+        isConcasseDamageWindowOpen = false;
+    }
+    // Animation Event — place at END of AnticipationJumpSpecial clip
+    public void EVENT_BeginJumpSpecial()
 {
     if (specialAttackCoroutine != null) StopCoroutine(specialAttackCoroutine);
     specialAttackCoroutine = StartCoroutine(JumpSpecialCoroutine());
@@ -1198,7 +1286,17 @@ public void EVENT_SpecialAttackFinished()
         SetFacing(isFacingRight);
     }
 }
+    public void EVENT_CounteredFinished()
+    {
+        isBeingCountered = false;
+        UnlockFlip();
 
+        if (player != null)
+        {
+            isFacingRight = player.position.x > transform.position.x;
+            SetFacing(isFacingRight);
+        }
+    }
     public bool IsSpecialAttacking()
     {
         return isSpecialAttacking;
@@ -1238,13 +1336,16 @@ public void EVENT_SpecialAttackFinished()
     {
         if (zoomCoroutine != null) StopCoroutine(zoomCoroutine);
         isCinematicActive = true;
+        LockFlip();
         zoomCoroutine = StartCoroutine(ZoomSizeCoroutine(cinematicZoomSize));
     }
 
     public void EndCinematicZoom()
     {
+        cinematicCamVelocity = Vector3.zero;
         if (zoomCoroutine != null) StopCoroutine(zoomCoroutine);
         isCinematicActive = false;
+        UnlockFlip();
         zoomCoroutine = StartCoroutine(ZoomSizeCoroutine(defaultCamSize));
     }
 

@@ -17387,14 +17387,14 @@ AnimationClip:
   m_HasMotionFloatCurves: 0
   m_Events:
   - time: 0
-    functionName: SetImpactType
+    functionName: SetConcasseImpactType
     data: 
     objectReferenceParameter: {fileID: 11400000, guid: 2ca48c59fde5c5f429fb94a5f2c01e67, type: 2}
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
   - time: 0.016666668
-    functionName: StartDamage
+    functionName: StartConcasseDamage
     data: 
     objectReferenceParameter: {fileID: 0}
     floatParameter: 0
@@ -17415,7 +17415,7 @@ AnimationClip:
     intParameter: 0
     messageOptions: 0
   - time: 0.31666666
-    functionName: StopDamage
+    functionName: StopConcasseDamage
     data: 
     objectReferenceParameter: {fileID: 0}
     floatParameter: 0

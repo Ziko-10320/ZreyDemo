@@ -190,10 +190,7 @@ public class SpearAttack : MonoBehaviour
     public void StartSpecialDamage()
     {
         Debug.Log("<color=red>!!! Special Damage Over Time STARTED !!!</color>");
-        if (spearAI != null)
-        {
-            spearAI.OpenCounterWindow();
-        }
+        
         Physics2D.IgnoreLayerCollision(playerLayerValue, enemyLayerValue, false);
         // If a previous DOT is somehow still running, stop it first.
         if (specialDamageCoroutine != null)
@@ -210,10 +207,7 @@ public class SpearAttack : MonoBehaviour
     public void StopSpecialDamage()
     {
         Debug.Log("<color=grey>Special Damage Over Time STOPPED</color>");
-        if (spearAI != null)
-        {
-            spearAI.CloseCounterWindow();
-        }
+         
         Physics2D.IgnoreLayerCollision(playerLayerValue, enemyLayerValue, true);
         // If the DOT coroutine is running, stop it.
         if (specialDamageCoroutine != null)
@@ -238,7 +232,11 @@ public class SpearAttack : MonoBehaviour
                 {
                     // 2. If we find the player, DEAL UNBLOCKABLE DAMAGE.
                     Debug.LogWarning("!!! Player hit by DOT tick! !!!");
-                    playerHealth.TakeUnblockableDamage(specialAttackDamagePerTick, this.transform, specialAttackImpactData);
+                    ZreyAttacks playerAttacks = player.GetComponent<ZreyAttacks>();
+                    if (playerAttacks != null && playerAttacks.TryTriggerCounterFromSpecialAttack("Spear", transform))
+                        break;
+                    else
+                        playerHealth.TakeUnblockableDamage(specialAttackDamagePerTick, this.transform, specialAttackImpactData);
 
                     // We break here so we only damage the player once per tick, even if they have multiple colliders.
                     break;
