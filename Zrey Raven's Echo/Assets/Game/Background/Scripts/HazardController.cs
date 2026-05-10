@@ -18,7 +18,8 @@ public class HazardController : MonoBehaviour
     public Animator trapAnimator;
     public string animationTriggerName = "ActivateTrap";
     public bool triggerOnce = true;
-
+    public bool retriggerable = false;
+ 
     // --- SWINGING AXE SETTINGS ---
     // And another one for this group
     [HideInInspector] public bool showSwingingAxeSettings;
@@ -255,6 +256,15 @@ public class HazardController : MonoBehaviour
     }
     // --- PROXIMITY TRIGGER LOGIC ---
     // This function only runs if this object has a trigger collider.
+    public void ResetTrap()
+    {
+        if (!retriggerable) return;
+        isDamageActive = false;
+        // If the animator is assigned, reset it too so the animation replays
+        if (trapAnimator != null)
+            trapAnimator.Rebind();
+        Debug.Log($"Trap '{gameObject.name}' has been reset.");
+    }
     public void PlaySpecificSound(AudioClip clip)
     {
         if (clip != null && audioSource != null)
@@ -421,6 +431,7 @@ public class HazardControllerEditor : Editor
                 hazard.trapAnimator = (Animator)EditorGUILayout.ObjectField("Trap Animator", hazard.trapAnimator, typeof(Animator), true);
                 hazard.animationTriggerName = EditorGUILayout.TextField("Animation Trigger Name", hazard.animationTriggerName);
                 hazard.triggerOnce = EditorGUILayout.Toggle("Trigger Once", hazard.triggerOnce);
+                hazard.retriggerable = EditorGUILayout.Toggle("Retriggerable on Respawn", hazard.retriggerable); // NEW
                 break;
 
             case HazardController.HazardType.SwingingAxe:
