@@ -252,6 +252,15 @@ public class ZreyAttacks : MonoBehaviour
     [SerializeField] private int bootTwinConcasseCounterDamage = 70;
     [SerializeField] private Vector3 bootTwinConcasseCounterSnapOffset = new Vector3(1.5f, 0.5f, 0);
     private readonly int counterDownSlamBootTriggerHash = Animator.StringToHash("CounterDownSlamBoot");
+
+  
+
+    [Header("Gauntlet Twin Grab Counter Settings")]
+    [SerializeField] private int gauntletGrabCounterDamage = 60;
+    [SerializeField] private Vector3 gauntletGrabCounterSnapOffset = new Vector3(1.5f, 0f, 0f);
+    private static readonly int counterGrabGauntletTriggerHash = Animator.StringToHash("CounterRapeGrab");
+
+    private TwinBossManager twinBossManager;
     private void OnEnable()
     {
         InputManager.OnInteractPressed += HandleInteractionInput;
@@ -309,6 +318,7 @@ public class ZreyAttacks : MonoBehaviour
             vignette.active = false;
             vignette.intensity.value = 0f;
         }
+        twinBossManager = FindFirstObjectByType<TwinBossManager>();
     }
     public void UpdateVolume(float masterVolume)
     {
@@ -870,7 +880,14 @@ public class ZreyAttacks : MonoBehaviour
                 BootTwinHealth.TakeUpperAttack(upperAttackData);
                 break; // Hit one enemy and stop.
             }
-           
+            GauntletTwinHealth GauntletTwinHealth = enemy.GetComponent<GauntletTwinHealth>();
+            if (GauntletTwinHealth != null)
+            {
+                // Call the new, specialized method.
+                GauntletTwinHealth.TakeUpperAttack(upperAttackData);
+                break; // Hit one enemy and stop.
+            }
+
         }
       
     }
@@ -1054,7 +1071,7 @@ public class ZreyAttacks : MonoBehaviour
         // --- Reset Physics/Collisions ---
         Physics2D.IgnoreLayerCollision(playerLayerValue, enemyLayerValue, true);
         RestoreNormalGravity(); // Use your existing method to be safe.
-
+        if (twinBossManager != null) twinBossManager.SetCinematicLock(false);
         // --- Reset Animators ---
         if (animator != null)
         {
@@ -1157,7 +1174,15 @@ public class ZreyAttacks : MonoBehaviour
 
                 break;
             }
-            
+            GauntletTwinHealth GauntletTwinHealth = enemy.GetComponent<GauntletTwinHealth>();
+            if (GauntletTwinHealth != null)
+            {
+
+                GauntletTwinHealth.TriggerStun(guardCrushStunDuration);
+
+                break;
+            }
+
         }
     }
     public void EndAttack()
@@ -1280,7 +1305,17 @@ public class ZreyAttacks : MonoBehaviour
                 if (playerHealth != null && !wasBlocking) playerHealth.HealFromLifeSteal(attackData.damage);
                 break;
             }
-          
+           GauntletTwinHealth GauntletTwinHealth = enemy.GetComponent<GauntletTwinHealth>();
+            if (GauntletTwinHealth != null)
+            {
+                bool wasBlocking = GauntletTwinHealth.isBlocking;
+                GauntletTwinHealth.ApplyDamageAndKnockback(attackData);
+                if (playerHealth != null && !wasBlocking) playerHealth.HealFromLifeSteal(attackData.damage);
+                break;
+                if (playerHealth != null && !wasBlocking) playerHealth.HealFromLifeSteal(attackData.damage);
+                break;
+            }
+
         }
     }
     private IEnumerator ComboResetRoutine()
@@ -1385,6 +1420,12 @@ public class ZreyAttacks : MonoBehaviour
             {
                 // Tell the AI BRAIN that we are starting an attack.
                 BootTwinHealth.OnPlayerAttackTelegraphed(this.transform);
+            }
+            GauntletTwinHealth GauntletTwinHealth = enemy.GetComponent<GauntletTwinHealth>();
+            if (GauntletTwinHealth != null)
+            {
+                // Tell the AI BRAIN that we are starting an attack.
+                GauntletTwinHealth.OnPlayerAttackTelegraphed(this.transform);
             }
         }
     }
@@ -1656,6 +1697,9 @@ public class ZreyAttacks : MonoBehaviour
                     Physics2D.OverlapCircleAll(transform.position, counterBroadcastRange, enemyLayer)
                 ));
                 break;
+            case "GauntletGrab":
+                // sequence is launched by the caller (PlayerHealth) directly
+                break;
         }
         return true;
     }
@@ -1790,7 +1834,7 @@ public class ZreyAttacks : MonoBehaviour
             if (bootTwin != null) break;
         }
         if (bootTwin == null) yield break;
-
+        if (twinBossManager != null) twinBossManager.SetCinematicLock(true);
         // --- 1. LOCK ---
         SetCinematicState(true, bootTwin.transform);
         StartFinisherVignette();
@@ -1838,6 +1882,7 @@ public class ZreyAttacks : MonoBehaviour
     // Called by Animation Event at the end of CounterLaunchBoot
     public void EVENT_BootTwinCounterFinished()
     {
+        if (twinBossManager != null) twinBossManager.SetCinematicLock(false); // ADD
         SetCinematicState(false);
         StopFinisherVignette();
         playerMovement.CanMove = true;
@@ -1853,7 +1898,7 @@ public class ZreyAttacks : MonoBehaviour
             if (bootTwin != null) break;
         }
         if (bootTwin == null) yield break;
-
+        if (twinBossManager != null) twinBossManager.SetCinematicLock(true);
         // --- 1. LOCK ---
         SetCinematicState(true, bootTwin.transform);
         StartFinisherVignette();
@@ -1902,6 +1947,78 @@ public class ZreyAttacks : MonoBehaviour
     // Called by Animation Event at the end of CounterDownSlamBoot
     public void EVENT_BootTwinConcasseCounterFinished()
     {
+        if (twinBossManager != null) twinBossManager.SetCinematicLock(false); 
+        SetCinematicState(false);
+        StopFinisherVignette();
+        playerMovement.CanMove = true;
+        EndAttack();
+    }
+
+    public void StartGauntletGrabCounter(GauntletTwinHealth gauntletHealth)
+    {
+        StartCoroutine(ExecuteGauntletGrabCounterSequence(gauntletHealth));
+    }
+
+    private IEnumerator ExecuteGauntletGrabCounterSequence(GauntletTwinHealth gauntletHealth)
+    {
+        if (twinBossManager != null) twinBossManager.SetCinematicLock(true);
+        // 1. LOCK
+        SetCinematicState(true, gauntletHealth.transform);
+        StartFinisherVignette();
+        playerMovement.CanMove = false;
+        if (rb != null) rb.linearVelocity = Vector2.zero;
+
+        // 2. FACE + SNAP ENEMY
+        playerMovement.ForceFaceDirection(gauntletHealth.transform.position.x > transform.position.x);
+        float direction = playerMovement.IsFacingRight() ? 1f : -1f;
+        Vector3 snapPosition = transform.position + new Vector3(
+            gauntletGrabCounterSnapOffset.x * direction,
+            gauntletGrabCounterSnapOffset.y,
+            gauntletGrabCounterSnapOffset.z
+        );
+        gauntletHealth.transform.position = snapPosition;
+
+        GauntletTwinAttack gauntletAttack = gauntletHealth.GetComponent<GauntletTwinAttack>();
+        if (gauntletAttack != null)
+        {
+            bool enemyShouldFaceRight = transform.position.x > gauntletHealth.transform.position.x;
+            gauntletAttack.SetFacingDirect(enemyShouldFaceRight);
+        }
+
+        // 3. PLAY ANIMATIONS
+        animator.SetTrigger(counterGrabGauntletTriggerHash);
+        gauntletHealth.PlayGetCounteredGrab();
+
+        yield return null;
+    }
+
+    // Called by Animation Event at the damage frame of CounterRapeGrab
+    public void EVENT_GauntletGrabCounterDamage()
+    {
+        Collider2D[] hits = Physics2D.OverlapBoxAll(attackPoint.position, attackAreaSize, 0f, enemyLayer);
+        foreach (var hit in hits)
+        {
+            GauntletTwinHealth gth = hit.GetComponent<GauntletTwinHealth>();
+            if (gth != null)
+            {
+                gth.TakeDamageCounter(gauntletGrabCounterDamage);
+                gth.SpawnCounterBlood();
+                break;
+            }
+        }
+    }
+
+    // Called by Animation Event at the END of CounterRapeGrab
+    public void EVENT_GauntletGrabCounterFinished()
+    {
+        if (twinBossManager != null) twinBossManager.SetCinematicLock(false);
+        GauntletTwinHealth gth = FindFirstObjectByType<GauntletTwinHealth>();
+        if (gth != null)
+        {
+            gth.isBeingCountered = false;
+            gth.GetComponent<GauntletTwinAttack>()?.UnlockFlip();
+        }
+
         SetCinematicState(false);
         StopFinisherVignette();
         playerMovement.CanMove = true;

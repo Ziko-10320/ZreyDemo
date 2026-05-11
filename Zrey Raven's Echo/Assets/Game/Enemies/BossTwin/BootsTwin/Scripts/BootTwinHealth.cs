@@ -197,6 +197,12 @@ public class BootTwinHealth : MonoBehaviour
     [Header("Counter Blood VFX")]
     [SerializeField] private GameObject counterBloodPrefab;
     [SerializeField] private Transform counterBloodSpawnPoint;
+
+    [Header("Twin Boss Shared Health")]
+    [SerializeField] private MonoBehaviour otherTwinHealth; // drag the other twin's health here
+    private bool isSharedDamageCall = false;
+    public int GetMaxHealth() => maxHealth;
+    public int GetCurrentHealth() => currentHealth;
     void Awake()
     {
         currentHealth = maxHealth;
@@ -494,6 +500,8 @@ public class BootTwinHealth : MonoBehaviour
         {
             PlayHitReaction(hitType);
             currentHealth -= damage;
+            NotifyOtherTwin(damage);
+            TriggerHealthUpdate();
             Debug.Log("<color=red>GUARD BROKEN! Dealt " + damage + " direct damage.</color>");
             SpawnBloodVFX();
             PlayRandomHitSound();
@@ -541,6 +549,8 @@ public class BootTwinHealth : MonoBehaviour
         }
         PlayHitReaction(hitType);
         currentHealth -= damage;
+        NotifyOtherTwin(damage);
+        TriggerHealthUpdate();
         SpawnBloodVFX();
         PlayRandomHitSound();
         Debug.Log(transform.name + " took " + damage + " damage. Health is now: " + currentHealth);
@@ -560,6 +570,8 @@ public class BootTwinHealth : MonoBehaviour
     public void TakeDamageCounter(int damage)
     {
         currentHealth -= damage; // Fixed damage for counter hits.
+        NotifyOtherTwin(damage);
+        TriggerHealthUpdate();
         Debug.Log(transform.name + " took 10 damage from counter. Health is now: " + currentHealth);
         TriggerHealthUpdate();
         if (currentHealth <= 0)
@@ -578,6 +590,8 @@ public class BootTwinHealth : MonoBehaviour
         {
             PlayHitReaction(attackData.hitType);
             currentHealth -= attackData.damage;
+            NotifyOtherTwin(attackData.damage);
+            TriggerHealthUpdate();
             SpawnBloodVFX();
             PlayRandomHitSound();
             if (flashCoroutine != null) StopCoroutine(flashCoroutine);
@@ -612,6 +626,8 @@ public class BootTwinHealth : MonoBehaviour
             Debug.Log("<color=yellow>--- Upper Attack LANDED! Launching enemy. ---</color>");
             PlayHitReaction(attackData.hitType);
             currentHealth -= attackData.damage;
+            NotifyOtherTwin(attackData.damage);
+            TriggerHealthUpdate();
             SpawnBloodVFX();
             PlayRandomHitSound();
             if (flashCoroutine != null) StopCoroutine(flashCoroutine);
@@ -1099,6 +1115,8 @@ public class BootTwinHealth : MonoBehaviour
             TriggerHealthUpdate();
             PlayHitReaction(hitType);
             currentHealth -= damage;
+            NotifyOtherTwin(damage);
+            TriggerHealthUpdate();
             SpawnBloodVFX();
             PlayRandomHitSound();
             SpawnWoundEffect();
@@ -1142,6 +1160,8 @@ public class BootTwinHealth : MonoBehaviour
         TriggerHealthUpdate();
         PlayHitReaction(hitType);
         currentHealth -= damage;
+        NotifyOtherTwin(damage);
+        TriggerHealthUpdate();
         SpawnBloodVFX();
         PlayRandomHitSound();
         SpawnWoundEffect();
@@ -1150,7 +1170,35 @@ public class BootTwinHealth : MonoBehaviour
         knockbackCoroutine = StartCoroutine(KnockbackRoutine(attacker, distance, duration, upward, downward));
         if (currentHealth <= 0) Die();
     }
+    private void NotifyOtherTwin(int damage)
+    {
+        if (isSharedDamageCall) return;
+        if (otherTwinHealth == null) return;
 
+        isSharedDamageCall = true;
+
+        // Try both types
+        BootTwinHealth boot = otherTwinHealth as BootTwinHealth;
+        GauntletTwinHealth gauntlet = otherTwinHealth as GauntletTwinHealth;
+
+        if (boot != null) boot.ReceiveSharedDamage(damage);
+        else if (gauntlet != null) gauntlet.ReceiveSharedDamage(damage);
+
+        isSharedDamageCall = false;
+    }
+    public void ReceiveSharedDamage(int damage)
+    {
+        if (isSharedDamageCall) return;
+        isSharedDamageCall = true;
+
+        currentHealth -= damage;
+        currentHealth = Mathf.Max(0, currentHealth);
+        TriggerHealthUpdate(); // this already exists
+
+        if (currentHealth <= 0) Die();
+
+        isSharedDamageCall = false;
+    }
     public void IgnoreAnyTransition()
     {
         if (isTransitionLocked) return;
@@ -1343,6 +1391,11 @@ public class BootTwinHealth : MonoBehaviour
             rb.linearVelocity = Vector2.zero;
         }
         animator.SetTrigger(GetCounteredAimDownHash);
+    }
+    public void EndCounter()
+    {
+        followAI.isBeingCountered = false;
+        followAI.UnlockFlip();
     }
     public void SpawnCounterBlood()
     {

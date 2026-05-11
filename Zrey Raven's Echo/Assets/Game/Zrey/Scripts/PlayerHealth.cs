@@ -67,7 +67,7 @@ public class PlayerHealth : MonoBehaviour
     [Range(0f, 1f)] public float damageReduction = 0.75f;
     [Tooltip("How long the parry window stays open after starting a block (in seconds).")]
     public float parryWindow = 0.15f;
-      [Tooltip("How long the parry window stays open during the tutorial slow-time (real seconds).")]
+    [Tooltip("How long the parry window stays open during the tutorial slow-time (real seconds).")]
     public float tutorialParryWindow = 2f;
     [Tooltip("How long the player is stunned and cannot move after taking a normal hit.")]
     public float hitStunDuration = 0.5f;
@@ -121,6 +121,8 @@ public class PlayerHealth : MonoBehaviour
     private readonly int parry3TriggerHash = Animator.StringToHash("parry3");
     private readonly int parryLongTriggerHash = Animator.StringToHash("ParryLong");
     private int lastParryIndex = -1;
+
+    private readonly int getGrabGroundTriggerHash = Animator.StringToHash("GetGrabGround");
     void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
@@ -235,7 +237,7 @@ public class PlayerHealth : MonoBehaviour
     }
     private IEnumerator InvincibilityWatchdog()
     {
-        yield return new WaitForSeconds(0.5f);
+        yield return new WaitForSeconds(3.2f);
 
         if (IsInvincible)
         {
@@ -339,10 +341,20 @@ public class PlayerHealth : MonoBehaviour
             if (BootTwinHealth != null)
             {
                 BootTwinHealth.TakePostureDamageOnParry();
-                
-                  BootTwinHealth.GetParried(transform);
-                 
-               
+
+                BootTwinHealth.GetParried(transform);
+
+
+            }
+            GauntletTwinAttack GauntletTwinAttack = attacker.GetComponent<GauntletTwinAttack>();
+            GauntletTwinHealth GauntletTwinHealth = attacker.GetComponent<GauntletTwinHealth>();
+            if (GauntletTwinHealth != null)
+            {
+                GauntletTwinHealth.TakePostureDamageOnParry();
+
+                GauntletTwinHealth.GetParried(transform);
+
+
             }
             return;
         }
@@ -366,11 +378,16 @@ public class PlayerHealth : MonoBehaviour
                 PlayRandomDefenseSound(blockHitClips);
                 if (knockbackCoroutine != null) StopCoroutine(knockbackCoroutine);
 
-                ImpactData parryImpact = ScriptableObject.CreateInstance<ImpactData>();
-                parryImpact.knockbackDistance = impact.knockbackDistance;
-                parryImpact.knockbackDuration = impact.knockbackDuration;
-                parryImpact.hitReactionType = "none";
-                knockbackCoroutine = StartCoroutine(HitReactionRoutine(attacker, parryImpact));
+                ImpactData blockImpact = ScriptableObject.CreateInstance<ImpactData>();
+                blockImpact.knockbackDistance = impact.knockbackDistance;
+                blockImpact.knockbackDuration = impact.knockbackDuration;
+                blockImpact.hitReactionType = "none";
+
+                // Directional forces still apply on block — only a parry cancels them
+                blockImpact.upwardForce = impact.upwardForce;
+                blockImpact.downwardForce = impact.downwardForce;
+
+                knockbackCoroutine = StartCoroutine(HitReactionRoutine(attacker, blockImpact));
 
                 if (shieldRegenCoroutine != null) StopCoroutine(shieldRegenCoroutine);
 
@@ -475,6 +492,35 @@ public class PlayerHealth : MonoBehaviour
         else
             StartCoroutine(HazardRespawnRoutine());
     }
+    public void TakeGrabDamage(int damageAmount)
+    {
+        if (currentHealth <= 0) return;
+
+        currentHealth -= damageAmount;
+        healthDamageTimer = 0f;
+        currentHealth = Mathf.Max(0, currentHealth);
+
+        if (currentHealth <= 0) { Die(null); return; }
+
+        SpawnBlood();
+    }
+    public void TakeUnblockableButParryableDamage(int damageAmount, Transform attacker, ImpactData impact)
+    {
+        if (IsInvincible) return;
+        if (currentHealth <= 0) return;
+
+        if (isParryWindowActive)
+        {
+            TakeDamage(damageAmount, attacker, impact); // route through normal flow so parry triggers
+            return;
+        }
+
+        // Force bypass block — treat as if not blocking
+        bool cachedBlocking = isBlocking;
+        isBlocking = false;
+        TakeDamage(damageAmount, attacker, impact);
+        isBlocking = cachedBlocking;
+    }
     public void RestoreFullHealth()
     {
         StartCoroutine(SmoothHealthRestore());
@@ -527,8 +573,7 @@ public class PlayerHealth : MonoBehaviour
         }
         if (playerMovements != null) playerMovements.CanMove = true;
         if (playerAttacks != null) playerAttacks.IsInCinematicState_ForceSet(false);
-        foreach (var trap in FindObjectsByType<HazardController>(FindObjectsSortMode.None))
-            trap.ResetTrap();
+
         if (checkpointManager != null) checkpointManager.RespawnAtMiniCheckpoint();
     }
 
@@ -626,7 +671,7 @@ public class PlayerHealth : MonoBehaviour
         animator.ResetTrigger(getHitFallTriggerHash);
         animator.ResetTrigger(getHitUpwardTriggerHash);
         animator.ResetTrigger(getHitDownwardTriggerHash);
-            
+
 
         switch (hitType.ToLower())
         {
@@ -773,7 +818,7 @@ public class PlayerHealth : MonoBehaviour
 
     private IEnumerator ParryWindowCoroutine()
     {
-        
+
         if (TutorialManager.Instance != null
            && TutorialManager.Instance.InTutorialMode
            && TutorialManager.Instance.IsTutorialParryWindowOpen)
@@ -827,7 +872,39 @@ public class PlayerHealth : MonoBehaviour
 
         animator.SetTrigger(getGrabbedTriggerHash);
     }
+    public void GetGrabbedByGauntlet(Vector3 snapPosition, Transform enemyTransform)
+    {
+        if (IsGrabbed) return; // already grabbed, ignore
+        ZreyAttacks attacks = GetComponent<ZreyAttacks>();
+        if (attacks != null && attacks.TryTriggerCounterFromSpecialAttack("GauntletGrab", enemyTransform))
+        {
+            GauntletTwinHealth gth = enemyTransform.GetComponent<GauntletTwinHealth>();
+            if (gth != null) attacks.StartGauntletGrabCounter(gth);
+            return; // counter fired — don't get grabbed
+        }
+        IsGrabbed = true;
+        isStunned = true;
+        isBeingKnockedBack = true;
 
+        // Cancel everything the player was doing
+        if (playerAttacks != null) playerAttacks.CancelAttack();
+        if (playerAttacks != null) playerAttacks.IsInCinematicState_ForceSet(true);
+        if (playerMovements != null) playerMovements.CanMove = false;
+        StopBlocking();
+
+        // Kill velocity
+        if (rb != null) rb.linearVelocity = Vector2.zero;
+
+        // Snap position
+        transform.position = snapPosition;
+
+
+
+    }
+    public void PlayGetGrabGroundAnimation()
+    {
+        animator.SetTrigger(getGrabGroundTriggerHash);
+    }
     public void SpawnStabBlood()
     {
         if (stabBloodVFX != null && stabBloodSpawnPoint != null)
@@ -845,6 +922,7 @@ public class PlayerHealth : MonoBehaviour
         isBeingKnockedBack = false;
         if (playerMovements != null) playerMovements.ForceResetState();
         else Debug.LogError("ReleaseFromGrab failed: ZreyMovements script not found!");
+        if (playerAttacks != null) playerAttacks.IsInCinematicState_ForceSet(false);
         if (playerAttacks != null) playerAttacks.ForceResetState();
 
         if (knockbackCoroutine != null) StopCoroutine(knockbackCoroutine);

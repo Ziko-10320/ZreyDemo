@@ -170,6 +170,14 @@ public class BootTwinAttack : MonoBehaviour
     [SerializeField] private float specialDownKickSpeed = 20f;
     [SerializeField] private Rigidbody2D rb;
 
+    [Header("Twin Boss Manager")]
+    [SerializeField] private TwinBossManager twinBossManager;
+
+    [Header("Phase Thresholds")]
+    [Tooltip("Health % to unlock rock attack (0-1). e.g. 0.6 = 60%")]
+    [SerializeField] private float rockAttackUnlockThreshold = 0.6f;
+    [Tooltip("Health % to unlock special aim down attack (0-1). e.g. 0.4 = 40%")]
+    [SerializeField] private float specialAttackUnlockThreshold = 0.4f;
     // ─────────────────────────────────────────────
     //  PRIVATE STATE
     // ─────────────────────────────────────────────
@@ -254,6 +262,10 @@ public class BootTwinAttack : MonoBehaviour
     public bool isBeingCountered = false;
     private bool isConcasseDamageWindowOpen = false;
     private ImpactData currentConcasseImpactData;
+
+    private bool isHeldByManager = false;
+
+
     // ─────────────────────────────────────────────
     //  UNITY LIFECYCLE
     // ─────────────────────────────────────────────
@@ -342,7 +354,9 @@ public class BootTwinAttack : MonoBehaviour
         }
         wasGrounded = grounded;
 
-        if (!isAttacking && !isLaunching && !isAirLaunching && !isBeingCountered && (health == null || !health.isGuardBroken))
+        if (!isAttacking && !isLaunching && !isAirLaunching
+    && !isBeingCountered && !isHeldByManager          // ← the gate
+    && (health == null || !health.isGuardBroken))
         {
             bool playerInLaunchBox = IsPlayerInLaunchRangeBox();
             float yDist = Mathf.Abs(player.position.y - transform.position.y);
@@ -357,9 +371,10 @@ public class BootTwinAttack : MonoBehaviour
 
             if (airLaunchReady && Random.value <= airLaunchChance)
             {
-                StartAirLaunch();
+                bool permitted = twinBossManager == null || twinBossManager.RequestAirLaunch(true);
+                if (permitted) StartAirLaunch();
             }
-            else if (specialAttackCooldownTimer <= 0f && !isSpecialAttacking && IsGrounded() && Random.value <= specialAttackChance)
+            else if (specialAttackCooldownTimer <= 0f && !isSpecialAttacking && GetHealthPercent() <= specialAttackUnlockThreshold && IsGrounded() && Random.value <= specialAttackChance)
             {
                 StartSpecialAimDownAttack();
             }
@@ -368,7 +383,7 @@ public class BootTwinAttack : MonoBehaviour
             {
                 StartBackflip();
             }
-            else if (rockAttackCooldownTimer <= 0f && !isRockAttacking && IsEnemyAtCorner() && IsPlayerFarEnoughForRocks() && Random.value <= rockAttackChance)
+            else if (rockAttackCooldownTimer <= 0f && !isRockAttacking && GetHealthPercent() <= rockAttackUnlockThreshold && IsEnemyAtCorner() && IsPlayerFarEnoughForRocks() && Random.value <= rockAttackChance)
             {
                 StartRockAttack();
             }
@@ -965,7 +980,8 @@ public class BootTwinAttack : MonoBehaviour
             isFacingRight = player.position.x > transform.position.x;
             SetFacing(isFacingRight);
         }
-
+        if (twinBossManager != null)
+            twinBossManager.NotifyAttackEnded(true);
         Debug.LogWarning("[BootTwin] ForceResetAttackState called — all flags cleared.");
     }
     private bool IsJumpWallNearby()
@@ -1406,6 +1422,25 @@ public void EVENT_SpecialAttackFinished()
         }
 
         lungeCoroutine = null;
+    }
+    public void HoldAttack(bool hold)
+    {
+        isHeldByManager = hold;
+    }
+
+    public void TryEvasiveRetreat()
+    {
+        // Only trigger if not already busy and grounded
+        if (isAttacking || isBackflipping || isLaunching || isAirLaunching) return;
+        if (!IsGrounded()) return;
+        // Reuse your existing backflip logic
+        if (backflipCooldownTimer <= 0f && IsCornerBehindEnemy())
+            StartBackflip();
+    }
+    private float GetHealthPercent()
+    {
+        if (health == null) return 1f;
+        return (float)health.GetCurrentHealth() / health.GetMaxHealth();
     }
     // ─────────────────────────────────────────────
     //  GIZMOS
