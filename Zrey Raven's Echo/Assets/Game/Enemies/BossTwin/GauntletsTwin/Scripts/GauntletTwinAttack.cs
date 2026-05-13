@@ -145,6 +145,10 @@ public class GauntletTwinAttack : MonoBehaviour
     [SerializeField] private float smashUnlockThreshold = 0.6f;
     [Tooltip("Health % to unlock launch grab (0-1). e.g. 0.4 = 40%")]
     [SerializeField] private float launchGrabUnlockThreshold = 0.4f;
+
+    [SerializeField] private float danceCooldown = 8f;
+    [Range(0f, 1f)]
+    [SerializeField] private float danceChance = 0.3f;
     // ─────────────────────────────────────────────
     //  PRIVATE STATE
     // ─────────────────────────────────────────────
@@ -203,6 +207,7 @@ public class GauntletTwinAttack : MonoBehaviour
     private Coroutine launchGrabCoroutine;
     private bool isGrabWindowOpen = false;
     private bool grabConnected = false;
+    public bool isReleasingFromCounter = false;
 
     private Camera mainCam;
     private float defaultCamSize;
@@ -227,6 +232,12 @@ public class GauntletTwinAttack : MonoBehaviour
 
     public bool isBeingCountered = false;
 
+    private static readonly int SyncComboHash = Animator.StringToHash("SyncCombo");
+    private static readonly int DanceHash = Animator.StringToHash("Dance");
+    private bool isDancing = false;
+    private float heldTimer = 0f;
+    private float danceCooldownTimer = 0f;
+   
     // ─────────────────────────────────────────────
     //  UNITY LIFECYCLE
     // ─────────────────────────────────────────────
@@ -283,6 +294,7 @@ public class GauntletTwinAttack : MonoBehaviour
         launchGrabCooldownTimer -= Time.deltaTime;
         backstepCooldownTimer -= Time.deltaTime;
         smashCooldownTimer -= Time.deltaTime;
+        danceCooldownTimer -= Time.deltaTime;
 
         // ── Ground / fall / landing state machine ──
         bool grounded = IsGrounded();
@@ -299,6 +311,22 @@ public class GauntletTwinAttack : MonoBehaviour
             StartCoroutine(ResetTriggerNextFrame(LandingHash));
         }
         wasGrounded = grounded;
+        if (!isAttacking && !isAirLaunching
+    && (health == null || !health.isGuardBroken && !isBeingCountered)
+    && (health == null || !health.isBeingCountered)
+    && !isBeingCountered)
+        {
+            float yDist = Mathf.Abs(player.position.y - transform.position.y);
+            bool airLaunchReady = yDist >= airLaunchMinYDistance &&
+                                  yDist <= airLaunchMaxYDistance &&
+                                  airLaunchCooldownTimer <= 0f;
+
+            if (airLaunchReady && Random.value <= airLaunchChance)
+            {
+                bool permitted = twinBossManager == null || twinBossManager.RequestAirLaunch(false);
+                if (permitted) StartAirLaunch();
+            }
+        }
 
         // ── Attack decision ──
         if (!isAttacking && !isAirLaunching
@@ -328,12 +356,8 @@ public class GauntletTwinAttack : MonoBehaviour
         IsGrounded() &&
         IsPlayerInSmashRange();
 
-            if (airLaunchReady && Random.value <= airLaunchChance)
-            {
-                bool permitted = twinBossManager == null || twinBossManager.RequestAirLaunch(false);
-                if (permitted) StartAirLaunch();
-            }
-            else if (launchGrabReady && Random.value <= launchGrabChance)
+           
+             if (launchGrabReady && Random.value <= launchGrabChance)
             {
                 StartLaunchGrab();
             }
@@ -354,7 +378,25 @@ public class GauntletTwinAttack : MonoBehaviour
                 StartCloseDistanceDash();
             }
         }
-
+        if (isHeldByManager && !isAttacking && !isAirLaunching
+    && !isLaunchGrabbing && !isBackstepping && !isSmashAttacking
+    && !isBeingCountered
+    && (health == null || !health.isGuardBroken)
+    && (health == null || !health.isBeingCountered)
+    && IsGrounded() && !isDancing && danceCooldownTimer <= 0f)
+        {
+            if (Random.value <= danceChance)
+            {
+                isDancing = true;
+                danceCooldownTimer = danceCooldown;
+                animator.SetTrigger(DanceHash);
+            }
+            else
+            {
+                // failed the chance roll — set a small retry delay so it doesn't spam roll every frame
+                danceCooldownTimer = 2f;
+            }
+        }
         // ── Normal combo damage window ──
         if (isDamageWindowOpen)
         {
@@ -591,7 +633,7 @@ public class GauntletTwinAttack : MonoBehaviour
     {
         isCloseDashing = false;
         isAttacking = false;
-        animator.SetTrigger(LaunchWallHash);
+        animator.SetTrigger(GrabClawHash);
     }
 
     // Animation Event — place at END of StartComboKick clip
@@ -710,13 +752,15 @@ public class GauntletTwinAttack : MonoBehaviour
     // ─────────────────────────────────────────────
     private void StartLaunchGrab()
     {
+        // ADD temporarily to diagnose
+        Debug.Log($"[LaunchGrab] isLaunchGrabbing={isLaunchGrabbing} isAttacking={isAttacking} isBeingCountered={isBeingCountered}");
+
         isAttacking = true;
         isLaunchGrabbing = true;
         launchGrabCooldownTimer = launchGrabCooldown;
         animator.SetTrigger(AnticipationLaunchGrabHash);
         StartCoroutine(LaunchGrabWatchdog());
     }
-
     private IEnumerator LaunchGrabWatchdog()
     {
         yield return new WaitForSeconds(launchGrabMaxDuration + 3f);
@@ -863,7 +907,7 @@ public class GauntletTwinAttack : MonoBehaviour
         if (player != null)
         {
             PlayerHealth ph = player.GetComponent<PlayerHealth>();
-            if (ph != null) ph.ReleaseFromGrab();
+            if (ph != null && ph.IsGrabbed) ph.ReleaseFromGrab();
         }
 
         if (player != null)
@@ -1188,6 +1232,8 @@ public class GauntletTwinAttack : MonoBehaviour
     // ─────────────────────────────────────────────
     public void ForceResetAttackState()
     {
+        if (health != null && health.isGuardBroken)
+        {
         isAttacking = false;
         isDamageWindowOpen = false;
         isCloseDashing = false;
@@ -1200,31 +1246,37 @@ public class GauntletTwinAttack : MonoBehaviour
         isBackstepping = false;
         isSmashAttacking = false;
         isSmashDamageActive = false;
+        grabConnected = false;
+        isDancing = false;
 
-      
+            UnlockFlip();
 
-
-        StopTrail();
+            StopTrail();
         if (lungeCoroutine != null) { StopCoroutine(lungeCoroutine); lungeCoroutine = null; }
         if (closeDashCoroutine != null) { StopCoroutine(closeDashCoroutine); closeDashCoroutine = null; }
         if (airLaunchCoroutine != null) { StopCoroutine(airLaunchCoroutine); airLaunchCoroutine = null; }
         if (launchGrabCoroutine != null) { StopCoroutine(launchGrabCoroutine); launchGrabCoroutine = null; }
         if (backstepCoroutine != null) { StopCoroutine(backstepCoroutine); backstepCoroutine = null; }
         if (smashDamageCoroutine != null) { StopCoroutine(smashDamageCoroutine); smashDamageCoroutine = null; }
+            return; // EXIT — don't touch the animator
+        }
         // Also release the player if we hard-reset mid-grab:
-        if (player != null)
+        if (player != null && !isReleasingFromCounter)
         {
             PlayerHealth ph = player.GetComponent<PlayerHealth>();
             if (ph != null && ph.IsGrabbed) ph.ReleaseFromGrab();
         }
+        isReleasingFromCounter = false;
         if (player != null)
         {
             isFacingRight = player.position.x > transform.position.x;
             SetFacing(isFacingRight);
-        }
+        }   
+            animator.ResetTrigger(DanceHash);
+        animator.CrossFade("Idle", 0.0f, 0);
         if (twinBossManager != null)
-            twinBossManager.NotifyAttackEnded(false);
-        UnlockFlip();
+            twinBossManager.NotifyAttackEnded(false, forced: true);
+      
         Debug.LogWarning("[GauntletTwin] ForceResetAttackState called — all flags cleared.");
     }
     private IEnumerator ResetTriggerNextFrame(int triggerHash)
@@ -1314,8 +1366,16 @@ public class GauntletTwinAttack : MonoBehaviour
     public void HoldAttack(bool hold)
     {
         isHeldByManager = hold;
+        if (!hold)
+        {
+            isDancing = false;
+            animator.ResetTrigger(DanceHash);
+        }
     }
-
+    public void EVENT_DanceFinished()
+    {
+        isDancing = false;
+    }
     public void TryEvasiveRetreat()
     {
         if (isAttacking || isBackstepping || isAirLaunching || isLaunchGrabbing) return;
@@ -1327,6 +1387,23 @@ public class GauntletTwinAttack : MonoBehaviour
     {
         if (health == null) return 1f;
         return (float)health.GetCurrentHealth() / health.GetMaxHealth();
+    }
+    public void PlaySyncCombo()
+    {
+        isAttacking = true;
+        animator.SetTrigger(SyncComboHash);
+    }
+
+    // Animation Event — place at END of SyncCombo clip  
+    public void EVENT_SyncComboFinished()
+    {
+        isAttacking = false;
+        // Only one twin needs to notify the manager — boot handles it
+        if (player != null)
+        {
+            isFacingRight = player.position.x > transform.position.x;
+            SetFacing(isFacingRight);
+        }
     }
     // ─────────────────────────────────────────────
     //  GIZMOS

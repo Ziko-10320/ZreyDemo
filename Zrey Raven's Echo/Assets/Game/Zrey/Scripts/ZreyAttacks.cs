@@ -2012,11 +2012,14 @@ public class ZreyAttacks : MonoBehaviour
     public void EVENT_GauntletGrabCounterFinished()
     {
         if (twinBossManager != null) twinBossManager.SetCinematicLock(false);
-        GauntletTwinHealth gth = FindFirstObjectByType<GauntletTwinHealth>();
-        if (gth != null)
+
+      
+
+        // Manual clear instead of ReleaseFromGrab to avoid StopAllCoroutines killing this sequence
+        if (playerHealth != null)
         {
-            gth.isBeingCountered = false;
-            gth.GetComponent<GauntletTwinAttack>()?.UnlockFlip();
+            playerHealth.IsGrabbed = false;
+            playerHealth.ClearGrabState(); // use ClearGrabState, NOT ReleaseFromGrab
         }
 
         SetCinematicState(false);

@@ -873,7 +873,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8990848837076458346, guid: 901e76773e0373943b1ffb363577cd0b, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 12.7
+      value: 12.4
       objectReference: {fileID: 0}
     - target: {fileID: 8990848837076458346, guid: 901e76773e0373943b1ffb363577cd0b, type: 3}
       propertyPath: m_LocalPosition.y
@@ -1148,8 +1148,15 @@ MonoBehaviour:
   gauntletAttack: {fileID: 1772267043734457310}
   gauntletHealth: {fileID: 1772267043734457309}
   tooCloseDistance: 22
-  turnTimeoutDuration: 1
+  turnTimeoutDuration: 4
   turnHandoffDelay: 0
+  syncComboHealthThreshold: 0.7
+  syncComboMaxDistance: 15
+  syncComboCooldown: 10
+  syncComboChance: 0.645
+  syncComboCheckInterval: 1
+  bootSyncSnapOffset: {x: -1.3, y: 0, z: 0}
+  gauntletSyncSnapOffset: {x: 1.5, y: 0, z: 0}
 --- !u!4 &2037068503
 Transform:
   m_ObjectHideFlags: 0
@@ -1312,6 +1319,10 @@ PrefabInstance:
     m_TransformParent: {fileID: 0}
     m_Modifications:
     - target: {fileID: 1214762408971362514, guid: 1ccc8e57c3f35f641bbf1694bc1bdb07, type: 3}
+      propertyPath: maxGuard
+      value: 150
+      objectReference: {fileID: 0}
+    - target: {fileID: 1214762408971362514, guid: 1ccc8e57c3f35f641bbf1694bc1bdb07, type: 3}
       propertyPath: maxHealth
       value: 350
       objectReference: {fileID: 0}
@@ -1323,6 +1334,10 @@ PrefabInstance:
       propertyPath: otherTwinHealth
       value: 
       objectReference: {fileID: 1680429657}
+    - target: {fileID: 1214762408971362514, guid: 1ccc8e57c3f35f641bbf1694bc1bdb07, type: 3}
+      propertyPath: guardBrokenStunDuration
+      value: 5
+      objectReference: {fileID: 0}
     - target: {fileID: 4151928318053742486, guid: 1ccc8e57c3f35f641bbf1694bc1bdb07, type: 3}
       propertyPath: player
       value: 
@@ -1336,6 +1351,10 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 605163863}
     - target: {fileID: 4151928318053742486, guid: 1ccc8e57c3f35f641bbf1694bc1bdb07, type: 3}
+      propertyPath: danceChance
+      value: 0.81
+      objectReference: {fileID: 0}
+    - target: {fileID: 4151928318053742486, guid: 1ccc8e57c3f35f641bbf1694bc1bdb07, type: 3}
       propertyPath: smashChance
       value: 1
       objectReference: {fileID: 0}
@@ -1344,16 +1363,40 @@ PrefabInstance:
       value: 6
       objectReference: {fileID: 0}
     - target: {fileID: 4151928318053742486, guid: 1ccc8e57c3f35f641bbf1694bc1bdb07, type: 3}
+      propertyPath: danceCooldown
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 4151928318053742486, guid: 1ccc8e57c3f35f641bbf1694bc1bdb07, type: 3}
       propertyPath: twinBossManager
       value: 
       objectReference: {fileID: 2037068502}
     - target: {fileID: 4151928318053742486, guid: 1ccc8e57c3f35f641bbf1694bc1bdb07, type: 3}
+      propertyPath: launchGrabChance
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 4151928318053742486, guid: 1ccc8e57c3f35f641bbf1694bc1bdb07, type: 3}
+      propertyPath: launchGrabCooldown
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 4151928318053742486, guid: 1ccc8e57c3f35f641bbf1694bc1bdb07, type: 3}
+      propertyPath: comboRangeBoxSize.x
+      value: 61.1
+      objectReference: {fileID: 0}
+    - target: {fileID: 4151928318053742486, guid: 1ccc8e57c3f35f641bbf1694bc1bdb07, type: 3}
       propertyPath: smashUnlockThreshold
       value: 0.7
       objectReference: {fileID: 0}
+    - target: {fileID: 4151928318053742486, guid: 1ccc8e57c3f35f641bbf1694bc1bdb07, type: 3}
+      propertyPath: comboRangeBoxOffset.x
+      value: 35.6
+      objectReference: {fileID: 0}
+    - target: {fileID: 4151928318053742486, guid: 1ccc8e57c3f35f641bbf1694bc1bdb07, type: 3}
+      propertyPath: launchGrabUnlockThreshold
+      value: 0.5
+      objectReference: {fileID: 0}
     - target: {fileID: 6829551397488663199, guid: 1ccc8e57c3f35f641bbf1694bc1bdb07, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 21.9
+      value: 20.56
       objectReference: {fileID: 0}
     - target: {fileID: 6829551397488663199, guid: 1ccc8e57c3f35f641bbf1694bc1bdb07, type: 3}
       propertyPath: m_LocalPosition.y
@@ -1395,6 +1438,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Zakaria
       objectReference: {fileID: 0}
+    - target: {fileID: 7853442516515719315, guid: 1ccc8e57c3f35f641bbf1694bc1bdb07, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -1432,7 +1479,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1564793766570273241, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -31.04
+      value: -29.09
       objectReference: {fileID: 0}
     - target: {fileID: 1564793766570273241, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
       propertyPath: m_LocalPosition.y
@@ -1474,6 +1521,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Hamza
       objectReference: {fileID: 0}
+    - target: {fileID: 2713116273456232504, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 4474428025743037352, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
       propertyPath: player
       value: 
@@ -1487,12 +1538,40 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 1000379571}
     - target: {fileID: 4474428025743037352, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
+      propertyPath: danceChance
+      value: 0.85
+      objectReference: {fileID: 0}
+    - target: {fileID: 4474428025743037352, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
+      propertyPath: launchChance
+      value: 0.915
+      objectReference: {fileID: 0}
+    - target: {fileID: 4474428025743037352, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
+      propertyPath: comboCooldown
+      value: 9
+      objectReference: {fileID: 0}
+    - target: {fileID: 4474428025743037352, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
+      propertyPath: danceCooldown
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 4474428025743037352, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
+      propertyPath: launchCooldown
+      value: 10
+      objectReference: {fileID: 0}
+    - target: {fileID: 4474428025743037352, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
       propertyPath: twinBossManager
       value: 
       objectReference: {fileID: 2037068502}
     - target: {fileID: 4474428025743037352, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
       propertyPath: rockAttackChance
+      value: 0.59
+      objectReference: {fileID: 0}
+    - target: {fileID: 4474428025743037352, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
+      propertyPath: airLaunchCooldown
       value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 4474428025743037352, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
+      propertyPath: rockAttackCooldown
+      value: 14
       objectReference: {fileID: 0}
     - target: {fileID: 4474428025743037352, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
       propertyPath: rockAttackMinRange
@@ -1500,11 +1579,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4474428025743037352, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
       propertyPath: specialAttackChance
-      value: 0.84
+      value: 0.74
       objectReference: {fileID: 0}
     - target: {fileID: 4474428025743037352, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
       propertyPath: rockAttackUnlockThreshold
       value: 0.7
+      objectReference: {fileID: 0}
+    - target: {fileID: 9193923300763770020, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
+      propertyPath: maxGuard
+      value: 150
       objectReference: {fileID: 0}
     - target: {fileID: 9193923300763770020, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
       propertyPath: maxHealth
@@ -1518,6 +1601,10 @@ PrefabInstance:
       propertyPath: otherTwinHealth
       value: 
       objectReference: {fileID: 1772267043734457309}
+    - target: {fileID: 9193923300763770020, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
+      propertyPath: guardBrokenStunDuration
+      value: 5
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []

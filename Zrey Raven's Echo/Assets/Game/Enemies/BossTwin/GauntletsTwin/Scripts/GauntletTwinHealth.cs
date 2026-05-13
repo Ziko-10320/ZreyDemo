@@ -901,6 +901,8 @@ public class GauntletTwinHealth : MonoBehaviour
     public void PerformBlock(Transform player)
     {
         if (isDying || isFinishable) return;
+        if (isGuardBroken) return;
+        GetComponent<GauntletTwinAttack>()?.ForceResetAttackState();
         // This is the same logic that used to be in OnPlayerAttackTelegraphed.
         // We still check for stun and range as a final safety measure.
         if (isGuardBroken || isBeingKnockedBack || Vector2.Distance(transform.position, player.position) > blockRange)
@@ -913,6 +915,7 @@ public class GauntletTwinHealth : MonoBehaviour
     }
     public void OnPlayerAttackTelegraphed(Transform player)
     {
+       
         // --- THE HYPER ARMOR LOGIC ---
         // If the Follow brain is already locked in an attack, DO NOTHING.
         if (!isInJuggleState && followAI != null && (followAI.IsAttacking() || followAI.IsLaunching() || followAI.IsAirLaunching()))
@@ -954,7 +957,6 @@ public class GauntletTwinHealth : MonoBehaviour
     }
     private IEnumerator GuardBrokenSequence()
     {
-        // Cancel only the stun sequence, not everything
         if (stunSequenceCoroutine != null)
         {
             StopCoroutine(stunSequenceCoroutine);
@@ -963,14 +965,15 @@ public class GauntletTwinHealth : MonoBehaviour
 
         isGuardBroken = false;
         isBlocking = false;
-        animator.SetBool(isWeakAndDamageableBoolHash, false);
+
+        // DON'T reset the bool yet — fire the trigger first
         yield return null;
 
-        animator.SetTrigger(guardBrokenTriggerHash);
+        animator.SetTrigger(guardBrokenTriggerHash);  // fires cleanly
+        animator.SetBool(isWeakAndDamageableBoolHash, false); // reset AFTER
         currentGuard = 0;
         TriggerPostureUpdate();
 
-        // Bypass TriggerStun's guard check and start directly
         stunSequenceCoroutine = StartCoroutine(StunSequence(guardBrokenStunDuration));
     }
     public void PlayHitReaction(string hitType)
@@ -1378,6 +1381,7 @@ public class GauntletTwinHealth : MonoBehaviour
     {
         isBeingCountered = true;
         followAI.isBeingCountered = true;
+        followAI.isReleasingFromCounter = true; // ADD THIS — prevents ForceReset from releasing a future grab
         followAI.ForceResetAttackState();
         followAI.LockFlip();
         if (rb != null) rb.linearVelocity = Vector2.zero;
@@ -1386,8 +1390,21 @@ public class GauntletTwinHealth : MonoBehaviour
     public void EndCounter()
     {
         isBeingCountered = false;
-        followAI.isBeingCountered = false;
-        followAI.UnlockFlip();
+        if (followAI != null)
+        {
+            followAI.isBeingCountered = false;
+            followAI.UnlockFlip();
+            // ADD THIS — force a clean state check
+            followAI.enabled = true;
+        }
+        GauntletTwinAttack gta = GetComponent<GauntletTwinAttack>();
+        if (gta != null)
+        {
+            gta.isBeingCountered = false;
+            gta.isReleasingFromCounter = false; // safety clear
+            gta.UnlockFlip();
+            gta.ForceResetAttackState();
+        }
     }
     public void SpawnCounterBlood()
     {

@@ -96,7 +96,8 @@ public class PlayerHealth : MonoBehaviour
     [Header("Grab VFX")]
     [SerializeField] private GameObject stabBloodVFX;
     [SerializeField] private Transform stabBloodSpawnPoint;
-    public bool IsGrabbed { get; private set; } = false;
+    // Add this property setter to allow ZreyAttacks to set IsGrabbed
+    public bool IsGrabbed { get; set; }
     public bool IsInvincible { get; private set; } = false;
     private Coroutine invincibilityWatchdogCoroutine;
 
@@ -874,32 +875,41 @@ public class PlayerHealth : MonoBehaviour
     }
     public void GetGrabbedByGauntlet(Vector3 snapPosition, Transform enemyTransform)
     {
-        if (IsGrabbed) return; // already grabbed, ignore
+        // Force-clear any leftover grab state before checking counter
+        IsGrabbed = false;
+        isStunned = false;
+        isBeingKnockedBack = false;
+        if (playerAttacks != null) playerAttacks.IsInCinematicState_ForceSet(false);
+        if (playerMovements != null) playerMovements.CanMove = true;
+
         ZreyAttacks attacks = GetComponent<ZreyAttacks>();
         if (attacks != null && attacks.TryTriggerCounterFromSpecialAttack("GauntletGrab", enemyTransform))
         {
             GauntletTwinHealth gth = enemyTransform.GetComponent<GauntletTwinHealth>();
             if (gth != null) attacks.StartGauntletGrabCounter(gth);
-            return; // counter fired — don't get grabbed
+            return;
         }
+
         IsGrabbed = true;
         isStunned = true;
         isBeingKnockedBack = true;
 
-        // Cancel everything the player was doing
         if (playerAttacks != null) playerAttacks.CancelAttack();
         if (playerAttacks != null) playerAttacks.IsInCinematicState_ForceSet(true);
         if (playerMovements != null) playerMovements.CanMove = false;
         StopBlocking();
 
-        // Kill velocity
         if (rb != null) rb.linearVelocity = Vector2.zero;
-
-        // Snap position
         transform.position = snapPosition;
-
-
-
+    }
+    public void ClearGrabState()
+    {
+        IsGrabbed = false;
+        isStunned = false;
+        isBeingKnockedBack = false;
+        if (playerAttacks != null) playerAttacks.IsInCinematicState_ForceSet(false);
+        if (playerMovements != null) playerMovements.CanMove = true;
+        if (rb != null) rb.linearVelocity = new Vector2(0, rb.linearVelocity.y);
     }
     public void PlayGetGrabGroundAnimation()
     {
