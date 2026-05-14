@@ -574,7 +574,10 @@ public class PlayerHealth : MonoBehaviour
         }
         if (playerMovements != null) playerMovements.CanMove = true;
         if (playerAttacks != null) playerAttacks.IsInCinematicState_ForceSet(false);
+        foreach (var trap in FindObjectsByType<HazardController>(FindObjectsSortMode.None))
+            trap.ResetTrap();
 
+  
         if (checkpointManager != null) checkpointManager.RespawnAtMiniCheckpoint();
     }
 

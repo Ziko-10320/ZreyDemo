@@ -7,7 +7,16 @@ public class ZreyMovements : MonoBehaviour
 {
     [Header("Movement Settings")]
     [SerializeField] private float runSpeed = 5f;
-
+    [Header("Dash UI")]
+    [SerializeField] private CanvasGroup dashUICanvasGroup;
+    [SerializeField] private UnityEngine.UI.Image dashCharge1;
+    [SerializeField] private UnityEngine.UI.Image dashCharge2;
+    [SerializeField] private float dashUIFadeOutDelay = 1.5f;
+    [SerializeField] private Transform dashUIFollow; // assign the canvas transform
+    [SerializeField] private Vector3 dashUIOffset = new Vector3(0f, 1.5f, 0f);
+    [SerializeField] private float dashUIFadeDuration = 0.25f;
+    [SerializeField] private Color dashChargedColor = new Color(1f, 0.85f, 0f, 1f);
+    [SerializeField] private Color dashDepletedColor = new Color(1f, 0.85f, 0f, 0f);
     [Header("Jumping Settings")]
     [SerializeField] private float jumpForce = 10f;
     [SerializeField] private Transform groundCheck;
@@ -44,7 +53,8 @@ public class ZreyMovements : MonoBehaviour
 
     // --- Manual Root Motion State ---
     private Vector3 previousMoverPosition;
-
+    private Coroutine dashUIFadeOutCoroutine;
+    private int lastKnownDashes = -1;
     // --- Animation Hashes ---
     private readonly int isRunningHash = Animator.StringToHash("isRunning");
     private readonly int isGroundedHash = Animator.StringToHash("isGrounded");
@@ -261,6 +271,7 @@ public class ZreyMovements : MonoBehaviour
             footstepSource.loop = true;
             footstepSource.spatialBlend = 0f; // 2D sound
         }
+        if (dashUICanvasGroup != null) dashUICanvasGroup.alpha = 0f;
     }
     public static void NukeInputSystem()
     {
@@ -297,7 +308,7 @@ public class ZreyMovements : MonoBehaviour
     void Update()
     {
         Vector2 rawCompositeInput = inputActions.Player.Move.ReadValue<Vector2>();
-
+        if (dashUIFollow != null) dashUIFollow.position = transform.position + dashUIOffset;
         // 2. Check the individual key states.
         bool isLeftPressed = inputActions.Player.Move.ReadValue<Vector2>().x < 0;
         bool isRightPressed = inputActions.Player.Move.ReadValue<Vector2>().x > 0;
@@ -411,6 +422,7 @@ public class ZreyMovements : MonoBehaviour
             }
             // ...reset their air dashes.
             airDashesRemaining = maxAirDashes;
+            DashUI_OnDashesRestored();
             justWallJumped = false;
             wallJumpInputLocked = false;
             Debug.Log("Dashes Reset to: " + airDashesRemaining);
@@ -432,7 +444,58 @@ public class ZreyMovements : MonoBehaviour
 
         Debug.LogError("--- EVENT_LockAllMovement: MOVEMENT FULLY LOCKED ---");
     }
+    private void DashUI_OnDashUsed()
+    {
+        if (dashUICanvasGroup == null) return;
 
+        // Cancel any pending fade out — we spent a dash so UI must stay
+        if (dashUIFadeOutCoroutine != null)
+        {
+            StopCoroutine(dashUIFadeOutCoroutine);
+            dashUIFadeOutCoroutine = null;
+        }
+
+        // Show the UI immediately
+        StartCoroutine(DashUI_Fade(1f));
+
+        // Update charge icons
+        if (dashCharge1 != null) dashCharge1.color = airDashesRemaining >= 1 ? dashChargedColor : dashDepletedColor;
+        if (dashCharge2 != null) dashCharge2.color = airDashesRemaining >= 2 ? dashChargedColor : dashDepletedColor;
+    }
+
+    private void DashUI_OnDashesRestored()
+    {
+        if (dashUICanvasGroup == null) return;
+        if (dashCharge1 != null) dashCharge1.color = dashChargedColor;
+        if (dashCharge2 != null) dashCharge2.color = dashChargedColor;
+
+        // Only fade out if we're actually back to full
+        if (airDashesRemaining >= maxAirDashes)
+        {
+            if (dashUIFadeOutCoroutine != null) StopCoroutine(dashUIFadeOutCoroutine);
+            dashUIFadeOutCoroutine = StartCoroutine(DashUI_FadeOutAfterDelay());
+        }
+    }
+
+    private IEnumerator DashUI_FadeOutAfterDelay()
+    {
+        yield return new WaitForSeconds(dashUIFadeOutDelay);
+        yield return StartCoroutine(DashUI_Fade(0f));
+        dashUIFadeOutCoroutine = null;
+    }
+
+    private IEnumerator DashUI_Fade(float targetAlpha)
+    {
+        float startAlpha = dashUICanvasGroup.alpha;
+        float t = 0f;
+        while (t < dashUIFadeDuration)
+        {
+            t += Time.deltaTime;
+            dashUICanvasGroup.alpha = Mathf.Lerp(startAlpha, targetAlpha, t / dashUIFadeDuration);
+            yield return null;
+        }
+        dashUICanvasGroup.alpha = targetAlpha;
+    }
     // Call this from Animation Event to fully restore movement
     public void EVENT_UnlockAllMovement()
     {
@@ -838,6 +901,7 @@ public class ZreyMovements : MonoBehaviour
 
         // Spend a dash charge
         airDashesRemaining--;
+        DashUI_OnDashUsed();
         // Start the NEW coroutine and store its reference.
         airDashCoroutine = StartCoroutine(PhasingAirDashSequence());
         Debug.Log("Air Dashed! Remaining: " + airDashesRemaining);
