@@ -54046,10 +54046,31 @@ AnimationClip:
   m_HasGenericRootTransform: 0
   m_HasMotionFloatCurves: 0
   m_Events:
+  - time: 0.31666666
+    functionName: PlayAttackSound
+    data: 
+    objectReferenceParameter: {fileID: 8300000, guid: f6c9864df0977344e9594d2d6aa56e71, type: 3}
+    floatParameter: 0
+    intParameter: 0
+    messageOptions: 0
   - time: 0.43333334
     functionName: EVENT_BootTwinConcasseCounterDamage
     data: 
     objectReferenceParameter: {fileID: 0}
+    floatParameter: 0
+    intParameter: 0
+    messageOptions: 0
+  - time: 0.5
+    functionName: PlayAttackSound
+    data: 
+    objectReferenceParameter: {fileID: 8300000, guid: 6d98023701d63754dab0708680bf6167, type: 3}
+    floatParameter: 0
+    intParameter: 0
+    messageOptions: 0
+  - time: 1.1
+    functionName: PlayAttackSound
+    data: 
+    objectReferenceParameter: {fileID: 8300000, guid: 9f13e25919785464688d285106c952e5, type: 3}
     floatParameter: 0
     intParameter: 0
     messageOptions: 0
