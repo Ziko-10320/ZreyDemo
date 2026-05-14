@@ -845,12 +845,19 @@ public class GauntletTwinAttack : MonoBehaviour
             bool countered = playerAttacks.TryTriggerCounterFromSpecialAttack("GauntletGrab", transform);
             if (countered)
             {
-                // Grab whiffed — treat as miss
-                StopLaunchGrabCoroutine();
-                animator.SetTrigger(GrabClawHash);
+                isLaunchGrabbing = false;
+                isAttacking = false;
+                grabConnected = false;
+                isGrabWindowOpen = false;
+
+                // Trigger the counter sequence directly from here
+                GauntletTwinHealth gth = GetComponent<GauntletTwinHealth>();
+                if (gth != null) playerAttacks.StartGauntletGrabCounter(gth);
                 return;
             }
         }
+
+        // Normal grab — unchanged below
         float direction = isFacingRight ? 1f : -1f;
         Vector3 snapPos = transform.position + new Vector3(
             grabSnapOffset.x * direction,
@@ -859,15 +866,9 @@ public class GauntletTwinAttack : MonoBehaviour
         );
         playerCollider.transform.position = snapPos;
 
-        // ── Facing fix ──
-        // Enemy faces toward the player side — already correct from isFacingRight
-        // Player must face the OPPOSITE direction (toward the enemy)
         ZreyMovements playerMovements = playerCollider.GetComponent<ZreyMovements>();
         if (playerMovements != null)
-        {
-            // Player faces enemy: if enemy faces right, player is to the right → player faces LEFT
             playerMovements.ForceFaceDirection(!isFacingRight);
-        }
 
         PlayerHealth ph = playerCollider.GetComponent<PlayerHealth>();
         if (ph != null)

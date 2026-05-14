@@ -876,21 +876,6 @@ public class PlayerHealth : MonoBehaviour
     }
     public void GetGrabbedByGauntlet(Vector3 snapPosition, Transform enemyTransform)
     {
-        // Force-clear any leftover grab state before checking counter
-        IsGrabbed = false;
-        isStunned = false;
-        isBeingKnockedBack = false;
-        if (playerAttacks != null) playerAttacks.IsInCinematicState_ForceSet(false);
-        if (playerMovements != null) playerMovements.CanMove = true;
-
-        ZreyAttacks attacks = GetComponent<ZreyAttacks>();
-        if (attacks != null && attacks.TryTriggerCounterFromSpecialAttack("GauntletGrab", enemyTransform))
-        {
-            GauntletTwinHealth gth = enemyTransform.GetComponent<GauntletTwinHealth>();
-            if (gth != null) attacks.StartGauntletGrabCounter(gth);
-            return;
-        }
-
         IsGrabbed = true;
         isStunned = true;
         isBeingKnockedBack = true;
@@ -898,8 +883,8 @@ public class PlayerHealth : MonoBehaviour
         if (playerAttacks != null) playerAttacks.CancelAttack();
         if (playerAttacks != null) playerAttacks.IsInCinematicState_ForceSet(true);
         if (playerMovements != null) playerMovements.CanMove = false;
-        StopBlocking();
 
+        StopBlocking();
         if (rb != null) rb.linearVelocity = Vector2.zero;
         transform.position = snapPosition;
     }
