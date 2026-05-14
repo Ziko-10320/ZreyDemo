@@ -743,23 +743,23 @@ public class GauntletTwinHealth : MonoBehaviour
         TriggerHealthUpdate();
         if (isDying || isFinishable) return;
 
-        Debug.LogWarning($"--- {transform.name} has been defeated! ---");
+        TwinBossManager manager = FindFirstObjectByType<TwinBossManager>();
+        if (manager != null)
+        {
+            manager.NotifyTwinDefeated();
+            // If both are dead, let the defeat sequence handle everything — don't go finishable
+            if (manager.BothTwinsDefeated())
+            {
+                if (followAI != null) followAI.enabled = false;
+                return;
+            }
+        }
 
-        // --- THIS IS THE NEW, CONTEXT-AWARE LOGIC ---
+        Debug.LogWarning($"--- {transform.name} has been defeated! ---");
         if (isGrounded)
-        {
-            // CASE 1: We are on the ground. Transition to finishable immediately.
-            Debug.Log("Enemy died on the ground. Becoming finishable now.");
             TransitionToFinishable();
-        }
         else
-        {
-            // CASE 2: We are in the air. Just mark ourselves as "dying".
-            // The Update() method will handle the rest upon landing.
-            Debug.Log("Enemy died in the air. Will become finishable upon landing.");
             isDying = true;
-            // We DO NOT make the Rigidbody kinematic here. We let it fall.
-        }
     }
     private void TransitionToFinishable()
     {

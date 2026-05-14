@@ -36,7 +36,8 @@ public class TwinBossManager : MonoBehaviour
     [Tooltip("Where Gauntlet snaps to (world-space offset from center between twins).")]
     [SerializeField] private Vector3 gauntletSyncSnapOffset = new Vector3(0.5f, 0f, 0f);
 
-  
+    [SerializeField] private BossFightCutscene bossFightCutscene;
+
     private float turnHandoffTimer = 0f;
     private bool isWaitingToHandoff = false;
 
@@ -57,6 +58,8 @@ public class TwinBossManager : MonoBehaviour
     private static readonly int SyncComboGauntletHash = Animator.StringToHash("SyncCombo");
 
     private bool openingSequenceComplete = false;
+
+    private bool defeatTriggered = false;
     private void Start()
     {
         // Do NOT give a random token or push anything here.
@@ -375,5 +378,38 @@ public class TwinBossManager : MonoBehaviour
     public void ResetGauntletCooldownForFightStart()
     {
         gauntletAttack.ResetCooldownForFightStart();
+    }
+
+    public void NotifyTwinDefeated()
+    {
+        if (defeatTriggered) return;
+        if (bootHealth == null || gauntletHealth == null) return;
+
+        // Use <= 0 check with a 1-frame delay to let shared damage propagate
+        StartCoroutine(CheckBothDefeated());
+    }
+    private IEnumerator CheckBothDefeated()
+    {
+        // Wait one frame so shared damage has propagated to both twins
+        yield return null;
+
+        if (bootHealth.GetCurrentHealth() <= 0 && gauntletHealth.GetCurrentHealth() <= 0)
+        {
+            if (defeatTriggered) yield break;
+            defeatTriggered = true;
+
+            // Disable BOTH attack scripts here in the manager
+            if (bootAttack != null) bootAttack.enabled = false;
+            if (gauntletAttack != null) gauntletAttack.enabled = false;
+
+            Debug.Log("[TwinBossManager] Both twins defeated — triggering defeat sequence.");
+            if (bossFightCutscene != null)
+                bossFightCutscene.TriggerDefeatSequence();
+        }
+    }
+    public bool BothTwinsDefeated()
+    {
+        if (bootHealth == null || gauntletHealth == null) return false;
+        return bootHealth.GetCurrentHealth() <= 0 && gauntletHealth.GetCurrentHealth() <= 0;
     }
 }
