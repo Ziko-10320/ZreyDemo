@@ -204,6 +204,9 @@ public class ZreyMovements : MonoBehaviour
     private float autoRunDirection = 0f;
 
     public bool IsAutoRunning => isAutoRunning;
+
+    private bool justStoppedAutoRun = false;
+
     void Awake()
     {
         if (combatRunSource == null)
@@ -964,7 +967,7 @@ public class ZreyMovements : MonoBehaviour
         isWallSliding = false;
         wallStickCounter = 0f;
         animator.SetBool(isWallSlidingBoolHash, false);
-
+        animator.SetBool(isFallingHash, false);
         // Restore gravity immediately — HandleWallMechanics may have zeroed it
         rb.gravityScale = originalGravityScale;
 
@@ -998,49 +1001,65 @@ public class ZreyMovements : MonoBehaviour
     }
     private void HandleWallMechanics()
     {
-        if (isDashing)
+        if (isDashing) return;
+        if (playerAttacks != null && playerAttacks.IsInCinematicState) return;
+
+        // ADD: always check wall contact regardless of input lock
+        bool currentlyTouchingWall = Physics2D.OverlapCircle(wallCheck.position, wallCheckRadius, wallLayer);
+
+        // REPLACE the old wallJumpInputLocked return with this:
+        // Don't skip wall detection even when input is locked —
+        // only skip the JUMP INPUT, not the wall CONTACT detection
+        if (wallJumpInputLocked)
         {
-            // If yes, do NOTHING here. Let the PhasingAirDashSequence coroutine have full control.
-            return;
+            // Still update wall touch so we don't miss re-contact
+            isTouchingWall = currentlyTouchingWall;
+
+            // If player returned to ANY wall while input-locked, clear justWallJumped
+            // so wall stick can engage immediately on landing back
+            if (currentlyTouchingWall && !isGrounded)
+            {
+                justWallJumped = false;
+                wallJumpInputLocked = false; // wall contact overrides the lock
+                wallStickCounter = 0f;
+                animator.SetTrigger(touchWallTriggerHash);
+            }
+            // Don't return here — fall through to wall slide logic below
+            // so the animator and gravity are correctly set even while locked
+            if (wallJumpInputLocked) return; // only return if lock wasn't cleared above
         }
-        if (playerAttacks != null && playerAttacks.IsInCinematicState)
-        {
-            Debug.Log("Dash Input Ignored: In Cinematic State.");
-            return;
-        }
-        if (wallJumpInputLocked) { return; }
-        // Store the state from the previous frame. This is key for the animation trigger.
+
         bool wasTouchingWall = isTouchingWall;
-        isTouchingWall = Physics2D.OverlapCircle(wallCheck.position, wallCheckRadius, wallLayer);
+        isTouchingWall = currentlyTouchingWall; // use the value we already computed
+
+        // REPLACE the old justWallJumped block:
         if (justWallJumped)
         {
-            // --- THIS IS THE FIX ---
-            // Check if we are now touching a wall again.
-            if (Physics2D.OverlapCircle(wallCheck.position, wallCheckRadius, wallLayer))
+            if (currentlyTouchingWall && !isGrounded)
             {
-                // If we hit a new wall, the post-jump state is over.
-                // Instantly lower the shield so the rest of the function can run.
+                // Hit a wall — clear post-jump state immediately
                 justWallJumped = false;
-                Debug.Log("Hit a new wall. Wall jump lock is OFF.");
+                wallStickCounter = 0f;
+                animator.SetBool(isWallSlidingBoolHash, false); // ADD: reset slide bool cleanly
+                animator.SetTrigger(touchWallTriggerHash);
+                Debug.Log("Returned to wall. Wall jump lock OFF.");
             }
             else
             {
-                // If we are still flying in the air, we don't want the rest of the
-                // wall mechanics to run, so we exit here.
                 return;
             }
         }
-        // --- THE GUARANTEED ANIMATION TRIGGER ---
-        // If we were NOT touching a wall last frame, but we ARE now, and we're in the air...
+
+        // Touch trigger — only on fresh contact
         if (!wasTouchingWall && isTouchingWall && !isGrounded)
         {
-            // ...this is the exact frame of contact. Fire the trigger.
             animator.SetTrigger(touchWallTriggerHash);
-            Debug.Log("TOUCH WALL TRIGGER FIRED!");
             wallStickCounter = 0f;
+            animator.SetBool(isWallSlidingBoolHash, false); // ADD: ensure clean state on contact
+            Debug.Log("TOUCH WALL TRIGGER FIRED!");
         }
 
-        // Determine the wall slide state.
+        // Wall slide state
         if (isTouchingWall && !isGrounded && !justWallJumped)
         {
             isWallSliding = true;
@@ -1050,39 +1069,28 @@ public class ZreyMovements : MonoBehaviour
             isWallSliding = false;
         }
 
-        // --- THE GRAVITY STICK FIX ---
-        // This logic now runs based on the state we just determined.
         if (isWallSliding)
         {
             wallStickCounter += Time.deltaTime;
 
             if (wallStickCounter < wallStickTime)
             {
-                // STICK PHASE: This part is correct. Gravity is 0, velocity is 0.
                 rb.gravityScale = 0f;
                 rb.linearVelocity = Vector2.zero;
             }
             else
             {
-                // --- THE ACCELERATION FIX ---
-                // SLIDE PHASE: Restore gravity and accelerate downward.
                 rb.gravityScale = originalGravityScale;
                 animator.SetBool(isWallSlidingBoolHash, true);
 
-                // Calculate how far into the acceleration we are.
                 float timeSinceStickEnd = wallStickCounter - wallStickTime;
                 float accelerationProgress = Mathf.Clamp01(timeSinceStickEnd / wallSlideAccelerationTime);
-
-                // Use Lerp to smoothly transition from min to max speed.
                 float currentSlideSpeed = Mathf.Lerp(minWallSlideSpeed, maxWallSlideSpeed, accelerationProgress);
-
-                // Apply the new accelerating downward velocity.
                 rb.linearVelocity = new Vector2(rb.linearVelocity.x, -currentSlideSpeed);
             }
         }
         else
         {
-            // If we are not on a wall, always restore gravity and reset the counter.
             rb.gravityScale = originalGravityScale;
             wallStickCounter = 0;
             animator.SetBool(isWallSlidingBoolHash, false);
@@ -1090,10 +1098,16 @@ public class ZreyMovements : MonoBehaviour
     }
     private void HandleMovementAnimation()
     {
+        if (isAutoRunning)
+        {
+            animator.SetBool(isRunningHash, true);
+            StartFootsteps();
+            return;
+        }
+
         bool shouldRun = moveInput.x != 0 && !isInCombatMode;
         animator.SetBool(isRunningHash, shouldRun);
 
-        // FOOTSTEP LOOP
         if (shouldRun && isGrounded && !isDashing)
             StartFootsteps();
         else
@@ -1101,6 +1115,14 @@ public class ZreyMovements : MonoBehaviour
     }
     private void HandleCombatAndAnimation()
     {
+        if (isAutoRunning)
+        {
+            animator.SetBool(isRunningHash, true);
+            animator.SetBool(isMovingForwardHash, false);
+            animator.SetBool(isMovingBackwardHash, false);
+            animator.SetBool(isFallingHash, false);
+            return; // skip everything else — nothing should override run during auto-run
+        }
         if (!isGrounded && combatRunSource.isPlaying)
             combatRunSource.Stop();
         if (isAttackLocked)
@@ -1205,7 +1227,8 @@ public class ZreyMovements : MonoBehaviour
                 animator.SetBool(isMovingForwardHash, false);
                 animator.SetBool(isMovingBackwardHash, false);
             }
-            animator.SetBool(isRunningHash, false);
+            if (!isAutoRunning)
+                animator.SetBool(isRunningHash, false);
         }
         else
         {
@@ -1429,9 +1452,9 @@ public class ZreyMovements : MonoBehaviour
         isAutoRunning = false;
         autoRunDirection = 0f;
         moveInput = Vector2.zero;
-        // ADD — restore agency
         CanMove = true;
         canFlip = true;
+        justStoppedAutoRun = true; // ADD — blocks HandleCombatAndAnimation for one frame
         if (rb != null)
             rb.linearVelocity = new Vector2(0f, rb.linearVelocity.y);
 
@@ -1460,7 +1483,7 @@ public class ZreyMovements : MonoBehaviour
     {
         animator.SetBool(isMovingForwardHash, false);
         animator.SetBool(isMovingBackwardHash, false);
-        animator.SetBool(combatModeBoolHash, false);
+        
         animator.SetBool(isRunningHash, false);
         combatRunSource.Stop();
     }

@@ -1632,6 +1632,7 @@ public class ZreyAttacks : MonoBehaviour
     }
     private void EnterCounterStance()
     {
+        if (playerMovement != null && playerMovement.IsAutoRunning) return;
         isCounterStanceActive = true;
         isCounterWindowOpen = false; // window opens via animation event
         playerMovement.CanMove = false;

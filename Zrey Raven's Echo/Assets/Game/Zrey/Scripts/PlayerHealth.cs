@@ -751,6 +751,7 @@ public class PlayerHealth : MonoBehaviour
     }
     private void StartBlocking()
     {
+        if (playerMovements != null && playerMovements.IsAutoRunning) return;
         bool tutWindow = TutorialManager.Instance != null && TutorialManager.Instance.InTutorialMode && TutorialManager.Instance.IsTutorialParryWindowOpen;
         Debug.Log($"<color=cyan>StartBlocking called. isBlocking={isBlocking} | isShieldBroken={isShieldBroken} | InCinematic={playerAttacks?.IsInCinematicState} | TutorialWindowOpen={tutWindow} | CanMove={playerMovements?.CanMove} | isStunned={isStunned}</color>");
         if (isShieldBroken) { Debug.LogWarning("Block ignored: Shield broken or stunned."); return; }

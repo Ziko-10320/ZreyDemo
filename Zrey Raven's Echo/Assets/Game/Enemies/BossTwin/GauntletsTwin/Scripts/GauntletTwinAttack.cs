@@ -839,6 +839,18 @@ public class GauntletTwinAttack : MonoBehaviour
 
     private void TryGrabPlayer(Collider2D playerCollider)
     {
+        ZreyAttacks playerAttacks = playerCollider.GetComponent<ZreyAttacks>();
+        if (playerAttacks != null)
+        {
+            bool countered = playerAttacks.TryTriggerCounterFromSpecialAttack("GauntletGrab", transform);
+            if (countered)
+            {
+                // Grab whiffed — treat as miss
+                StopLaunchGrabCoroutine();
+                animator.SetTrigger(GrabClawHash);
+                return;
+            }
+        }
         float direction = isFacingRight ? 1f : -1f;
         Vector3 snapPos = transform.position + new Vector3(
             grabSnapOffset.x * direction,
