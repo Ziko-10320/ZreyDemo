@@ -30,6 +30,7 @@ public class GameManager : MonoBehaviour
 
     void Start()
     {
+        isPaused = false;
         if (pausePanel != null)
         {
             panelCanvasGroup = pausePanel.GetComponent<CanvasGroup>();
