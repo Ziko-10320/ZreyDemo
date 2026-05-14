@@ -39,7 +39,7 @@ public class PlayerHealth : MonoBehaviour
     [SerializeField] private float shieldRegenRate = 20f;
     [SerializeField] private float guardBreakStunDuration = 3f;
     [SerializeField] private int parryShieldCost = 20;
-
+    [SerializeField] private int blockShieldCost = 35;
 
     [Header("Impact & VFX")]
     [SerializeField] private GameObject bloodVFX;
@@ -371,7 +371,12 @@ public class PlayerHealth : MonoBehaviour
                 Debug.Log("<color=cyan>BLOCK SUCCESSFUL!</color>");
                 CameraShakerHandler.Shake(CameraShakeParry);
 
-                currentShieldHealth -= damageAmount;
+                int reducedDamage = Mathf.RoundToInt(damageAmount * (1f - damageReduction));
+                currentHealth -= reducedDamage;
+                healthDamageTimer = 0f;
+                currentHealth = Mathf.Max(0, currentHealth);
+                currentShieldHealth -= blockShieldCost;
+
                 postureDamageTimer = 0f;
                 currentShieldHealth = Mathf.Max(0, currentShieldHealth);
                 // FIX: This now correctly sets slider via normalized value
@@ -656,8 +661,6 @@ public class PlayerHealth : MonoBehaviour
             yield return new WaitForSeconds(remainingStunTime);
         }
 
-        isStunned = false;
-        playerMovements.CanMove = true;
         if (!isShieldBroken)
         {
             isStunned = false;
@@ -956,6 +959,7 @@ public class PlayerHealth : MonoBehaviour
 
         if (playerMovements != null) playerMovements.CanMove = false;
         if (playerAttacks != null) playerAttacks.CancelAttack();
+        playerMovements.canFlip = false;
         if (rb != null) rb.linearVelocity = Vector2.zero;
 
         animator.SetTrigger(guardBrokenTriggerHash);
@@ -989,17 +993,15 @@ public class PlayerHealth : MonoBehaviour
         animator.SetTrigger(recoverShieldTriggerHash);
 
         // Wait for the "get up" animation to have some time to play
-        yield return new WaitForSeconds(0.3f);
+        yield return new WaitForSeconds(0.8f);
 
         isStunned = false;
         isBeingKnockedBack = false;
         isShieldBroken = false;
-        guardBreakCoroutine = null; // Mark as finished so ForceResetState knows it's done
+        guardBreakCoroutine = null;
 
         if (playerMovements != null) playerMovements.CanMove = true;
-
-        // Shield is already maxShieldHealth from the lerp — no regen needed
-        // but reset the delayed slider to match
+        playerMovements.canFlip = true;
         postureDelayedSlider.value = 1f;
 
     }

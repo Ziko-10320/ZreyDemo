@@ -508,7 +508,11 @@ public class ZreyMovements : MonoBehaviour
     {
         if (playerHealth != null && playerHealth.isBeingKnockedBack) { return; }
         if (isInRootMotionState) { return; }
-
+        if (playerHealth != null && playerHealth.IsShieldBroken())
+        {
+            rb.linearVelocity = new Vector2(0, rb.linearVelocity.y);
+            return;
+        }
         // MUST check attackLocked BEFORE CanMove because PerformAttack sets both
         if (isAttackLocked)
         {

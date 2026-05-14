@@ -16526,6 +16526,15 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ZreyMovements
   runSpeed: 14
+  dashUICanvasGroup: {fileID: 0}
+  dashCharge1: {fileID: 0}
+  dashCharge2: {fileID: 0}
+  dashUIFadeOutDelay: 1.5
+  dashUIFollow: {fileID: 0}
+  dashUIOffset: {x: 0, y: 1.5, z: 0}
+  dashUIFadeDuration: 0.25
+  dashChargedColor: {r: 1, g: 0.85, b: 0, a: 1}
+  dashDepletedColor: {r: 1, g: 0.85, b: 0, a: 0}
   jumpForce: 37
   groundCheck: {fileID: 6629045801242791396}
   groundCheckRadius: 0.26
@@ -16762,10 +16771,11 @@ MonoBehaviour:
   shieldRegenDelay: 3
   shieldRegenRate: 40
   guardBreakStunDuration: 3
-  parryShieldCost: 5
+  parryShieldCost: 10
+  blockShieldCost: 60
   bloodVFX: {fileID: 3847384204462952536, guid: 943732c2e859694408f07c89b7ab2ad9, type: 3}
   bloodSpawnPoint: {fileID: 5075840690354734784}
-  damageReduction: 0.302
+  damageReduction: 0.362
   parryWindow: 0.2
   tutorialParryWindow: 3
   hitStunDuration: 0.3
