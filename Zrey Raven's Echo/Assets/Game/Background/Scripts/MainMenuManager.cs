@@ -9,7 +9,11 @@ public class MainMenuManager : MonoBehaviour
     [Header("Scene To Load")]
     [Tooltip("The EXACT name of the scene you want to load (e.g., 'Tutorial').")]
     public string sceneToLoad = "Tutorial";
-
+    [Header("Menu Buttons")]
+    [SerializeField] private GameObject startButton;
+    [SerializeField] private GameObject tutorialButton;
+    [SerializeField] private GameObject bossButton;
+    [SerializeField] private float buttonFadeDuration = 0.5f;
     // --- NEW VARIABLES FOR SCRIPT-BASED FADE ---
     [Header("Fade Effect")]
     [Tooltip("Drag the black UI Image you created for the fade effect here.")]
@@ -46,13 +50,51 @@ public class MainMenuManager : MonoBehaviour
             fadeScreenImage.color = new Color(0f, 0f, 0f, 1f); // Start fully black
             StartCoroutine(FadeInOnStart());
         }
+        if (tutorialButton != null) tutorialButton.SetActive(false);
+        if (bossButton != null) bossButton.SetActive(false);
     }
 
     public void StartGame()
     {
-        // Start the coroutine that handles the fade and scene loading sequence.
-        StartCoroutine(FadeAndLoadScene());
-       
+        StartCoroutine(SwapToLevelButtons());
+    }
+
+    private IEnumerator SwapToLevelButtons()
+    {
+        // Fade out the start button
+        CanvasGroup startCG = startButton.GetComponent<CanvasGroup>();
+        if (startCG == null) startCG = startButton.AddComponent<CanvasGroup>();
+
+        float t = 0f;
+        while (t < buttonFadeDuration)
+        {
+            t += Time.deltaTime;
+            startCG.alpha = Mathf.Lerp(1f, 0f, t / buttonFadeDuration);
+            yield return null;
+        }
+        startButton.SetActive(false);
+
+        // Fade in the two level buttons
+        tutorialButton.SetActive(true);
+        bossButton.SetActive(true);
+
+        CanvasGroup tutCG = tutorialButton.GetComponent<CanvasGroup>();
+        if (tutCG == null) tutCG = tutorialButton.AddComponent<CanvasGroup>();
+        CanvasGroup bossCG = bossButton.GetComponent<CanvasGroup>();
+        if (bossCG == null) bossCG = bossButton.AddComponent<CanvasGroup>();
+
+        tutCG.alpha = 0f;
+        bossCG.alpha = 0f;
+
+        t = 0f;
+        while (t < buttonFadeDuration)
+        {
+            t += Time.deltaTime;
+            float alpha = Mathf.Lerp(0f, 1f, t / buttonFadeDuration);
+            tutCG.alpha = alpha;
+            bossCG.alpha = alpha;
+            yield return null;
+        }
     }
 
     // This coroutine will handle the entire fade process from start to finish.
@@ -103,6 +145,17 @@ public class MainMenuManager : MonoBehaviour
         // After the loop is finished, the screen is fully black. Now, load the scene.
         Debug.Log($"Attempting to load scene: {sceneToLoad}");
         SceneManager.LoadScene(sceneToLoad);
+    }
+    public void LoadTutorial()
+    {
+        sceneToLoad = "SampleScene";
+        StartCoroutine(FadeAndLoadScene());
+    }
+
+    public void LoadBossRoom()
+    {
+        sceneToLoad = "BossRoom";
+        StartCoroutine(FadeAndLoadScene());
     }
     private IEnumerator FadeOutMusic()
     {
