@@ -11,7 +11,10 @@ public class BossFightCutscene : MonoBehaviour
     [SerializeField] private BootTwinAttack bootAttack;
     [SerializeField] private Animator bootAnimator;
     [SerializeField] private Animator gauntletAnimator;
-
+    [Header("HUD")]
+    [SerializeField] private CanvasGroup healthBarCanvasGroup;
+    [SerializeField] private float healthBarFadeInDuration = 0.5f;
+    [SerializeField] private float healthBarFadeOutDuration = 0.3f;
     [Header("Cutscene Settings")]
     [SerializeField] private Transform fightStartPoint;
     [SerializeField] private float playerAutoRunSpeed = 5f;
@@ -60,9 +63,15 @@ public class BossFightCutscene : MonoBehaviour
 
     private IEnumerator PlayOpeningCutscene()
     {
-      
+
         // --- 1. LOCK PLAYER ---
         playerAttacks.IsInCinematicState_ForceSet(true);
+        if (healthBarCanvasGroup != null)
+        {
+            healthBarCanvasGroup.alpha = 0f;
+            healthBarCanvasGroup.gameObject.SetActive(true);
+            StartCoroutine(FadeCanvasGroup(healthBarCanvasGroup, 0f, 1f, healthBarFadeInDuration)); // no yield — runs in parallel
+        }
         if (playerHealth != null) playerHealth.MakeInvincible();
 
         // --- 2. LOCK BOTH TWINS ---
@@ -155,7 +164,8 @@ public class BossFightCutscene : MonoBehaviour
 
         // Attack scripts already disabled by TwinBossManager
         if (twinBossManager != null) twinBossManager.SetCinematicLock(true);
-
+        if (healthBarCanvasGroup != null)
+            yield return StartCoroutine(FadeCanvasGroup(healthBarCanvasGroup, 1f, 0f, healthBarFadeOutDuration));
         // --- 3. FADE IN BLACK SCREEN ---
         if (blackScreenCanvasGroup == null)
         {
