@@ -237,7 +237,7 @@ public class GauntletTwinAttack : MonoBehaviour
     private bool isDancing = false;
     private float heldTimer = 0f;
     private float danceCooldownTimer = 0f;
-   
+    private bool openingSequenceComplete = false;
     // ─────────────────────────────────────────────
     //  UNITY LIFECYCLE
     // ─────────────────────────────────────────────
@@ -329,10 +329,10 @@ public class GauntletTwinAttack : MonoBehaviour
         }
 
         // ── Attack decision ──
-        if (!isAttacking && !isAirLaunching
-    && !isHeldByManager                               // ← the gate
-    && (health == null || !health.isGuardBroken)
-    && (health == null || !health.isBeingCountered))
+      if (!isAttacking && !isAirLaunching
+    && !isHeldByManager  // ADD THIS — was missing here
+    && (health == null || !health.isGuardBroken && !isBeingCountered)
+    && !isBeingCountered && openingSequenceComplete)
         {
             float yDist = Mathf.Abs(player.position.y - transform.position.y);
             bool airLaunchReady = yDist >= airLaunchMinYDistance &&
@@ -380,7 +380,7 @@ public class GauntletTwinAttack : MonoBehaviour
         }
         if (isHeldByManager && !isAttacking && !isAirLaunching
     && !isLaunchGrabbing && !isBackstepping && !isSmashAttacking
-    && !isBeingCountered
+    && !isBeingCountered && openingSequenceComplete
     && (health == null || !health.isGuardBroken)
     && (health == null || !health.isBeingCountered)
     && IsGrounded() && !isDancing && danceCooldownTimer <= 0f)
@@ -1404,6 +1404,22 @@ public class GauntletTwinAttack : MonoBehaviour
             isFacingRight = player.position.x > transform.position.x;
             SetFacing(isFacingRight);
         }
+    }
+    public void ResetCooldownForFightStart()
+    {
+        cooldownTimer = 0f;
+        backstepCooldownTimer = 0f;
+        smashCooldownTimer = 0f;
+        launchGrabCooldownTimer = 0f;
+    }
+    public void BlockAirLaunchDuringOpening()
+    {
+        // Set a long cooldown that will expire well after Boot's opening launch finishes
+        airLaunchCooldownTimer = 6f;
+    }
+    public void NotifyOpeningSequenceComplete()
+    {
+        openingSequenceComplete = true;
     }
     // ─────────────────────────────────────────────
     //  GIZMOS

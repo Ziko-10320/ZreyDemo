@@ -16447,9 +16447,9 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2756507272353201451}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.92754024, y: 0.002177171, z: -0.37365106, w: 0.0070178863}
+  m_LocalRotation: {x: -0.003995884, y: 0.92753273, z: 0.0012312854, w: 0.37371856}
   m_LocalPosition: {x: -15.22, y: -0.024, z: 0}
-  m_LocalScale: {x: 1, y: -1, z: 1}
+  m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 4173848062195930092}
@@ -16463,7 +16463,7 @@ Transform:
   - {fileID: 8936556084868428887}
   - {fileID: 3253823612214429319}
   m_Father: {fileID: 8990848837076458346}
-  m_LocalEulerAnglesHint: {x: 0.839, y: -2656.116, z: 180.069}
+  m_LocalEulerAnglesHint: {x: -0.302, y: -2743.89, z: -0.372}
 --- !u!95 &1545531222286908949
 Animator:
   serializedVersion: 7
@@ -16725,6 +16725,8 @@ MonoBehaviour:
   bootTwinCounterSnapOffset: {x: 6, y: 0, z: 0}
   bootTwinConcasseCounterDamage: 40
   bootTwinConcasseCounterSnapOffset: {x: 0.2, y: 0, z: 0}
+  gauntletGrabCounterDamage: 30
+  gauntletGrabCounterSnapOffset: {x: 3.7, y: 0, z: 0}
 --- !u!114 &7602604384865269816
 MonoBehaviour:
   m_ObjectHideFlags: 0

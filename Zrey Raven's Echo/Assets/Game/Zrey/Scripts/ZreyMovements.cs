@@ -1,4 +1,4 @@
-using UnityEngine;
+ï»¿using UnityEngine;
 using UnityEngine.InputSystem;
 using System.Collections;
 [RequireComponent(typeof(Rigidbody2D))]
@@ -199,6 +199,11 @@ public class ZreyMovements : MonoBehaviour
     [SerializeField] private AudioClip airDashClip;
     [SerializeField] private AudioSource footstepSource; // Separate looping source
     [SerializeField] private AudioClip footstepClip;
+
+    private bool isAutoRunning = false;
+    private float autoRunDirection = 0f;
+
+    public bool IsAutoRunning => isAutoRunning;
     void Awake()
     {
         if (combatRunSource == null)
@@ -308,11 +313,11 @@ public class ZreyMovements : MonoBehaviour
         {
             moveInput = Vector2.zero;
         }
-        if ((playerAttacks != null && playerAttacks.IsInCinematicState) || isHanging || isWallSliding)
+        if (!isAutoRunning && ((playerAttacks != null && playerAttacks.IsInCinematicState) || isHanging || isWallSliding))
         {
             moveInput = Vector2.zero;
         }
-       
+
         // Run the brains.
         HandleCombatAndAnimation();
         HandleWallMechanics();
@@ -321,18 +326,28 @@ public class ZreyMovements : MonoBehaviour
         {
             overrideMoveTimer -= Time.deltaTime;
         }
-       
-    
+
+
 
         // We only freeze input if we are actively sliding on a wall.
-        if (isHanging || isWallSliding)
+        if (isAutoRunning)
+        {
+            // Override everything â€” force run direction every frame
+            moveInput = new Vector2(autoRunDirection, 0f);
+            animator.SetBool(isRunningHash, true);
+        }
+        else if (isHanging || isWallSliding)
         {
             moveInput = Vector2.zero;
         }
         else
         {
-            // Only read input if the player is in a normal, controllable state.
             moveInput = inputActions.Player.Move.ReadValue<Vector2>();
+        }
+        if (isAutoRunning)
+        {
+            moveInput = new Vector2(autoRunDirection, 0f);
+            CanMove = false; // blocks FixedUpdate movement override
         }
 
         // Ground Check
@@ -431,7 +446,7 @@ public class ZreyMovements : MonoBehaviour
         // MUST check attackLocked BEFORE CanMove because PerformAttack sets both
         if (isAttackLocked)
         {
-            // If a dash started during an attack, the dash wins — clear the lock
+            // If a dash started during an attack, the dash wins â€” clear the lock
             if (isDashing || isInRootMotionState)
             {
                 isAttackLocked = false;
@@ -443,8 +458,17 @@ public class ZreyMovements : MonoBehaviour
                 return;
             }
         }
-
+        if (isAutoRunning)
+        {
+            rb.linearVelocity = new Vector2(autoRunDirection * runSpeed, rb.linearVelocity.y);
+            return;
+        }
         if (!CanMove) { return; }
+        if (isAutoRunning)
+        {
+            rb.linearVelocity = new Vector2(autoRunDirection * runSpeed, rb.linearVelocity.y);
+            return;
+        }
         if (overrideMoveTimer > 0) { return; }
         if (isDashing) { return; }
         Vector2 currentMoveInput = ZreyMovements.inputActions.Player.Move.ReadValue<Vector2>();
@@ -490,10 +514,10 @@ public class ZreyMovements : MonoBehaviour
                 // While input is locked, preserve the wall jump arc completely
                 if (wallJumpInputLocked) return;
 
-                // Lock expired — check if player is actively steering
+                // Lock expired â€” check if player is actively steering
                 if (moveInput.x != 0)
                 {
-                    // Player wants to steer — hand off to normal movement and end wall jump state
+                    // Player wants to steer â€” hand off to normal movement and end wall jump state
                     rb.linearVelocity = new Vector2(moveInput.x * runSpeed, rb.linearVelocity.y);
                     justWallJumped = false;
                 }
@@ -537,10 +561,11 @@ public class ZreyMovements : MonoBehaviour
 
     private void HandleJump(InputAction.CallbackContext context)
     {
+        if (isAutoRunning) return;
         if (playerAttacks != null && playerAttacks.IsAttacking() && isGrounded)
         {
             bool consumed = playerAttacks.TryAttackJump();
-            if (consumed) return; // Attack jump fired — don't do a normal jump
+            if (consumed) return; // Attack jump fired â€” don't do a normal jump
         }
         if (playerHealth != null && playerHealth.IsGrabbed)
         {
@@ -575,6 +600,7 @@ public class ZreyMovements : MonoBehaviour
     }
     private void HandleDash(InputAction.CallbackContext context)
     {
+        if (isAutoRunning) return;
         if (playerHealth != null && playerHealth.IsGrabbed)
         {
             Debug.LogWarning("Dash Input Ignored: Player is GRABBED.");
@@ -690,7 +716,7 @@ public class ZreyMovements : MonoBehaviour
         float timer = 0f;
         while (timer < duration)
         {
-            // Wall collision check — stop the dash early if we hit something
+            // Wall collision check â€” stop the dash early if we hit something
             if (Physics2D.OverlapCircle(wallCheck.position, wallCheckRadius, wallLayer))
             {
                 Debug.Log("<color=orange>Ground dash stopped by wall.</color>");
@@ -763,7 +789,7 @@ public class ZreyMovements : MonoBehaviour
 
         if (playerAttacks != null && playerAttacks.IsAttacking())
         {
-            Debug.LogWarning("Root motion ended while attack was active — force ending attack.");
+            Debug.LogWarning("Root motion ended while attack was active â€” force ending attack.");
             playerAttacks.EndAttack();
         }
     }
@@ -934,12 +960,12 @@ public class ZreyMovements : MonoBehaviour
 
         if (wallJumpCoroutine != null) StopCoroutine(wallJumpCoroutine);
 
-        // Kill wall state FIRST — must happen before anything touches rb.linearVelocity
+        // Kill wall state FIRST â€” must happen before anything touches rb.linearVelocity
         isWallSliding = false;
         wallStickCounter = 0f;
         animator.SetBool(isWallSlidingBoolHash, false);
 
-        // Restore gravity immediately — HandleWallMechanics may have zeroed it
+        // Restore gravity immediately â€” HandleWallMechanics may have zeroed it
         rb.gravityScale = originalGravityScale;
 
         // Set lock flags immediately so FixedUpdate respects them this frame
@@ -1386,6 +1412,61 @@ public class ZreyMovements : MonoBehaviour
             footstepSource.volume = footstepVolume;
         if (combatRunSource != null)
             combatRunSource.volume = combatRunSoundVolume;
+    }
+
+    public void ForceAutoRun(bool facingRight)
+    {
+        isAutoRunning = true;
+        autoRunDirection = facingRight ? 1f : -1f;
+        ForceFaceDirection(facingRight);
+        // ADD THESE â€” lock all player agency
+        CanMove = false;
+        canFlip = false;
+    }
+
+    public void StopAutoRun()
+    {
+        isAutoRunning = false;
+        autoRunDirection = 0f;
+        moveInput = Vector2.zero;
+        // ADD â€” restore agency
+        CanMove = true;
+        canFlip = true;
+        if (rb != null)
+            rb.linearVelocity = new Vector2(0f, rb.linearVelocity.y);
+
+        animator.SetBool(isRunningHash, false);
+        animator.SetBool(isMovingForwardHash, false);
+        animator.SetBool(isMovingBackwardHash, false);
+    }
+    /// <summary>
+    /// Forces the combat-walk animation on without needing real enemies nearby.
+    /// Call this at the START of an auto-run cutscene.
+    /// </summary>
+    public void ForceEnterCombatRunAnimation(bool facingRight)
+    {
+        // Set the animator bools directly â€” bypasses the enemy-detection requirement
+        animator.SetBool(combatModeBoolHash, true);
+        animator.SetBool(isRunningHash, false);
+        animator.SetBool(isMovingForwardHash, true);
+        animator.SetBool(isMovingBackwardHash, false);
+    }
+
+    /// <summary>
+    /// Clears the forced combat-walk animation.
+    /// Call this when the auto-run stops.
+    /// </summary>
+    public void ForceExitCombatRunAnimation()
+    {
+        animator.SetBool(isMovingForwardHash, false);
+        animator.SetBool(isMovingBackwardHash, false);
+        animator.SetBool(combatModeBoolHash, false);
+        animator.SetBool(isRunningHash, false);
+        combatRunSource.Stop();
+    }
+    private void SetFacingInternal(bool facingRight)
+    {
+        if (facingRight != isFacingRight) Flip();
     }
     private void OnDrawGizmosSelected()
     {

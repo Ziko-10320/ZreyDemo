@@ -279,6 +279,10 @@ public class BootTwinAttack : MonoBehaviour
     private float heldTimer = 0f;
 
     private float danceCooldownTimer = 0f;
+
+    private bool isOpeningLaunch = false;
+
+    private bool openingLaunchComplete = false;
     // ─────────────────────────────────────────────
     //  UNITY LIFECYCLE
     // ─────────────────────────────────────────────
@@ -302,12 +306,11 @@ public class BootTwinAttack : MonoBehaviour
     // ✅ ADD this whole method
     private void Start()
     {
-        if (player != null)
-        {
-            bool playerIsToRight = player.position.x > transform.position.x;
-            isFacingRight = playerIsToRight;
-            SetFacing(isFacingRight);
-        }
+        // Always face right at scene start — cutscene position
+        isFacingRight = true;
+        isFlipLocked = true; // stay locked until BeginCutScene anim finishes
+        SetFacing(true);
+        openingLaunchComplete = false;
     }
     private void Update()
     {
@@ -371,7 +374,7 @@ public class BootTwinAttack : MonoBehaviour
         if (!isAttacking && !isAirLaunching
     && (health == null || !health.isGuardBroken)
     && (health == null || !isBeingCountered)
-    && !isBeingCountered)
+    && !isBeingCountered && openingLaunchComplete)
         {
             float yDist = Mathf.Abs(player.position.y - transform.position.y);
             bool airLaunchReady = yDist >= airLaunchMinYDistance &&
@@ -387,7 +390,7 @@ public class BootTwinAttack : MonoBehaviour
 
         if (!isAttacking && !isLaunching && !isAirLaunching
     && !isBeingCountered && !isHeldByManager          // ← the gate
-    && (health == null || !health.isGuardBroken))
+    && (health == null || !health.isGuardBroken) && openingLaunchComplete)
         {
             bool playerInLaunchBox = IsPlayerInLaunchRangeBox();
             float yDist = Mathf.Abs(player.position.y - transform.position.y);
@@ -435,7 +438,7 @@ public class BootTwinAttack : MonoBehaviour
         if (isHeldByManager && !isAttacking && !isLaunching && !isAirLaunching  // Boot's version
      && !isBackflipping && !isRockAttacking && !isSpecialAttacking
      && !isBeingCountered
-     && (health == null || !health.isGuardBroken)
+     && (health == null || !health.isGuardBroken) && openingLaunchComplete
      && IsGrounded() && !isDancing && danceCooldownTimer <= 0f)
         {
             if (Random.value <= danceChance)
@@ -802,6 +805,14 @@ public class BootTwinAttack : MonoBehaviour
     // Call this at the END of both LaunchKick and LaunchWall animation clips
     public void EVENT_LaunchFinished()
     {
+        if (isOpeningLaunch)
+        {
+            isOpeningLaunch = false;
+            openingLaunchComplete = true;
+            if (twinBossManager != null)
+                twinBossManager.NotifyBootOpeningLaunchFinished();
+            // Still run the rest of the method normally below
+        }
         isLaunching = false;
         isAttacking = false;
         isLaunchDamageWindowOpen = false;
@@ -1023,6 +1034,13 @@ public class BootTwinAttack : MonoBehaviour
         if (closeDashCoroutine != null) { StopCoroutine(closeDashCoroutine); closeDashCoroutine = null; }
         if (rb != null) rb.gravityScale = 1f;
         if (specialAttackCoroutine != null) { StopCoroutine(specialAttackCoroutine); specialAttackCoroutine = null; }
+            if (isOpeningLaunch)
+            {
+                isOpeningLaunch = false;
+                openingLaunchComplete = true;
+                if (twinBossManager != null)
+                    twinBossManager.NotifyBootOpeningLaunchFinished();
+            }
             return; // EXIT — don't touch the animator
         }
         if (player != null)
@@ -1515,6 +1533,22 @@ public void EVENT_SpecialAttackFinished()
         isAttacking = false;
         if (twinBossManager != null) twinBossManager.NotifySyncComboFinished();
 
+        if (player != null)
+        {
+            isFacingRight = player.position.x > transform.position.x;
+            SetFacing(isFacingRight);
+        }
+    }
+    public void ForceStartAnticipationLaunch()
+    {
+        if (isAttacking || isLaunching) return;
+        isOpeningLaunch = true;
+        StartAnticipationLaunch();
+    }
+    public void EVENT_BeginCutSceneFinished()
+    {
+        isFlipLocked = false;
+        // Now face the player properly
         if (player != null)
         {
             isFacingRight = player.position.x > transform.position.x;

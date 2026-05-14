@@ -55,23 +55,25 @@ public class TwinBossManager : MonoBehaviour
     // Add these animation hash caches
     private static readonly int SyncComboBootHash = Animator.StringToHash("SyncCombo");
     private static readonly int SyncComboGauntletHash = Animator.StringToHash("SyncCombo");
+
+    private bool openingSequenceComplete = false;
     private void Start()
     {
-        // Give the token to a random twin at start
-        attackTokenHolder = Random.value < 0.5f ? 0 : 1;
-        PushTokenToAttackScripts();
-
+        // Do NOT give a random token or push anything here.
+        // The cutscene calls StartFightWithBootLaunch() which sets everything up.
+        // Just validate health values.
         if (bootHealth != null && gauntletHealth != null)
         {
             if (bootHealth.GetMaxHealth() != gauntletHealth.GetMaxHealth())
-                Debug.LogWarning("[TwinBossManager] Boot and Gauntlet have different maxHealth values! Shared health will desync.");
+                Debug.LogWarning("[TwinBossManager] Boot and Gauntlet have different maxHealth values!");
         }
     }
 
     private void Update()
-    {
+    {  if (!openingSequenceComplete) return;
         if (bootAttack == null || gauntletAttack == null) return;
         if (isCinematicLockActive) return;
+        if (!openingSequenceComplete) return;
         bool bootBusy = IsBootBusy();
         bool gauntletBusy = IsGauntletBusy();
 
@@ -260,20 +262,21 @@ public class TwinBossManager : MonoBehaviour
         PushTokenToAttackScripts();
         Debug.Log("[TwinBossManager] Attack ended — token now: " + (attackTokenHolder == 0 ? "Boot" : "Gauntlet"));
     }
-    public void SetCinematicLock(bool locked)
+    public void SetCinematicLock(bool locked, bool suppressTokenPush = false)
     {
         isCinematicLockActive = locked;
         if (locked)
         {
-            isWaitingToHandoff = false; // ADD — cancel any pending handoff
-            turnHandoffTimer = 0f;      // ADD — reset the timer too
+            isWaitingToHandoff = false;
+            turnHandoffTimer = 0f;
             bootAttack.HoldAttack(true);
             gauntletAttack.HoldAttack(true);
             Debug.Log("[TwinBossManager] CINEMATIC LOCK — both twins held.");
         }
         else
         {
-            PushTokenToAttackScripts();
+            if (!suppressTokenPush)
+                PushTokenToAttackScripts();
             Debug.Log("[TwinBossManager] CINEMATIC LOCK released.");
         }
     }
@@ -338,4 +341,39 @@ public class TwinBossManager : MonoBehaviour
     }
 
     public bool IsSyncComboActive() => isSyncComboActive;
+    public void StartFightWithBootLaunch()
+    {
+        openingSequenceComplete = false;
+        isCinematicLockActive = false;
+        attackTokenHolder = 0;
+        tokenHolderIsActuallyBusy = false;
+        isWaitingToHandoff = false;
+        turnHandoffTimer = 0f;
+        turnTimeoutTimer = 0f;
+
+        bootAttack.HoldAttack(false);
+        gauntletAttack.HoldAttack(true);
+
+        // ADD: slam gauntlet's air launch cooldown so it physically cannot fire during boot's opening
+        gauntletAttack.BlockAirLaunchDuringOpening(); // NEW method below
+
+        Debug.Log("[TwinBossManager] Fight started — Boot launching, Gauntlet held.");
+    }
+    public void NotifyBootOpeningLaunchFinished()
+    {
+        openingSequenceComplete = true;
+        attackTokenHolder = 1;
+        tokenHolderIsActuallyBusy = false;
+        isWaitingToHandoff = false;
+        turnTimeoutTimer = 0f;
+        gauntletAttack.NotifyOpeningSequenceComplete();
+        gauntletAttack.ResetCooldownForFightStart();
+        // Give Gauntlet a zeroed cooldown so it attacks immediately
+        PushTokenToAttackScripts();
+        Debug.Log("[TwinBossManager] Boot opening launch done — Gauntlet now free.");
+    }
+    public void ResetGauntletCooldownForFightStart()
+    {
+        gauntletAttack.ResetCooldownForFightStart();
+    }
 }

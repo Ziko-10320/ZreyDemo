@@ -25,6 +25,8 @@ public class CameraFollow : MonoBehaviour
     [Tooltip("How quickly the camera pans to the lookahead position and returns to center.")]
     [SerializeField] private float panSpeed = 2f;
 
+   
+
     // --- Private State Variables ---
     private Vector3 currentOffset;
     private float holdTimer = 0f;
@@ -143,4 +145,6 @@ public class CameraFollow : MonoBehaviour
     {
         target = newTarget;
     }
+
+   
 }

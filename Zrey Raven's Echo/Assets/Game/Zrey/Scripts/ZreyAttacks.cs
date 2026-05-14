@@ -261,6 +261,10 @@ public class ZreyAttacks : MonoBehaviour
     private static readonly int counterGrabGauntletTriggerHash = Animator.StringToHash("CounterRapeGrab");
 
     private TwinBossManager twinBossManager;
+    private ZreyMovements playerMovementRef;
+
+    private float cinemaStuckTimer = 0f;
+    private const float cinemaStuckTimeout = 0.5f;
     private void OnEnable()
     {
         InputManager.OnInteractPressed += HandleInteractionInput;
@@ -298,6 +302,7 @@ public class ZreyAttacks : MonoBehaviour
         rb = GetComponent<Rigidbody2D>();
          if (playerTrail == null) playerTrail = GetComponent<ZreyTrail>();
         if (playerHealth == null) playerHealth = GetComponent<PlayerHealth>();
+        if (playerMovementRef == null) playerMovementRef = GetComponent<ZreyMovements>();
         Physics2D.IgnoreLayerCollision(playerLayerValue, enemyLayerValue, true);
         mainCamera = Camera.main;
         if (mainCamera != null)
@@ -331,10 +336,36 @@ public class ZreyAttacks : MonoBehaviour
     }
     void Update()
     {
+        if (IsInCinematicState)
+        {
+            cinemaStuckTimer += Time.deltaTime;
+            if (cinemaStuckTimer > cinemaStuckTimeout
+                && playerMovement.IsGrounded()
+                && !isDashAttacking
+                && !isCountering
+                && !isReaperCountering)
+            {
+                Debug.LogWarning("<color=red>STUCK CINEMATIC STATE detected and auto-cleared!</color>");
+                IsInCinematicState_ForceSet(false);
+                cinemaStuckTimer = 0f;
+            }
+            return; // still block input during valid cinematic
+        }
+        else
+        {
+            cinemaStuckTimer = 0f;
+        }
         // Master shield: If we are busy, do nothing.
         if (isAttacking || IsInCinematicState)
         {
             return;
+        }
+        if (playerMovementRef != null && playerMovementRef.IsAutoRunning) return;
+        if (IsInCinematicState && !ZreyAttacks.PlayerInCinematic)
+        {
+            // Mismatch — something set IsInCinematicState without going through SetCinematicState
+            Debug.LogWarning("<color=red>CINEMATIC STATE MISMATCH — auto-clearing!</color>");
+            IsInCinematicState = false;
         }
         if (cooldownText15 != null) cooldownText15.color = Color.Lerp(cooldownText15.color, target15Color, colorTransitionSpeed * Time.deltaTime);
         if (cooldownText10 != null) cooldownText10.color = Color.Lerp(cooldownText10.color, target10Color, colorTransitionSpeed * Time.deltaTime);
@@ -2222,10 +2253,36 @@ public class ZreyAttacks : MonoBehaviour
             rb.gravityScale = originalGravityScale;
         }
     }
+    // REPLACE the existing IsInCinematicState_ForceSet:
     public void IsInCinematicState_ForceSet(bool value)
     {
         IsInCinematicState = value;
         PlayerInCinematic = value;
+
+        // ADD: when forcibly clearing cinematic state, also clear isAttacking
+        // to prevent the double-lock scenario
+        if (!value)
+        {
+            isAttacking = false;
+            isDashAttacking = false;
+            isCountering = false;
+            isReaperCountering = false;
+            isCounterStanceActive = false;
+            isCounterWindowOpen = false;
+            if (counterStanceTimeoutCoroutine != null)
+            {
+                StopCoroutine(counterStanceTimeoutCoroutine);
+                counterStanceTimeoutCoroutine = null;
+            }
+            if (attackWatchdogCoroutine != null)
+            {
+                StopCoroutine(attackWatchdogCoroutine);
+                attackWatchdogCoroutine = null;
+            }
+            animator.SetBool(isAttackingBoolHash, false);
+            animator.SetInteger(attackStepHash, 0);
+            Physics2D.IgnoreLayerCollision(playerLayerValue, enemyLayerValue, true);
+        }
     }
 
     private void SetCinematicState(bool value, Transform cinematicTarget = null)
