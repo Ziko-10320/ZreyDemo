@@ -160,7 +160,7 @@ public class GauntletTwinAttack : MonoBehaviour
     private bool isDamageWindowOpen = false;
     private ImpactData currentImpactData;
     private GauntletTwinHealth health;
-
+    private AudioSource audioSource;
     private Coroutine lungeCoroutine;
     private bool isFlipLocked = false;
     private bool isTrailActive = false;
@@ -243,6 +243,7 @@ public class GauntletTwinAttack : MonoBehaviour
     // ─────────────────────────────────────────────
     private void Awake()
     {
+        audioSource = GetComponent<AudioSource>();
         if (player == null)
         {
             GameObject go = GameObject.FindGameObjectWithTag("Player");
@@ -269,7 +270,11 @@ public class GauntletTwinAttack : MonoBehaviour
             SetFacing(isFacingRight);
         }
     }
-
+    public void PlaySound(AudioClip clip)
+    {
+        if (clip != null && audioSource != null)
+            audioSource.PlayOneShot(clip);
+    }
     private void Update()
     {
         if (player == null) return;

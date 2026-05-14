@@ -12236,6 +12236,13 @@ AnimationClip:
   m_HasGenericRootTransform: 0
   m_HasMotionFloatCurves: 0
   m_Events:
+  - time: 0
+    functionName: PlaySound
+    data: 
+    objectReferenceParameter: {fileID: 8300000, guid: f6c9864df0977344e9594d2d6aa56e71, type: 3}
+    floatParameter: 0
+    intParameter: 0
+    messageOptions: 0
   - time: 0.016666668
     functionName: PerformTransformLunge
     data: 
@@ -12247,6 +12254,13 @@ AnimationClip:
     functionName: SetImpactType
     data: 
     objectReferenceParameter: {fileID: 11400000, guid: d5ceee1020fbaf247a2a7d8fba0a380c, type: 2}
+    floatParameter: 0
+    intParameter: 0
+    messageOptions: 0
+  - time: 0.05
+    functionName: PlaySound
+    data: 
+    objectReferenceParameter: {fileID: 8300000, guid: 8dc9e8017dc22d847a11ad6d77c9e225, type: 3}
     floatParameter: 0
     intParameter: 0
     messageOptions: 0

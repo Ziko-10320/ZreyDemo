@@ -186,7 +186,7 @@ public class BootTwinAttack : MonoBehaviour
     //  PRIVATE STATE
     // ─────────────────────────────────────────────
     private static readonly int NormalComboHash = Animator.StringToHash("NormalComboV2");
-
+    private AudioSource audioSource;
     public bool isFacingRight = true;
     private bool isAttacking = false;
     private float cooldownTimer = 0f;
@@ -288,6 +288,7 @@ public class BootTwinAttack : MonoBehaviour
     // ─────────────────────────────────────────────
     private void Awake()
     {
+        audioSource = GetComponent<AudioSource>();
         if (player == null)
         {
             GameObject go = GameObject.FindGameObjectWithTag("Player");
@@ -304,6 +305,11 @@ public class BootTwinAttack : MonoBehaviour
     }
 
     // ✅ ADD this whole method
+    public void PlaySound(AudioClip clip)
+    {
+        if (clip != null && audioSource != null)
+            audioSource.PlayOneShot(clip);
+    }
     private void Start()
     {
         // Always face right at scene start — cutscene position
