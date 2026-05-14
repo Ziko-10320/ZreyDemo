@@ -51,10 +51,23 @@ public class CursorManager : MonoBehaviour
 
     void Update()
     {
-        if (_visibilityRequests <= 0 && SceneManager.GetActiveScene().name != mainMenuSceneName)
+        // Auto-detect any active overlay canvas in the scene
+        bool anyOverlayCanvasActive = false;
+        foreach (Canvas canvas in FindObjectsByType<Canvas>(FindObjectsSortMode.None))
         {
-            Cursor.SetCursor(_invisibleTexture, Vector2.zero, CursorMode.ForceSoftware);
+            if (canvas.renderMode == RenderMode.ScreenSpaceOverlay
+                && canvas.gameObject.activeInHierarchy
+                && canvas.CompareTag("CursorCanvas"))
+            {
+                anyOverlayCanvasActive = true;
+                break;
+            }
         }
+
+        if (anyOverlayCanvasActive)
+            ShowCustomCursor();
+        else if (_visibilityRequests <= 0 && SceneManager.GetActiveScene().name != mainMenuSceneName)
+            HideCursor();
     }
 
     public void RequestShowCursor()
