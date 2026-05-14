@@ -16753,8 +16753,8 @@ MonoBehaviour:
   hazardVFXSpawnPoint: {fileID: 0}
   maxHealth: 300
   deathPanel: {fileID: 0}
-  lifeStealPercent: 0.308
-  counterLifeStealPercent: 0
+  lifeStealPercent: 0.545
+  counterLifeStealPercent: 0.52
   healthSlider: {fileID: 0}
   healthDelayedSlider: {fileID: 0}
   postureSlider: {fileID: 0}
@@ -16767,15 +16767,15 @@ MonoBehaviour:
   postureCatchUpSpeed: 0.67
   guardBreakEmptyDisplayDuration: 1
   fadeSpeed: 5
-  maxShieldHealth: 500
+  maxShieldHealth: 400
   shieldRegenDelay: 3
   shieldRegenRate: 40
   guardBreakStunDuration: 3
   parryShieldCost: 10
-  blockShieldCost: 60
+  blockShieldCost: 70
   bloodVFX: {fileID: 3847384204462952536, guid: 943732c2e859694408f07c89b7ab2ad9, type: 3}
   bloodSpawnPoint: {fileID: 5075840690354734784}
-  damageReduction: 0.362
+  damageReduction: 0.447
   parryWindow: 0.2
   tutorialParryWindow: 3
   hitStunDuration: 0.3

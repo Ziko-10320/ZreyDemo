@@ -286,6 +286,7 @@ public class TwinBossManager : MonoBehaviour
 
     private void TryTriggerSyncCombo()
     {
+        if (defeatTriggered) return;
         if (bootHealth == null || gauntletHealth == null) return;
         if (bootHealth.isFinishable || gauntletHealth.isFinishable) return;
         if (bootHealth.isGuardBroken || gauntletHealth.isGuardBroken) return;
