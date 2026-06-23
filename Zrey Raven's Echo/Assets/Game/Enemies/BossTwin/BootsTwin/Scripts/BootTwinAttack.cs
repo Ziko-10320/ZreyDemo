@@ -283,6 +283,12 @@ public class BootTwinAttack : MonoBehaviour
     private bool isOpeningLaunch = false;
 
     private bool openingLaunchComplete = false;
+
+    public bool isInvincible =>
+      (health != null && health.isUnbreakable) ||
+      (isAttacking || isLaunching || isAirLaunching || isRockAttacking || isSpecialAttacking);
+    private float attackStateTimer = 0f;
+    private const float MAX_ATTACK_STATE_DURATION = 3.5f; // longer than your longest attack clip
     // ─────────────────────────────────────────────
     //  UNITY LIFECYCLE
     // ─────────────────────────────────────────────
@@ -320,7 +326,31 @@ public class BootTwinAttack : MonoBehaviour
     }
     private void Update()
     {
-        if (player == null) return; 
+        if (player == null) return;
+        if (isAttacking)
+        {
+            attackStateTimer += Time.deltaTime;
+            if (attackStateTimer > MAX_ATTACK_STATE_DURATION)
+            {
+                Debug.LogError($"[{name}] GLOBAL STUCK-ATTACK WATCHDOG fired (isAttacking stuck > {MAX_ATTACK_STATE_DURATION}s). Force resetting.");
+                attackStateTimer = 0f;
+                ForceResetAttackState();
+            }
+        }
+        else
+        {
+            attackStateTimer = 0f;
+        }
+        if (isSpecialAttacking || isBackflipping)
+        {
+            attackStateTimer += Time.deltaTime;
+            if (attackStateTimer > MAX_ATTACK_STATE_DURATION)
+            {
+                Debug.LogError($"[{name}] Sub-state WATCHDOG fired (isSpecialAttacking={isSpecialAttacking} isBackflipping={isBackflipping}). Force resetting.");
+                attackStateTimer = 0f;
+                ForceResetAttackState();
+            }
+        }
         if (health != null && health.isGuardBroken && isAttacking)
         {
             ForceResetAttackState();
@@ -451,7 +481,9 @@ public class BootTwinAttack : MonoBehaviour
             {
                 isDancing = true;
                 danceCooldownTimer = danceCooldown;
+                if (health != null) health.ForceClearCombatFlags();
                 animator.SetTrigger(DanceHash);
+                StartCoroutine(DanceWatchdog());
             }
             else
             {
@@ -1015,8 +1047,10 @@ public class BootTwinAttack : MonoBehaviour
     }
     public void ForceResetAttackState()
     {
-        if (health != null && health.isGuardBroken)
-        {
+        bool wasGuardBroken = health != null && health.isGuardBroken;
+        if (health != null) health.ForceClearCombatFlags();
+
+        // ✅ ALWAYS clear these — moved OUTSIDE the guard-broken check
         isAttacking = false;
         isLaunching = false;
         isAirLaunching = false;
@@ -1033,28 +1067,29 @@ public class BootTwinAttack : MonoBehaviour
         isConcasseDamageWindowOpen = false;
         isDancing = false;
 
-       
         if (backflipCoroutine != null) { StopCoroutine(backflipCoroutine); backflipCoroutine = null; }
         if (launchCoroutine != null) { StopCoroutine(launchCoroutine); launchCoroutine = null; }
         if (airLaunchCoroutine != null) { StopCoroutine(airLaunchCoroutine); airLaunchCoroutine = null; }
         if (closeDashCoroutine != null) { StopCoroutine(closeDashCoroutine); closeDashCoroutine = null; }
         if (rb != null) rb.gravityScale = 1f;
         if (specialAttackCoroutine != null) { StopCoroutine(specialAttackCoroutine); specialAttackCoroutine = null; }
-            if (isOpeningLaunch)
-            {
-                isOpeningLaunch = false;
-                openingLaunchComplete = true;
-                if (twinBossManager != null)
-                    twinBossManager.NotifyBootOpeningLaunchFinished();
-            }
-            return; // EXIT — don't touch the animator
+
+        if (isOpeningLaunch)
+        {
+            isOpeningLaunch = false;
+            openingLaunchComplete = true;
+            if (twinBossManager != null) twinBossManager.NotifyBootOpeningLaunchFinished();
         }
+
+        if (wasGuardBroken)
+            return; // EXIT — don't touch the animator
+
         if (player != null)
         {
             isFacingRight = player.position.x > transform.position.x;
             SetFacing(isFacingRight);
-        } 
-            animator.ResetTrigger(DanceHash);
+        }
+        animator.ResetTrigger(DanceHash);
         animator.CrossFade("Idle", 0.0f, 0);
         if (twinBossManager != null)
             twinBossManager.NotifyAttackEnded(true, forced: true);
@@ -1144,9 +1179,18 @@ public class BootTwinAttack : MonoBehaviour
         isBackflipping = true;
         backflipCooldownTimer = backflipCooldown;
         animator.SetTrigger(BackJumpHash);
+        StartCoroutine(BackflipWatchdog());
         // Movement starts via animation event EVENT_BeginBackflipArc
     }
-
+    private IEnumerator BackflipWatchdog()
+    {
+        yield return new WaitForSeconds(backflipDuration + 1.5f);
+        if (isBackflipping)
+        {
+            Debug.LogWarning("[BootTwin] Backflip WATCHDOG triggered — force resetting.");
+            ForceResetAttackState();
+        }
+    }
     // Animation Event — call this at the frame you want the arc movement to begin
     public void EVENT_BeginBackflipArc()
     {
@@ -1267,9 +1311,9 @@ public class BootTwinAttack : MonoBehaviour
     isSpecialAttacking = true;
     specialAttackCooldownTimer = specialAttackCooldown;
     animator.SetTrigger(AnticipationJumpSpecialHash);
-     
-}
-
+         
+    }
+   
     public void SetConcasseImpactType(ImpactData impactData)
     {
         currentConcasseImpactData = impactData;
@@ -1559,6 +1603,16 @@ public void EVENT_SpecialAttackFinished()
         {
             isFacingRight = player.position.x > transform.position.x;
             SetFacing(isFacingRight);
+        }
+    }
+    private IEnumerator DanceWatchdog()
+    {
+        yield return new WaitForSeconds(4f); // longer than your Dance clip
+        if (isDancing)
+        {
+            Debug.LogWarning("Dance watchdog fired — forcing reset.");
+            isDancing = false;
+            ForceResetAttackState();
         }
     }
     // ─────────────────────────────────────────────

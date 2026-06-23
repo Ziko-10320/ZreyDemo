@@ -265,14 +265,10 @@ public class ZreyAttacks : MonoBehaviour
 
     private float cinemaStuckTimer = 0f;
     private const float cinemaStuckTimeout = 0.5f;
-    private void OnEnable()
+   
+    private void OnCounterInput(UnityEngine.InputSystem.InputAction.CallbackContext ctx)
     {
-        InputManager.OnInteractPressed += HandleInteractionInput;
-    }
-
-    private void OnDisable()
-    {
-        InputManager.OnInteractPressed -= HandleInteractionInput;
+        HandleInteractionInput();
     }
     void Awake()
     {
@@ -336,6 +332,11 @@ public class ZreyAttacks : MonoBehaviour
     }
     void Update()
     {
+        if (InputManager.inputActions != null &&
+        InputManager.inputActions.Player.Counter.WasPressedThisFrame())
+        {
+            HandleInteractionInput();
+        }
         if (IsInCinematicState)
         {
             cinemaStuckTimer += Time.deltaTime;

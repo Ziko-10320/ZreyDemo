@@ -235,7 +235,7 @@ Transform:
   m_GameObject: {fileID: 63503530}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.38999987, y: -9.1, z: 0}
+  m_LocalPosition: {x: 1.79, y: -9.1, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -8671,6 +8671,7 @@ MonoBehaviour:
   playerAnimator: {fileID: 1814348261}
   bootAttackRef: {fileID: 1680429658}
   gauntletAttackRef: {fileID: 1772267043734457310}
+  delayBeforeDisablingTwins: 0.2
 --- !u!4 &922973984
 Transform:
   m_ObjectHideFlags: 0
@@ -10265,7 +10266,7 @@ Transform:
   m_GameObject: {fileID: 1089006519}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -6.68, y: -9.1, z: 0}
+  m_LocalPosition: {x: -9.49, y: -9.1, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -10296,7 +10297,7 @@ Transform:
   m_GameObject: {fileID: 1089488557}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -4.74, y: -9.1, z: 0}
+  m_LocalPosition: {x: -2.56, y: -9.1, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -11147,7 +11148,7 @@ PrefabInstance:
       objectReference: {fileID: 7993129749389078932}
     - target: {fileID: 8990848837076458346, guid: 901e76773e0373943b1ffb363577cd0b, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -10.05
+      value: -15.88
       objectReference: {fileID: 0}
     - target: {fileID: 8990848837076458346, guid: 901e76773e0373943b1ffb363577cd0b, type: 3}
       propertyPath: m_LocalPosition.y
@@ -23838,6 +23839,10 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 1680429657}
     - target: {fileID: 1214762408971362514, guid: 1ccc8e57c3f35f641bbf1694bc1bdb07, type: 3}
+      propertyPath: CameraShakeParry
+      value: 
+      objectReference: {fileID: 11400000, guid: fdf86c26fd619bd45830cd0305c66c36, type: 2}
+    - target: {fileID: 1214762408971362514, guid: 1ccc8e57c3f35f641bbf1694bc1bdb07, type: 3}
       propertyPath: postureDelayedFill
       value: 
       objectReference: {fileID: 1095613151}
@@ -23945,6 +23950,10 @@ PrefabInstance:
       propertyPath: twinBossManager
       value: 
       objectReference: {fileID: 2037068502}
+    - target: {fileID: 4151928318053742486, guid: 1ccc8e57c3f35f641bbf1694bc1bdb07, type: 3}
+      propertyPath: CameraShakeHeavy
+      value: 
+      objectReference: {fileID: 11400000, guid: b7ddf83d18adad7418305528b8250fbe, type: 2}
     - target: {fileID: 4151928318053742486, guid: 1ccc8e57c3f35f641bbf1694bc1bdb07, type: 3}
       propertyPath: launchGrabChance
       value: 1
@@ -27878,6 +27887,10 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 2037068502}
     - target: {fileID: 4474428025743037352, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
+      propertyPath: CameraShakeHeavy
+      value: 
+      objectReference: {fileID: 11400000, guid: b7ddf83d18adad7418305528b8250fbe, type: 2}
+    - target: {fileID: 4474428025743037352, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
       propertyPath: rockAttackChance
       value: 0.59
       objectReference: {fileID: 0}
@@ -27925,6 +27938,10 @@ PrefabInstance:
       propertyPath: otherTwinHealth
       value: 
       objectReference: {fileID: 1772267043734457309}
+    - target: {fileID: 9193923300763770020, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
+      propertyPath: CameraShakeParry
+      value: 
+      objectReference: {fileID: 11400000, guid: fdf86c26fd619bd45830cd0305c66c36, type: 2}
     - target: {fileID: 9193923300763770020, guid: d8f94901220ef1e40848bc65cdbd3dd1, type: 3}
       propertyPath: healthDelayedFill
       value: 

@@ -153,7 +153,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 157, y: -3}
+  m_AnchoredPosition: {x: 161, y: -3}
   m_SizeDelta: {x: 200, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &12261290
@@ -14634,6 +14634,10 @@ PrefabInstance:
       propertyPath: m_LocalPosition.z
       value: 65.86895
       objectReference: {fileID: 0}
+    - target: {fileID: 7706295884546114833, guid: 6621dfef93519c246963157c23fec3a0, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: ccad7fd8be36c3f43914edb82f6e058e, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -15795,7 +15799,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 7123582305004816666, guid: 860c9dbbc4284764eb12af586dbf43c5, type: 3}
+  m_Sprite: {fileID: 7123582305004816666, guid: ee9e8e13bb92eed468f6e2ce360f492e, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1

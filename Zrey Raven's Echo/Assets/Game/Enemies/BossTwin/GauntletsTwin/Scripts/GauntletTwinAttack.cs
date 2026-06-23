@@ -238,6 +238,12 @@ public class GauntletTwinAttack : MonoBehaviour
     private float heldTimer = 0f;
     private float danceCooldownTimer = 0f;
     private bool openingSequenceComplete = false;
+
+    public bool isInvincible =>
+    (health != null && health.isUnbreakable) ||
+    (   (isAttacking || isLaunchGrabbing || isAirLaunching));
+    private float attackStateTimer = 0f;
+    private const float MAX_ATTACK_STATE_DURATION = 3.5f; // longer than your longest attack clip
     // ─────────────────────────────────────────────
     //  UNITY LIFECYCLE
     // ─────────────────────────────────────────────
@@ -278,6 +284,20 @@ public class GauntletTwinAttack : MonoBehaviour
     private void Update()
     {
         if (player == null) return;
+        if (isAttacking)
+        {
+            attackStateTimer += Time.deltaTime;
+            if (attackStateTimer > MAX_ATTACK_STATE_DURATION)
+            {
+                Debug.LogError($"[{name}] GLOBAL STUCK-ATTACK WATCHDOG fired (isAttacking stuck > {MAX_ATTACK_STATE_DURATION}s). Force resetting.");
+                attackStateTimer = 0f;
+                ForceResetAttackState();
+            }
+        }
+        else
+        {
+            attackStateTimer = 0f;
+        }
         if (health != null && health.isGuardBroken && isAttacking)
         {
             ForceResetAttackState();
@@ -394,7 +414,9 @@ public class GauntletTwinAttack : MonoBehaviour
             {
                 isDancing = true;
                 danceCooldownTimer = danceCooldown;
+                if (health != null) health.ForceClearCombatFlags();
                 animator.SetTrigger(DanceHash);
+                StartCoroutine(DanceWatchdog());
             }
             else
             {
@@ -1250,8 +1272,9 @@ public class GauntletTwinAttack : MonoBehaviour
     // ─────────────────────────────────────────────
     public void ForceResetAttackState()
     {
-        if (health != null && health.isGuardBroken)
-        {
+        bool wasGuardBroken = health != null && health.isGuardBroken;
+        if (health != null) health.ForceClearCombatFlags();
+
         isAttacking = false;
         isDamageWindowOpen = false;
         isCloseDashing = false;
@@ -1267,15 +1290,18 @@ public class GauntletTwinAttack : MonoBehaviour
         grabConnected = false;
         isDancing = false;
 
-            UnlockFlip();
+        UnlockFlip();
 
-            StopTrail();
+        StopTrail();
         if (lungeCoroutine != null) { StopCoroutine(lungeCoroutine); lungeCoroutine = null; }
         if (closeDashCoroutine != null) { StopCoroutine(closeDashCoroutine); closeDashCoroutine = null; }
         if (airLaunchCoroutine != null) { StopCoroutine(airLaunchCoroutine); airLaunchCoroutine = null; }
         if (launchGrabCoroutine != null) { StopCoroutine(launchGrabCoroutine); launchGrabCoroutine = null; }
         if (backstepCoroutine != null) { StopCoroutine(backstepCoroutine); backstepCoroutine = null; }
         if (smashDamageCoroutine != null) { StopCoroutine(smashDamageCoroutine); smashDamageCoroutine = null; }
+        if (wasGuardBroken)
+        {
+     
             return; // EXIT — don't touch the animator
         }
         // Also release the player if we hard-reset mid-grab:
@@ -1401,7 +1427,7 @@ public class GauntletTwinAttack : MonoBehaviour
         if (backstepCooldownTimer <= 0f && IsCornerBehindEnemy())
             StartBackstep();
     }
-    private float GetHealthPercent()
+    private float GetHealthPercent() 
     {
         if (health == null) return 1f;
         return (float)health.GetCurrentHealth() / health.GetMaxHealth();
@@ -1438,6 +1464,16 @@ public class GauntletTwinAttack : MonoBehaviour
     public void NotifyOpeningSequenceComplete()
     {
         openingSequenceComplete = true;
+    }
+    private IEnumerator DanceWatchdog()
+    {
+        yield return new WaitForSeconds(4f); // longer than your Dance clip
+        if (isDancing)
+        {
+            Debug.LogWarning("Dance watchdog fired — forcing reset.");
+            isDancing = false;
+            ForceResetAttackState();
+        }
     }
     // ─────────────────────────────────────────────
     //  GIZMOS

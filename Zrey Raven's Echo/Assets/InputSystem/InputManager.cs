@@ -7,7 +7,7 @@ public class InputManager : MonoBehaviour
     // --- The Singleton Pattern ---
     public static InputManager Instance { get; private set; }
     // ---
-    public static event Action OnInteractPressed;
+   
     // --- Input Actions ---
     public static InputSystem_Actions inputActions;
 
@@ -54,12 +54,12 @@ public class InputManager : MonoBehaviour
         // Unsubscribe first to prevent double-subscribing. This is a robust practice.
         inputActions.Player.Attack.started -= OnAttackPressed;
         inputActions.Player.Attack.canceled -= OnAttackReleased;
-        inputActions.Player.Counter.performed -= OnInteractInput;
+       
 
         // Now, subscribe to the events.
         inputActions.Player.Attack.started += OnAttackPressed;
         inputActions.Player.Attack.canceled += OnAttackReleased;
-        inputActions.Player.Counter.performed += OnInteractInput;
+        
     }
 
     // We will also create a function for unsubscribing.
@@ -70,7 +70,7 @@ public class InputManager : MonoBehaviour
         Debug.Log("<color=orange>InputManager: Unsubscribing from events...</color>");
         inputActions.Player.Attack.started -= OnAttackPressed;
         inputActions.Player.Attack.canceled -= OnAttackReleased;
-        inputActions.Player.Counter.performed -= OnInteractInput;
+      
     }
 
     private void OnEnable()
@@ -146,12 +146,5 @@ public class InputManager : MonoBehaviour
         isAttackButtonPressed = false;
         justReleasedAttack = true;
     }
-    private void OnInteractInput(InputAction.CallbackContext context)
-    {
-        // This method's ONLY job is to fire the event.
-        // It has no knowledge of finishers or counters.
-        OnInteractPressed?.Invoke();
-        Debug.LogWarning("--- InputManager: OnInteractPressed EVENT FIRED ---");
-    }
-
+ 
 }

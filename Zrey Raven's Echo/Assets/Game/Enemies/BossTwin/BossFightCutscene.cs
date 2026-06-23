@@ -50,6 +50,8 @@ public class BossFightCutscene : MonoBehaviour
     private bool defeatSequenceStarted = false;
 
     private static readonly int BeginCutSceneHash = Animator.StringToHash("BeginCutScene");
+
+    [SerializeField] private float delayBeforeDisablingTwins = 0.3f;
     private void Awake()
     {
         // Lock both twins IMMEDIATELY — before any Update() runs on them
@@ -153,7 +155,10 @@ public class BossFightCutscene : MonoBehaviour
             gauntletAttackRef.ForceResetAttackState();
             gauntletAttackRef.enabled = false;
         }
-
+        BootTwinHealth bootHC = bootTransform.GetComponent<BootTwinHealth>();
+        GauntletTwinHealth gauntletHC = gauntletTransform.GetComponent<GauntletTwinHealth>();
+        if (bootHC != null) bootHC.ForceClearCombatFlags();
+        if (gauntletHC != null) gauntletHC.ForceClearCombatFlags();
         // Also stop coroutines on the health scripts so no stun/knockback
         // sequences are still running and fighting the animator
         BootTwinHealth bootHealthComp = bootTransform.GetComponent<BootTwinHealth>();
@@ -186,6 +191,14 @@ public class BossFightCutscene : MonoBehaviour
         if (gauntletSnapPoint != null && gauntletTransform != null)
             gauntletTransform.position = new Vector3(gauntletSnapPoint.position.x, gauntletTransform.position.y, gauntletTransform.position.z);
 
+        if (bootAttackRef != null) bootAttackRef.enabled = false;
+        if (gauntletAttackRef != null) gauntletAttackRef.enabled = false;
+
+        BootTwinHealth bootH = bootTransform.GetComponent<BootTwinHealth>();
+        GauntletTwinHealth gauntletH = gauntletTransform.GetComponent<GauntletTwinHealth>();
+        if (bootH != null) bootH.enabled = false;
+        if (gauntletH != null) gauntletH.enabled = false;
+
         // --- 5. FADE OUT BLACK SCREEN ---
         if (playerSnapPoint != null)
             playerMovement.transform.position = new Vector3(playerSnapPoint.position.x, playerMovement.transform.position.y, playerMovement.transform.position.z);
@@ -203,6 +216,9 @@ public class BossFightCutscene : MonoBehaviour
         if (playerAnimator != null) playerAnimator.SetTrigger(ParryLongHash);
         if (bootAnimator != null) bootAnimator.SetTrigger(GetKnockbackHash);
         if (gauntletAnimator != null) gauntletAnimator.SetTrigger(GetKnockbackHash);
+
+        yield return new WaitForSeconds(delayBeforeDisablingTwins);
+
 
         // Wait for fade-out to fully finish before continuing (subtract the delay already waited)
         float remainingFadeTime = blackScreenFadeOutDuration - delayAfterFadeOutBeforeAnims;

@@ -13894,6 +13894,18 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 2485975409228974199, guid: 8279f2956f0b43b4a96d863471a54076, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2485975409228974199, guid: 8279f2956f0b43b4a96d863471a54076, type: 3}
+      propertyPath: m_LocalScale.y
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2485975409228974199, guid: 8279f2956f0b43b4a96d863471a54076, type: 3}
+      propertyPath: m_LocalScale.z
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2485975409228974199, guid: 8279f2956f0b43b4a96d863471a54076, type: 3}
       propertyPath: m_LocalPosition.x
       value: 804.27765
       objectReference: {fileID: 0}
@@ -14025,7 +14037,10 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 2485975409228974199, guid: 8279f2956f0b43b4a96d863471a54076, type: 3}
       insertIndex: -1
       addedObject: {fileID: 776748084}
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 3382188122611493172, guid: 8279f2956f0b43b4a96d863471a54076, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1945927667}
   m_SourcePrefab: {fileID: 100100000, guid: 8279f2956f0b43b4a96d863471a54076, type: 3}
 --- !u!1 &161566526
 GameObject:
@@ -79148,7 +79163,7 @@ SpriteRenderer:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 906066482}
-  m_Enabled: 1
+  m_Enabled: 0
   m_CastShadows: 0
   m_ReceiveShadows: 0
   m_DynamicOccludee: 1
@@ -89831,6 +89846,10 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 3938670190100856087, guid: 0048eca5fcb68e246943cbaf195e6325, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3938670190100856087, guid: 0048eca5fcb68e246943cbaf195e6325, type: 3}
       propertyPath: m_TagString
       value: CursorCanvas
       objectReference: {fileID: 0}
@@ -89864,7 +89883,7 @@ PrefabInstance:
       objectReference: {fileID: 867602019}
     - target: {fileID: 8303035638526001943, guid: 0048eca5fcb68e246943cbaf195e6325, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
-      value: LoadMainMenuFromDeath
+      value: RestartLevelFromDeath
       objectReference: {fileID: 0}
     - target: {fileID: 8949372309887707558, guid: 0048eca5fcb68e246943cbaf195e6325, type: 3}
       propertyPath: m_AnchorMax.x
@@ -165370,7 +165389,7 @@ SpriteRenderer:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1824704580}
-  m_Enabled: 1
+  m_Enabled: 0
   m_CastShadows: 0
   m_ReceiveShadows: 0
   m_DynamicOccludee: 1
@@ -177250,6 +177269,28 @@ SpriteRenderer:
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 1
   m_SpriteSortPoint: 0
+--- !u!1 &1945927662 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 3382188122611493172, guid: 8279f2956f0b43b4a96d863471a54076, type: 3}
+  m_PrefabInstance: {fileID: 159176906}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &1945927667
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1945927662}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2ab8353b5ebd32545867da143199a814, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FirstGearGames.SmoothCameraShaker.CameraShaker
+  _shakeTechnique: 0
+  _makeDefaultOnEnable: 1
+  _limitMagnitude: 0
+  _positionalMagnitudeLimit: 10
+  _rotationalMagnitudeLimit: 3
 --- !u!1 &1946901062
 GameObject:
   m_ObjectHideFlags: 0

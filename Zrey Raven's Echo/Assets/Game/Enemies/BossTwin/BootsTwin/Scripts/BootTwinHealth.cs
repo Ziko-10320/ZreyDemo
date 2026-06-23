@@ -203,6 +203,9 @@ public class BootTwinHealth : MonoBehaviour
     private bool isSharedDamageCall = false;
     public int GetMaxHealth() => maxHealth;
     public int GetCurrentHealth() => currentHealth;
+
+    private Coroutine unbreakableWatchdog;
+    private Coroutine blockWatchdog;
     void Awake()
     {
         currentHealth = maxHealth;
@@ -1078,7 +1081,13 @@ public class BootTwinHealth : MonoBehaviour
     public void OpenBlockWindow()
     {
         isBlocking = true;
-        Debug.Log("Knight: Block Window OPEN");
+        if (blockWatchdog != null) StopCoroutine(blockWatchdog);
+        blockWatchdog = StartCoroutine(BlockWatchdogRoutine());
+    }
+    private IEnumerator BlockWatchdogRoutine()
+    {
+        yield return new WaitForSeconds(1.5f);
+        if (isBlocking) { Debug.LogWarning("Block watchdog fired — forcing block closed."); isBlocking = false; }
     }
     public void ApplyDamageAndKnockback(AttackData attackData)
     {
@@ -1206,8 +1215,13 @@ public class BootTwinHealth : MonoBehaviour
     {
         if (isTransitionLocked) return;
         isTransitionLocked = true;
-        foreach (string t in protectedTriggers)
-            animator.ResetTrigger(t);
+        foreach (string t in protectedTriggers) animator.ResetTrigger(t);
+        StartCoroutine(TransitionLockWatchdog());
+    }
+    private IEnumerator TransitionLockWatchdog()
+    {
+        yield return new WaitForSeconds(2f);
+        if (isTransitionLocked) { Debug.LogWarning("Transition lock watchdog fired."); isTransitionLocked = false; }
     }
 
     public void AcceptAnyTransition()
@@ -1353,22 +1367,26 @@ public class BootTwinHealth : MonoBehaviour
     public void CloseBlockWindow()
     {
         isBlocking = false;
-        Debug.Log("Knight: Block Window CLOSED");
+        if (blockWatchdog != null) { StopCoroutine(blockWatchdog); blockWatchdog = null; }
     }
     public void BecomeInvincible()
     {
         isUnbreakable = true;
-        Debug.LogWarning("--- KNIGHT IS NOW INVINCIBLE (Animation Event) ---");
+        if (unbreakableWatchdog != null) StopCoroutine(unbreakableWatchdog);
+        unbreakableWatchdog = StartCoroutine(UnbreakableWatchdogRoutine());
+    }
+    private IEnumerator UnbreakableWatchdogRoutine()
+    {
+        yield return new WaitForSeconds(3f);
+        if (isUnbreakable) { Debug.LogWarning("Unbreakable watchdog fired — forcing vulnerable."); isUnbreakable = false; }
     }
 
-    /// <summary>
-    /// Called by an Animation Event to make the knight vulnerable again.
-    /// </summary>
     public void BecomeVulnerable()
     {
         isUnbreakable = false;
-        Debug.Log("<color=green>--- Knight is now VULNERABLE (Animation Event) ---</color>");
+        if (unbreakableWatchdog != null) { StopCoroutine(unbreakableWatchdog); unbreakableWatchdog = null; }
     }
+
     public bool IsGrounded()
     {
         // We already calculate this 'isGrounded' boolean in the Update loop.
@@ -1410,7 +1428,15 @@ public class BootTwinHealth : MonoBehaviour
         );
     }
 
-   
+    public void ForceClearCombatFlags()
+    {
+        if (stunSequenceCoroutine != null) { StopCoroutine(stunSequenceCoroutine); stunSequenceCoroutine = null; }
+        isGuardBroken = false;
+        isBlocking = false;
+        isUnbreakable = false;
+        isTransitionLocked = false;
+        if (animator != null) animator.SetBool(isWeakAndDamageableBoolHash, false);
+    }
     private void OnDrawGizmosSelected()
     {
         if (groundCheck != null)
