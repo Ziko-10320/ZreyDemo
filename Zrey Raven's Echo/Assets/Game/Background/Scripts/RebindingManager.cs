@@ -32,6 +32,23 @@ public class RebindingManager : MonoBehaviour
         {
             listeningPanel.SetActive(false);
         }
+        if (PlayerPrefs.HasKey("CustomKeybinds"))
+        {
+            string rebinds = PlayerPrefs.GetString("CustomKeybinds");
+            ZreyMovements.inputActions.asset.LoadBindingOverridesFromJson(rebinds);
+
+            // Refresh the UI texts so the buttons show the loaded keys
+            foreach (KeybindUI ui in keybindUIList)
+            {
+                if (ui.actionReference != null && ui.buttonText != null)
+                {
+                    string currentBinding = ui.actionReference.action.bindings[0].effectivePath;
+                    ui.buttonText.text = InputControlPath.ToHumanReadableString(
+                        currentBinding,
+                        InputControlPath.HumanReadableStringOptions.OmitDevice);
+                }
+            }
+        }
     }
 
     // This is the main public function that our buttons will call.
@@ -137,7 +154,8 @@ public class RebindingManager : MonoBehaviour
                 currentBinding,
                 InputControlPath.HumanReadableStringOptions.OmitDevice);
         }
-
+        PlayerPrefs.DeleteKey("CustomKeybinds");
+        PlayerPrefs.Save();
         Debug.Log("All bindings and UI have been reset to default.");
     }
     private void ShowDuplicateKeyError()
@@ -192,6 +210,9 @@ public class RebindingManager : MonoBehaviour
                 playerHealth.UpdateBlockBinding(newBinding);
             }
         }
+        string rebinds = ZreyMovements.inputActions.asset.SaveBindingOverridesAsJson();
+        PlayerPrefs.SetString("CustomKeybinds", rebinds);
+        PlayerPrefs.Save();
     }
 
     // This function will be called by our "Cancel" button.
